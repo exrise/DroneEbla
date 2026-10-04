@@ -5,19 +5,13 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"os"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	xvector "golang.org/x/image/vector"
 
 	"github.com/exrise/droneebla/internal/sim"
 	"github.com/exrise/droneebla/internal/world"
 )
-
-const baseScale = 2.5 // пикселей на км в подложке
-const chunkPx = 1024
 
 // Camera — камера карты.
 type Camera struct {
@@ -35,15 +29,10 @@ func (c *Camera) ToWorld(sx, sy float64) (float64, float64) {
 	return (sx-float64(c.X)-float64(c.W)/2)/c.Z + c.CX, (sy-float64(c.Y)-float64(c.H)/2)/c.Z + c.CY
 }
 
-type chunk struct {
-	img  *ebiten.Image
-	x, y int // позиция в пикселях подложки
-}
-
 // MapRenderer — подложка и слои карты.
 type MapRenderer struct {
 	m        *world.MapData
-	chunks   []chunk
+	tiles    *tileSet
 	ownerImg *ebiten.Image
 	fogImg   *ebiten.Image
 	ownerPix []byte
@@ -54,8 +43,6 @@ type MapRenderer struct {
 	front    []float32 // отрезки линии фронта x0,y0,x1,y1 в км
 	energy   *ebiten.Image
 	depImg   *ebiten.Image
-	rgba     *image.RGBA   // подложка, подготовленная в фоне
-	done     chan struct{} // закрывается, когда подложка готова
 }
 
 var (
@@ -72,142 +59,12 @@ var (
 )
 
 func newMapRenderer(m *world.MapData) *MapRenderer {
-	r := &MapRenderer{m: m, done: make(chan struct{})}
-	// Тяжёлая часть (растеризация линий) не требует графики и идёт в фоне,
-	// пока игрок в меню.
-	go func() {
-		defer close(r.done)
-		r.cpuBuild()
-	}()
-	return r
+	return &MapRenderer{m: m, tiles: newTileSet(m)}
 }
 
-// cpuBuild рисует подложку на CPU (можно вызывать не из главного потока).
-func (r *MapRenderer) cpuBuild() {
-	if os.Getenv("DRONEEBLA_SHOT") != "" {
-		t0 := time.Now()
-		defer func() {
-			fmt.Fprintf(os.Stderr, "подложка карты построена за %v\n", time.Since(t0))
-		}()
-	}
+// initLayers создаёт тайловые слои (нужна графика, главный поток).
+func (r *MapRenderer) initLayers() {
 	m := r.m
-	pw := int(m.WidthKm() * baseScale)
-	ph := int(m.HeightKm() * baseScale)
-	rgba := image.NewRGBA(image.Rect(0, 0, pw, ph))
-	ts := m.TileKm * baseScale
-	for py := 0; py < ph; py++ {
-		ty := int(float64(py) / ts)
-		if ty >= m.H {
-			ty = m.H - 1
-		}
-		row := rgba.Pix[py*rgba.Stride:]
-		for px := 0; px < pw; px++ {
-			tx := int(float64(px) / ts)
-			if tx >= m.W {
-				tx = m.W - 1
-			}
-			i := m.Idx(tx, ty)
-			c := colSea
-			if m.Terrain[i] == world.TerrainLand {
-				switch m.Country[i] {
-				case world.CountryUkraine, world.CountryRussia:
-					c = colLand
-				case world.CountryBelarus:
-					c = colBelarus
-				default:
-					c = colForeign
-				}
-			}
-			row[px*4], row[px*4+1], row[px*4+2], row[px*4+3] = c.R, c.G, c.B, 255
-		}
-	}
-	ras := xvector.NewRasterizer(pw, ph)
-	type seg struct{ x0, y0, x1, y1 float32 }
-	stroke := func(segs []seg, c color.RGBA, w float32) {
-		ras.Reset(pw, ph)
-		h := w / 2
-		for _, sg := range segs {
-			dx, dy := sg.x1-sg.x0, sg.y1-sg.y0
-			l := float32(math.Hypot(float64(dx), float64(dy)))
-			if l < 0.01 {
-				continue
-			}
-			ux, uy := dx/l*h, dy/l*h // вдоль
-			nx, ny := -uy, ux        // поперёк
-			ras.MoveTo(sg.x0-ux+nx, sg.y0-uy+ny)
-			ras.LineTo(sg.x1+ux+nx, sg.y1+uy+ny)
-			ras.LineTo(sg.x1+ux-nx, sg.y1+uy-ny)
-			ras.LineTo(sg.x0-ux-nx, sg.y0-uy-ny)
-			ras.ClosePath()
-		}
-		ras.Draw(rgba, rgba.Bounds(), image.NewUniform(c), image.Point{})
-	}
-	// Границы областей по краям тайлов.
-	var reg []seg
-	t := float32(ts)
-	for ty := 0; ty < m.H; ty++ {
-		for tx := 0; tx < m.W; tx++ {
-			i := m.Idx(tx, ty)
-			a := m.Region[i]
-			if a < 0 {
-				continue
-			}
-			if tx+1 < m.W {
-				b := m.Region[i+1]
-				if b >= 0 && b != a && m.Country[i] == m.Country[i+1] {
-					reg = append(reg, seg{float32(tx+1) * t, float32(ty) * t, float32(tx+1) * t, float32(ty+1) * t})
-				}
-			}
-			if ty+1 < m.H {
-				b := m.Region[i+m.W]
-				if b >= 0 && b != a && m.Country[i] == m.Country[i+m.W] {
-					reg = append(reg, seg{float32(tx) * t, float32(ty+1) * t, float32(tx+1) * t, float32(ty+1) * t})
-				}
-			}
-		}
-	}
-	stroke(reg, colRegion, 1.2)
-	style := map[int]struct {
-		c color.RGBA
-		w float32
-	}{
-		world.LineRoad:          {colRoad, 1.0},
-		world.LineRail:          {colRail, 1.1},
-		world.LineRiver:         {colRiver, 1.6},
-		world.LineCoast:         {colRiver, 1.0},
-		world.LineCountryBorder: {colBorder2, 2.2},
-	}
-	for _, kind := range []int{world.LineRoad, world.LineRiver, world.LineCoast, world.LineRail, world.LineCountryBorder} {
-		var segs []seg
-		for _, l := range m.Lines {
-			if l.Kind != kind {
-				continue
-			}
-			for k := 2; k+1 < len(l.Pts); k += 2 {
-				segs = append(segs, seg{
-					float32(float64(l.Pts[k-2]) * baseScale), float32(float64(l.Pts[k-1]) * baseScale),
-					float32(float64(l.Pts[k]) * baseScale), float32(float64(l.Pts[k+1]) * baseScale),
-				})
-			}
-		}
-		st := style[kind]
-		stroke(segs, st.c, st.w)
-	}
-	r.rgba = rgba
-}
-
-// build загружает подготовленную подложку в видеопамять (главный поток).
-func (r *MapRenderer) build() {
-	<-r.done
-	m := r.m
-	pw, ph := r.rgba.Bounds().Dx(), r.rgba.Bounds().Dy()
-	for cy := 0; cy < ph; cy += chunkPx {
-		for cx := 0; cx < pw; cx += chunkPx {
-			rect := image.Rect(cx, cy, min(cx+chunkPx, pw), min(cy+chunkPx, ph))
-			r.chunks = append(r.chunks, chunk{img: ebiten.NewImageFromImage(r.rgba.SubImage(rect)), x: cx, y: cy})
-		}
-	}
-	r.rgba = nil
 	// Месторождения — отдельный слой.
 	dep := image.NewRGBA(image.Rect(0, 0, m.W, m.H))
 	for i, d := range m.Deposit {
@@ -248,8 +105,8 @@ func equalBytes(a, b []uint8) bool {
 
 // update обновляет слои по представлению.
 func (r *MapRenderer) update(v *sim.View) {
-	if r.chunks == nil {
-		r.build()
+	if r.ownerImg == nil {
+		r.initLayers()
 	}
 	m := r.m
 	if !equalBytes(v.Owner, r.lastOwn) || !equalBytes(v.Pressure, r.lastPres) {
@@ -337,23 +194,11 @@ func (r *MapRenderer) buildFront(owner []uint8) {
 
 // drawBase рисует подложку и тайловые слои.
 func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string]bool, v *sim.View) {
-	if r.chunks == nil {
-		r.build()
+	if r.ownerImg == nil {
+		r.initLayers()
 	}
-	k := cam.Z / baseScale
 	ox, oy := cam.ToScreen(0, 0)
-	for _, ch := range r.chunks {
-		sx := ox + float64(ch.x)*k
-		sy := oy + float64(ch.y)*k
-		w, h := float64(ch.img.Bounds().Dx())*k, float64(ch.img.Bounds().Dy())*k
-		if sx > float64(cam.X+cam.W) || sy > float64(cam.Y+cam.H) || sx+w < float64(cam.X) || sy+h < float64(cam.Y) {
-			continue
-		}
-		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-		op.GeoM.Scale(k, k)
-		op.GeoM.Translate(sx, sy)
-		dst.DrawImage(ch.img, op)
-	}
+	r.tiles.draw(dst, cam)
 	tile := func(img *ebiten.Image) {
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(cam.Z*r.m.TileKm, cam.Z*r.m.TileKm)

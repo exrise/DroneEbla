@@ -149,6 +149,18 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 0.35
 	case 38:
 		g.save(screen, "52_whole_map")
+		x, y := g.m.Project(30.52, 50.45)
+		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 12
+	case 90:
+		g.save(screen, "60_zoom12_kyiv")
+		x, y := g.m.Project(36.25, 49.99)
+		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 5
+	case 140:
+		g.save(screen, "61_zoom5_kharkiv")
+		x, y := g.m.Project(33.0, 49.0)
+		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 0.8
+	case 190:
+		g.save(screen, "62_zoom08")
 		os.Exit(0)
 	}
 	a.step++
