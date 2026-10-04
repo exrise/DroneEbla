@@ -465,3 +465,37 @@ func TestRepairPerTypeLimit(t *testing.T) {
 		t.Fatalf("ТЭС чинится одновременно %d, лимит на тип %d", working, w.cat.Rules.RepairPerType)
 	}
 }
+
+func TestStrikeDroneRecon(t *testing.T) {
+	seen := func(research bool) int {
+		w := newTestWorld(t)
+		run(w, w.PrepEnd+1)
+		ru := w.Sides[data.RU]
+		if research {
+			ru.Effects["drone_recon"] = 1
+		}
+		for id := range ru.Known { // убираем довоенные данные
+			delete(ru.Known, id)
+		}
+		ru.Stocks["geran2"] = 20
+		air := findBuilding(w, "Аэродром Миллерово")
+		air.Budget = 50
+		tgt := findBuilding(w, "Завод им. Малышева (Харьков)")
+		if e := w.Strike(data.RU, StrikePlan{Source: air.ID, Munition: "geran2", Count: 10, Target: Pt{tgt.X, tgt.Y}}); e != "" {
+			t.Fatal(e)
+		}
+		run(w, 240)
+		n := 0
+		for _, c := range ru.Known {
+			if c.Source == "Герань-2" {
+				n++
+			}
+		}
+		return n
+	}
+	without, with := seen(false), seen(true)
+	t.Logf("замечено дронами: без исследования %d, с исследованием %d", without, with)
+	if without != 0 || with == 0 {
+		t.Fatal("ударные дроны должны разведывать только после исследования")
+	}
+}

@@ -67,6 +67,9 @@ func Load(override string) (*Catalog, error) {
 	if r.RepairCrews <= 0 {
 		r.RepairCrews = 6
 	}
+	if r.StrikeDroneVisionKm <= 0 {
+		r.StrikeDroneVisionKm = 5
+	}
 	if r.RepairPerType <= 0 {
 		r.RepairPerType = 2
 	}

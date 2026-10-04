@@ -287,55 +287,56 @@ type Object struct {
 
 // Rules — общие параметры.
 type Rules struct {
-	GameMinPerSec    float64            `json:"game_min_per_sec"`
-	PrepMinutes      float64            `json:"prep_minutes"` // подготовительная фаза, игровые минуты
-	PauseBudgetSec   float64            `json:"pause_budget_sec"`
-	CityTaxRadiusKm  float64            `json:"city_tax_radius_km"`
-	FrontStepMin     float64            `json:"front_step_min"`
-	FrontAttack      float64            `json:"front_attack"`
-	FrontCapture     float64            `json:"front_capture"`
-	FrontThreshold   float64            `json:"front_threshold"` // минимальное превосходство для продвижения
-	FrontLoss        float64            `json:"front_loss"`
-	FrontAmmoUse     float64            `json:"front_ammo_use"`
-	FrontFuelUse     float64            `json:"front_fuel_use"`
-	MainEffortKm     float64            `json:"main_effort_km"`
-	MainEffortMult   float64            `json:"main_effort_mult"`
-	FortPerLevel     float64            `json:"fort_per_level"`
-	FortCost         map[string]float64 `json:"fort_cost"`
-	FortHours        float64            `json:"fort_hours"`
-	RiverDefense     float64            `json:"river_defense"`
-	UrbanDefense     float64            `json:"urban_defense"`
-	AirBonusKm       float64            `json:"air_bonus_km"`
-	AirBonusPerPlane float64            `json:"air_bonus_per_plane"`
-	AirLossPerAD     float64            `json:"air_loss_per_ad"`
-	FrontVisionKm    float64            `json:"front_vision_km"`
-	BuildingVisionKm float64            `json:"building_vision_km"`
-	AirWatchKm       float64            `json:"air_watch_km"` // визуальное наблюдение за воздухом вокруг своих объектов
-	AgentEveryH      float64            `json:"agent_every_h"`
-	AgentErrorKm     float64            `json:"agent_error_km"`
-	AgentFundCost    float64            `json:"agent_fund_cost"`
-	FlashMin         float64            `json:"flash_min"`       // засветка пусковой после залпа
-	RepairPerHour    float64            `json:"repair_per_hour"` // доля HP в час
-	RepairCostK      float64            `json:"repair_cost_k"`
-	RepairCrews      int                `json:"repair_crews"`     // зданий, которые сторона чинит одновременно
-	RepairPerType    int                `json:"repair_per_type"`  // зданий одного типа, которые чинятся одновременно
-	RepairRuinMult   float64            `json:"repair_ruin_mult"` // скорость ремонта почти разрушенного здания
-	DamageFloor      float64            `json:"damage_floor"`     // ниже этой доли HP здание не производит
-	DamageCurve      float64            `json:"damage_curve"`     // выпуск = ((hp−порог)/(1−порог))^кривая
-	MaskCost         map[string]float64 `json:"mask_cost"`
-	ResearchBase     float64            `json:"research_base"`
-	ResearchFundCost float64            `json:"research_fund_cost"`
-	TrophyPoints     float64            `json:"trophy_points"`
-	ExperiencePoints float64            `json:"experience_points"`
-	MoraleBlackout   float64            `json:"morale_blackout"`
-	MoraleLossPer10k float64            `json:"morale_loss_per_10k"`
-	MoraleCity       float64            `json:"morale_city"`
-	MoraleDebt       float64            `json:"morale_debt"`
-	MoraleRecover    float64            `json:"morale_recover"`
-	MenPerPeople     float64            `json:"men_per_people"`
-	CaptureDamage    float64            `json:"capture_damage"`
-	PowerPerCity     float64            `json:"power_per_city"` // потребление МВт на 100 тыс. жителей
-	BuildRadiusKm    float64            `json:"build_radius_km"`
+	GameMinPerSec       float64            `json:"game_min_per_sec"`
+	PrepMinutes         float64            `json:"prep_minutes"` // подготовительная фаза, игровые минуты
+	PauseBudgetSec      float64            `json:"pause_budget_sec"`
+	CityTaxRadiusKm     float64            `json:"city_tax_radius_km"`
+	FrontStepMin        float64            `json:"front_step_min"`
+	FrontAttack         float64            `json:"front_attack"`
+	FrontCapture        float64            `json:"front_capture"`
+	FrontThreshold      float64            `json:"front_threshold"` // минимальное превосходство для продвижения
+	FrontLoss           float64            `json:"front_loss"`
+	FrontAmmoUse        float64            `json:"front_ammo_use"`
+	FrontFuelUse        float64            `json:"front_fuel_use"`
+	MainEffortKm        float64            `json:"main_effort_km"`
+	MainEffortMult      float64            `json:"main_effort_mult"`
+	FortPerLevel        float64            `json:"fort_per_level"`
+	FortCost            map[string]float64 `json:"fort_cost"`
+	FortHours           float64            `json:"fort_hours"`
+	RiverDefense        float64            `json:"river_defense"`
+	UrbanDefense        float64            `json:"urban_defense"`
+	AirBonusKm          float64            `json:"air_bonus_km"`
+	AirBonusPerPlane    float64            `json:"air_bonus_per_plane"`
+	AirLossPerAD        float64            `json:"air_loss_per_ad"`
+	FrontVisionKm       float64            `json:"front_vision_km"`
+	BuildingVisionKm    float64            `json:"building_vision_km"`
+	AirWatchKm          float64            `json:"air_watch_km"` // визуальное наблюдение за воздухом вокруг своих объектов
+	AgentEveryH         float64            `json:"agent_every_h"`
+	AgentErrorKm        float64            `json:"agent_error_km"`
+	AgentFundCost       float64            `json:"agent_fund_cost"`
+	FlashMin            float64            `json:"flash_min"`       // засветка пусковой после залпа
+	RepairPerHour       float64            `json:"repair_per_hour"` // доля HP в час
+	RepairCostK         float64            `json:"repair_cost_k"`
+	RepairCrews         int                `json:"repair_crews"`           // зданий, которые сторона чинит одновременно
+	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
+	RepairPerType       int                `json:"repair_per_type"`        // зданий одного типа, которые чинятся одновременно
+	RepairRuinMult      float64            `json:"repair_ruin_mult"`       // скорость ремонта почти разрушенного здания
+	DamageFloor         float64            `json:"damage_floor"`           // ниже этой доли HP здание не производит
+	DamageCurve         float64            `json:"damage_curve"`           // выпуск = ((hp−порог)/(1−порог))^кривая
+	MaskCost            map[string]float64 `json:"mask_cost"`
+	ResearchBase        float64            `json:"research_base"`
+	ResearchFundCost    float64            `json:"research_fund_cost"`
+	TrophyPoints        float64            `json:"trophy_points"`
+	ExperiencePoints    float64            `json:"experience_points"`
+	MoraleBlackout      float64            `json:"morale_blackout"`
+	MoraleLossPer10k    float64            `json:"morale_loss_per_10k"`
+	MoraleCity          float64            `json:"morale_city"`
+	MoraleDebt          float64            `json:"morale_debt"`
+	MoraleRecover       float64            `json:"morale_recover"`
+	MenPerPeople        float64            `json:"men_per_people"`
+	CaptureDamage       float64            `json:"capture_damage"`
+	PowerPerCity        float64            `json:"power_per_city"` // потребление МВт на 100 тыс. жителей
+	BuildRadiusKm       float64            `json:"build_radius_km"`
 }
 
 // Catalog — все данные игры.

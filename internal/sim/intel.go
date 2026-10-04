@@ -305,10 +305,15 @@ func (w *World) reconDrones(s int) {
 			continue
 		}
 		m := w.cat.MunitionByID[p.Munition]
-		if m.Kind != "recon" {
+		v := m.Vision
+		switch {
+		case m.Kind == "recon":
+		case m.Kind == "drone" && sd.eff("drone_recon") > 0:
+			// После исследования ударные дроны ведут съёмку по пути к цели.
+			v = w.cat.Rules.StrikeDroneVisionKm
+		default:
 			continue
 		}
-		v := m.Vision
 		for id, b := range w.Buildings {
 			if b.Side != s && !b.Masked && dist(b.X, b.Y, p.X, p.Y) <= v {
 				w.observe(s, id, SensorOptical, m.Name, 0)
