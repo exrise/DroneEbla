@@ -119,6 +119,22 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.evSeen = 0
 	case 26:
 		g.save(screen, "30_ukraine")
+		g.sess.SetSide(0)
+		h := g.sess.(*netplay.Host)
+		h.Advance(300, nil)
+		x, y := g.m.Project(37.6, 48.1)
+		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 3.0
+		g.tab = 0
+	case 29:
+		g.save(screen, "40_front")
+		for _, u := range g.view.Units {
+			if u.Type == "s400" {
+				g.sel = Selection{Kind: "unit", ID: u.ID}
+				break
+			}
+		}
+	case 31:
+		g.save(screen, "41_ad_info")
 		os.Exit(0)
 	}
 	a.step++

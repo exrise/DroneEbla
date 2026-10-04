@@ -112,6 +112,7 @@ type UnitType struct {
 	PkLow       float64            `json:"pk_low"`
 	PkHigh      float64            `json:"pk_high"`
 	EngageSec   float64            `json:"engage_sec"`
+	Magazine    int                `json:"magazine"` // ПВО: готовых к пуску ракет (очередей у пушек); перезарядка — reload_min
 	RebKm       float64            `json:"reb_km"`
 	RebPower    float64            `json:"reb_power"`
 	RtrKm       float64            `json:"rtr_km"`
@@ -277,6 +278,7 @@ type Rules struct {
 	FrontStepMin     float64            `json:"front_step_min"`
 	FrontAttack      float64            `json:"front_attack"`
 	FrontCapture     float64            `json:"front_capture"`
+	FrontThreshold   float64            `json:"front_threshold"` // минимальное превосходство для продвижения
 	FrontLoss        float64            `json:"front_loss"`
 	FrontAmmoUse     float64            `json:"front_ammo_use"`
 	FrontFuelUse     float64            `json:"front_fuel_use"`

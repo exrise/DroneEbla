@@ -71,6 +71,7 @@ type Unit struct {
 	Path      []Pt
 	Busy      int     // занятые каналы
 	Reload    float64 // минут до готовности к залпу
+	Ready     float64 // ПВО: ракет на пусковых
 	FlashTill float64 // засветка после залпа
 }
 
@@ -157,6 +158,15 @@ type Direction struct {
 	Air                        float64
 	Tiles                      int
 	Losses                     float64 // потери людей, тыс., накопительно
+	Gained, Lost               int     // тайлов за текущий час
+	GainedH, LostH             int     // тайлов за прошлый час
+}
+
+// Capture — недавний захват тайла (для подсветки на карте).
+type Capture struct {
+	Tile int32
+	Side int8
+	Time float32
 }
 
 // Side — состояние стороны.
@@ -218,6 +228,8 @@ type World struct {
 	Projs     map[uint32]*Projectile
 	Engs      []Engagement
 	Groups    map[uint32]*StrikeGroup
+	Captures  []Capture
+	FrontHour float64
 	NextID    uint32
 	NextEvent uint64
 	FrontAcc  float64

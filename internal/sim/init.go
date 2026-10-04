@@ -204,7 +204,13 @@ func (w *World) addBuilding(typ string, side int, x, y float64, built float64) *
 
 func (w *World) addUnit(typ string, side int, x, y float64) *Unit {
 	ut := w.cat.UnitByID[typ]
-	u := &Unit{ID: w.newID(), Type: typ, Side: side, X: x, Y: y, HP: ut.HP, State: UnitDeployed}
+	u := &Unit{ID: w.newID(), Type: typ, Side: side, X: x, Y: y, HP: ut.HP, State: UnitDeployed, Ready: float64(ut.Magazine)}
+	// Ракеты на пусковых берутся из национального запаса.
+	if ut.Interceptor != "" && w.Sides[side] != nil {
+		st := w.Sides[side].Stocks
+		u.Ready = math.Min(u.Ready, st[ut.Interceptor])
+		st[ut.Interceptor] -= u.Ready
+	}
 	w.Units[u.ID] = u
 	return u
 }

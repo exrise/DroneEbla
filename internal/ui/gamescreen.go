@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"math"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
@@ -207,6 +207,33 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	z := g.cam.Z
 	my2 := v.Side
 	en := 1 - my2
+	g.labels = g.labels[:0]
+
+	// Недавно захваченные тайлы: яркая подсветка, гаснет за 3 игровых часа.
+	for _, c := range v.Captures {
+		i := int(c.Tile)
+		age := v.Time - float64(c.Time)
+		if age < 0 || age > 180 {
+			continue
+		}
+		tx, ty := i%g.m.W, i/g.m.W
+		x0, y0 := g.cam.ToScreen(float64(tx)*g.m.TileKm, float64(ty)*g.m.TileKm)
+		ts := g.m.TileKm * z
+		if !g.visibleOnScreen(x0, y0) {
+			continue
+		}
+		k := 1 - age/180
+		col := color.RGBA{255, 210, 40, 255}
+		if int(c.Side) == my2 {
+			col = color.RGBA{60, 220, 90, 255}
+		} else {
+			col = color.RGBA{255, 60, 40, 255}
+		}
+		fillRect(dst, x0, y0, ts, ts, withAlpha(col, uint8(30+120*k)))
+		if age < 30 {
+			strokeRect(dst, x0, y0, ts, ts, withAlpha(col, 230), 1.5)
+		}
+	}
 
 	// Зоны ПВО.
 	if g.layers["ad"] {
@@ -346,14 +373,13 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			} else if c.Class != "" {
 				label = "техн."
 			}
-			s := math.Max(5, math.Min(9, z*3))
-			vector.StrokeLine(dst, float32(sx), float32(sy-s), float32(sx+s), float32(sy), 2, col, false)
-			vector.StrokeLine(dst, float32(sx+s), float32(sy), float32(sx), float32(sy+s), 2, col, false)
-			vector.StrokeLine(dst, float32(sx), float32(sy+s), float32(sx-s), float32(sy), 2, col, false)
-			vector.StrokeLine(dst, float32(sx-s), float32(sy), float32(sx), float32(sy-s), 2, col, false)
+			s := math.Max(6, math.Min(10, z*3))
+			sx, sy = math.Round(sx), math.Round(sy)
+			diamond(dst, sx, sy, s, col)
+			diamond(dst, sx, sy, s-2.5, color.RGBA{245, 240, 225, a})
 		}
 		if z > 0.7 || (hov != nil && hov.id == c.ID) {
-			drawTextHalo(dst, label, sx, sy-20, 11, col, color.RGBA{240, 236, 222, 200}, 1)
+			g.mapLabel(dst, label, sx, sy-20, col, hov != nil && hov.id == c.ID)
 		}
 		consider("contact", c.ID, 0, c.X, c.Y, sx, sy)
 	}
@@ -387,7 +413,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			fillRect(dst, sx-s/2, sy+s/2+1, s*f, 3, colorForFrac(f))
 		}
 		if z > 0.9 || (hov != nil && hov.id == b.ID) {
-			drawTextHalo(dst, bt.Short, sx, sy-s/2-15, 11, col, color.RGBA{240, 236, 222, 200}, 1)
+			g.mapLabel(dst, bt.Short, sx, sy-s/2-15, col, (hov != nil && hov.id == b.ID) || g.sel.ID == b.ID)
 		}
 		if g.sel.Kind == "building" && g.sel.ID == b.ID {
 			strokeRect(dst, sx-s/2-4, sy-s/2-4, s+8, s+8, colAccent, 2)
@@ -409,7 +435,16 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			line(dst, sx-w/2, sy+h/2, sx+w/2, sy-h/2, col, 1.5)
 		}
 		if z > 0.8 || (hov != nil && hov.id == un.ID) {
-			drawTextHalo(dst, ut.Short, sx, sy-h/2-15, 11, col, color.RGBA{240, 236, 222, 200}, 1)
+			g.mapLabel(dst, ut.Short, sx, sy-h/2-15, col, (hov != nil && hov.id == un.ID) || g.sel.ID == un.ID)
+		}
+		if ut.Kind == "ad" && ut.Magazine > 0 && un.Ready < float64(ut.Magazine)-0.01 {
+			f := un.Ready / float64(ut.Magazine)
+			fillRect(dst, sx-w/2, sy+h/2+2, w, 3, color.RGBA{40, 40, 40, 220})
+			c := colWarn
+			if un.Ready < 1 {
+				c = colBad
+			}
+			fillRect(dst, sx-w/2, sy+h/2+2, w*f, 3, c)
 		}
 		if len(un.Path) > 0 {
 			px, py := sx, sy
@@ -897,4 +932,25 @@ func capFirst(s string) string {
 		return s
 	}
 	return strings.ToUpper(string(r[0])) + string(r[1:])
+}
+
+// diamond — ромб (значок техники).
+func diamond(dst *ebiten.Image, x, y, s float64, c color.Color) {
+	triangle(dst, x, y-s, x+s, y, x, y+s, c)
+	triangle(dst, x, y-s, x-s, y, x, y+s, c)
+}
+
+// mapLabel — подпись на карте без наложения на уже нарисованные.
+func (g *Game) mapLabel(dst *ebiten.Image, text string, x, y float64, col color.RGBA, force bool) {
+	w := textWidth(text, 11)
+	r := image.Rect(int(x-w/2)-1, int(y), int(x+w/2)+1, int(y+13))
+	if !force {
+		for _, o := range g.labels {
+			if r.Overlaps(o) {
+				return
+			}
+		}
+	}
+	g.labels = append(g.labels, r)
+	drawTextHalo(dst, text, x, y, 11, col, color.RGBA{240, 236, 222, 210}, 1)
 }

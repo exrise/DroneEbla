@@ -61,6 +61,17 @@ func (w *World) updatePower() {
 				pool += math.Min(bal, capT[k]+baseTransfer)
 			}
 		}
+		// Дефицитные области получают излишки пропорционально нехватке.
+		demand := 0.0
+		for k := range regions {
+			if bal := gen[k] - use[k]; bal < 0 {
+				demand += math.Min(-bal, capT[k]+baseTransfer)
+			}
+		}
+		share := 1.0
+		if demand > pool && demand > 0 {
+			share = pool / demand
+		}
 		totalGen, totalUse := 0.0, 0.0
 		blackPop, allPop := 0.0, 0.0
 		for k := range regions {
@@ -71,9 +82,7 @@ func (w *World) updatePower() {
 				bal := gen[k] - use[k]
 				got := gen[k]
 				if bal < 0 {
-					in := math.Min(math.Min(-bal, capT[k]+baseTransfer), pool)
-					pool -= in
-					got += in
+					got += math.Min(-bal, capT[k]+baseTransfer) * share
 				} else {
 					got = use[k]
 				}

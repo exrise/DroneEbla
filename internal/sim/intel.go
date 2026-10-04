@@ -108,8 +108,9 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 		}
 		c.Seen, c.Source = w.Time, source
 		if errKm > 0 {
-			c.X += (w.rng.Float64()*2 - 1) * errKm
-			c.Y += (w.rng.Float64()*2 - 1) * errKm
+			ox, oy := w.errOffset(id, sensor)
+			c.X += ox * errKm
+			c.Y += oy * errKm
 		}
 		return
 	}
@@ -137,10 +138,34 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 		}
 		c.Seen, c.Source = w.Time, source
 		if errKm > 0 {
-			c.X += (w.rng.Float64()*2 - 1) * errKm
-			c.Y += (w.rng.Float64()*2 - 1) * errKm
+			ox, oy := w.errOffset(id, sensor)
+			c.X += ox * errKm
+			c.Y += oy * errKm
 		}
 	}
+}
+
+// errOffset — ошибка пеленга в [-1, 1]. Для РТР она постоянна в течение часа,
+// чтобы отметка не дрожала; для агентуры — случайная.
+func (w *World) errOffset(id uint32, sensor string) (float64, float64) {
+	if sensor != "rtr" && sensor != "flash" {
+		return w.rng.Float64()*2 - 1, w.rng.Float64()*2 - 1
+	}
+	h := uint64(id)*0x9E3779B97F4A7C15 ^ uint64(w.Time/60)*0xBF58476D1CE4E5B9
+	h ^= h >> 31
+	h *= 0x94D049BB133111EB
+	h ^= h >> 29
+	return float64(h&0xFFFF)/32767.5 - 1, float64((h>>16)&0xFFFF)/32767.5 - 1
+}
+
+// imprecise — данные с погрешностью (их не опровергает отсутствие объекта
+// в точке отметки).
+func imprecise(c *Contact) bool {
+	switch c.Source {
+	case "РТР", "агентура/OSINT", "засветка пуска":
+		return true
+	}
+	return false
 }
 
 // forget удаляет контакты в области, где объекта больше нет.
@@ -149,6 +174,13 @@ func (w *World) forget(s int, covered func(x, y float64) bool) {
 	for id, c := range sd.Known {
 		if !covered(c.X, c.Y) {
 			continue
+		}
+		if imprecise(c) {
+			_, isB := w.Buildings[id]
+			_, isU := w.Units[id]
+			if isB || isU {
+				continue
+			}
 		}
 		if b, ok := w.Buildings[id]; ok && b.Side != s && dist(b.X, b.Y, c.X, c.Y) < 3 {
 			continue
@@ -335,8 +367,9 @@ func (w *World) rtr(s int) {
 			if d > ut.RtrKm {
 				continue
 			}
-			// Обновляем не чаще, чем раз в 10 минут, чтобы ошибка не «дрожала».
-			if c := w.Sides[s].Known[id]; c != nil && w.Time-c.Seen < 10 && c.Source == "РТР" {
+			// Свежие данные (любые) не перебиваем: иначе отметка прыгает
+			// между точной позицией и пеленгом.
+			if c := w.Sides[s].Known[id]; c != nil && w.Time-c.Seen < 10 {
 				continue
 			}
 			w.observe(s, id, "rtr", "РТР", math.Min(15, d*0.04))

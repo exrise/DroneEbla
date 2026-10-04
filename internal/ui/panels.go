@@ -128,7 +128,7 @@ func (g *Game) tabFront(x, y, w int) int {
 	y = g.header("Направления", x, y)
 	for d := 0; d < 3; d++ {
 		f := v.Front[d]
-		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 176, color.RGBA{30, 35, 42, 255})
+		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 195, color.RGBA{30, 35, 42, 255})
 		drawBold(u.screen, sim.DirNames[d], float64(x), float64(y), 15, colText, 0)
 		drawText(u.screen, fmt.Sprintf("доля пополнений %.0f%%", v.Alloc[d]*100), float64(x+w-70), float64(y+1), 13, colDim, 2)
 		if u.Button(x+w-60, y-2, 28, 20, "−") {
@@ -145,6 +145,13 @@ func (g *Game) tabFront(x, y, w int) int {
 		y = g.kv("Снабжение", fmt.Sprintf("%.0f%%", f.Supply*100), x, y, w, colorForFrac(f.Supply))
 		y = g.kv("Поддержка авиации", fmt.Sprintf("×%.2f", f.Air), x, y, w, colText)
 		y = g.kv("Боевая мощь / фронт", fmt.Sprintf("%.0f / %d тайлов", f.Power, f.Tiles), x, y, w, colText)
+		rc := colText
+		if f.LostH > f.GainedH {
+			rc = colBad
+		} else if f.GainedH > f.LostH {
+			rc = colGood
+		}
+		y = g.kv("За прошлый час", fmt.Sprintf("+%d / −%d км²", f.GainedH*25, f.LostH*25), x, y, w, rc)
 		y += 14
 	}
 	y = g.header("Пополнение людьми", x, y)

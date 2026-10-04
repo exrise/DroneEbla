@@ -30,9 +30,6 @@ func (w *World) updateFrontTiles() {
 	}
 }
 
-// frontThreshold — минимальное превосходство для продвижения.
-const frontThreshold = 1.2
-
 // FrontTiles — фронтовые тайлы стороны.
 func (w *World) FrontTiles(s int) []int { return w.frontT[s] }
 
@@ -127,6 +124,7 @@ func (w *World) front(dtMin float64) {
 	}
 	step := w.FrontAcc
 	w.FrontAcc = 0
+	w.frontSummary(step)
 	dtH := step / 60
 	w.updateFrontTiles()
 
@@ -165,6 +163,10 @@ func (w *World) front(dtMin float64) {
 
 	// Атаки по тайлам: для каждого тайла противника берётся лучшее
 	// соотношение сил среди соседних атакующих тайлов.
+	thr := r.FrontThreshold
+	if thr <= 0 {
+		thr = 1.25
+	}
 	type cap struct{ tile, side int }
 	var captures []cap
 	best := map[int]float64{}
@@ -198,10 +200,10 @@ func (w *World) front(dtMin float64) {
 			})
 		}
 		for j, ratio := range best {
-			if ratio <= frontThreshold {
+			if ratio <= thr {
 				continue
 			}
-			w.Pressure[j] += float32(math.Min(0.25, r.FrontAttack*(ratio-frontThreshold)) * step / r.FrontStepMin)
+			w.Pressure[j] += float32(math.Min(0.25, r.FrontAttack*(ratio-thr)) * step / r.FrontStepMin)
 			if w.Pressure[j] >= float32(r.FrontCapture) {
 				captures = append(captures, cap{j, s})
 			}
@@ -291,6 +293,12 @@ func (w *World) captureTile(i, s int) {
 	r := w.cat.Rules
 	old := w.OwnerSide(i)
 	w.Owner[i] = uint8(s + 1)
+	d := w.TileDir(i)
+	w.Sides[s].Front[d].Gained++
+	if old >= 0 {
+		w.Sides[old].Front[d].Lost++
+	}
+	w.Captures = append(w.Captures, Capture{Tile: int32(i), Side: int8(s), Time: float32(w.Time)})
 	w.Pressure[i] = 0
 	w.Fort[i] = 0
 	delete(w.FortJobs, i)
@@ -327,6 +335,46 @@ func (w *World) captureTile(i, s int) {
 				w.LogAt(old, 2, fmt.Sprintf("Потерян город: %s", c.Name), c.X, c.Y)
 			}
 			w.LogAt(s, 1, fmt.Sprintf("Взят город: %s", c.Name), c.X, c.Y)
+		}
+	}
+}
+
+// frontSummary раз в игровой час подводит итоги по направлениям.
+func (w *World) frontSummary(step float64) {
+	// Подсветка захватов живёт 3 игровых часа.
+	keep := w.Captures[:0]
+	for _, c := range w.Captures {
+		if w.Time-float64(c.Time) < 180 {
+			keep = append(keep, c)
+		}
+	}
+	w.Captures = keep
+	w.FrontHour += step
+	if w.FrontHour < 60 {
+		return
+	}
+	w.FrontHour = 0
+	for s := 0; s < 2; s++ {
+		sd := w.Sides[s]
+		text := ""
+		lvl := 0
+		for d := 0; d < 3; d++ {
+			f := &sd.Front[d]
+			f.GainedH, f.LostH = f.Gained, f.Lost
+			f.Gained, f.Lost = 0, 0
+			if f.GainedH == 0 && f.LostH == 0 {
+				continue
+			}
+			if text != "" {
+				text += "; "
+			}
+			text += fmt.Sprintf("%s: +%d / −%d км²", DirNames[d], f.GainedH*25, f.LostH*25)
+			if f.LostH > f.GainedH {
+				lvl = 1
+			}
+		}
+		if text != "" {
+			w.Log(s, lvl, "Фронт за час — "+text)
 		}
 	}
 }

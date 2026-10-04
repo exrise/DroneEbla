@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"sort"
@@ -86,6 +87,8 @@ type Game struct {
 	saves        []string
 	lastW, lastH int
 	auto         *autoShot
+	notices      []string
+	labels       []image.Rectangle
 }
 
 type strikePlan struct {
@@ -112,6 +115,9 @@ func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 	g.ipField.Max = 40
 	return g
 }
+
+// Notice — сообщение для главного меню.
+func (g *Game) Notice(s string) { g.notices = append(g.notices, s) }
 
 // Layout — логический размер равен размеру окна.
 func (g *Game) Layout(w, h int) (int, int) {
@@ -221,6 +227,13 @@ func (g *Game) drawMenu() {
 	}
 	for i, l := range lines {
 		drawText(u.screen, l, float64(cx), float64(y+300+i*22), 14, colDim, 1)
+	}
+	ny := float64(y + 360)
+	for _, n := range g.notices {
+		for _, l := range wrap(n, 14, float64(u.W)-200) {
+			drawText(u.screen, l, float64(cx), ny, 14, colWarn, 1)
+			ny += 20
+		}
 	}
 }
 

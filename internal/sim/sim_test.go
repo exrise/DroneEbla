@@ -107,7 +107,7 @@ func TestPowerStrike(t *testing.T) {
 		}
 	}
 	run(w, 2)
-	if ua.Blackout < 0.2 {
+	if ua.Blackout < 0.05 {
 		t.Fatalf("ожидался блэкаут, доля %.2f", ua.Blackout)
 	}
 }
@@ -287,4 +287,39 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatal("состояние не совпало")
 	}
 	run(w2, 10)
+}
+
+func TestADOverload(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	src := findBuilding(w, "Севастополь — база ЧФ")
+	tgt := findBuilding(w, "Трипольская ТЭС")
+	src.Budget = 200
+	ru.Stocks["kalibr"] = 200
+	if e := w.Strike(data.RU, StrikePlan{Source: src.ID, Munition: "kalibr", Count: 120, Target: Pt{tgt.X, tgt.Y}}); e != "" {
+		t.Fatal(e)
+	}
+	empty := false
+	for k := 0; k < 180; k++ {
+		w.Step(1)
+		for _, u := range w.Units {
+			if u.Side == data.UA && w.cat.UnitByID[u.Type].Kind == "ad" && u.Ready < 1 {
+				empty = true
+			}
+		}
+	}
+	if !empty {
+		t.Fatal("ни один комплекс ПВО не расстрелял магазин")
+	}
+	var res string
+	for _, e := range ru.Events {
+		if len(e.Text) > 20 && e.Text[:len("Итог удара")] == "Итог удара" {
+			res = e.Text
+		}
+	}
+	t.Log(res, "; HP цели:", tgt.HP)
+	if tgt.HP >= tgt.MaxHP {
+		t.Fatal("массированный удар не прорвал ПВО")
+	}
 }

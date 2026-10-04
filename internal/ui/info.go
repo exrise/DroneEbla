@@ -202,6 +202,13 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 	case "ad":
 		y = g.kv("Дальность / РЛС", fmt.Sprintf("%.0f / %.0f км", ut.RangeKm, ut.RadarKm), x, y, w, colText)
 		y = g.kv("Каналы", fmt.Sprintf("%d занято из %d", un.Busy, ut.Channels), x, y, w, colText)
+		rc := colText
+		if un.Ready < 1 {
+			rc = colBad
+		} else if un.Ready < float64(ut.Magazine) {
+			rc = colWarn
+		}
+		y = g.kv("На пусковых", fmt.Sprintf("%.0f / %d (перезарядка %.0f мин)", math.Floor(un.Ready), ut.Magazine, ut.ReloadMin), x, y, w, rc)
 		if ut.Interceptor != "" {
 			n := v.Stocks[ut.Interceptor]
 			c := colText
@@ -409,22 +416,27 @@ func (g *Game) drawStrikePanel() {
 	}
 	if m.Kind != "recon" {
 		drawText(u.screen, "Количество:", float64(px), float64(py+3), 14, colDim, 0)
+		mx := g.maxSalvo()
 		for i, d := range []int{-10, -1, 1, 10} {
 			lbl := fmt.Sprintf("%+d", d)
-			if u.Button(px+150+i*48, py, 44, 22, lbl) {
-				g.strike.Count = max(1, g.strike.Count+d)
+			if u.Button(px+122+i*42, py, 38, 22, lbl) {
+				g.strike.Count = max(1, min(mx, g.strike.Count+d))
 			}
 		}
-		drawBold(u.screen, fmt.Sprintf("%d", g.strike.Count), float64(px+120), float64(py+2), 16, colText, 1)
+		if u.Button(px+122+4*42, py, pw-122-4*42, 22, fmt.Sprintf("Макс %d", mx)) {
+			g.strike.Count = max(1, mx)
+		}
+		u.Tooltip(px+122+4*42, py, pw-122-4*42, 22, "Максимальный залп: ограничен запасом, залпом пусковой или пропускной способностью площадки")
+		drawBold(u.screen, fmt.Sprintf("%d", g.strike.Count), float64(px+100), float64(py+2), 16, colText, 1)
 		py += 28
 	}
 	drawText(u.screen, "Задержка:", float64(px), float64(py+3), 14, colDim, 0)
 	for i, d := range []float64{-30, -5, 5, 30} {
-		if u.Button(px+150+i*48, py, 44, 22, fmt.Sprintf("%+.0f", d)) {
+		if u.Button(px+122+i*42, py, 38, 22, fmt.Sprintf("%+.0f", d)) {
 			g.strike.Delay = math.Max(0, g.strike.Delay+d)
 		}
 	}
-	drawBold(u.screen, fmt.Sprintf("%.0f мин", g.strike.Delay), float64(px+110), float64(py+2), 14, colText, 1)
+	drawBold(u.screen, fmt.Sprintf("%.0f мин", g.strike.Delay), float64(px+92), float64(py+2), 14, colText, 1)
 	u.Tooltip(px, py, pw, 22, "Задержка позволяет синхронизировать несколько групп: например, пустить ложные цели раньше ракет.")
 	py += 32
 	if u.Button(px, py, pw/2-4, 30, "Отмена") {
@@ -470,4 +482,20 @@ func (g *Game) drawHelp() {
 		}
 		drawText(u.screen, l, float64(x+10), float64(y+7+i*18), 13, c, 0)
 	}
+}
+
+// maxSalvo — максимальный залп для текущего плана.
+func (g *Game) maxSalvo() int {
+	v := g.view
+	n := int(v.Stocks[g.strike.Munition])
+	if un := g.findUnit(g.strike.Source); un != nil {
+		n = min(n, g.cat.UnitByID[un.Type].Salvo)
+	}
+	if b := g.findBuilding(g.strike.Source); b != nil {
+		n = min(n, int(math.Floor(b.Budget)))
+	}
+	if m := g.cat.MunitionByID[g.strike.Munition]; m != nil && m.Kind == "recon" {
+		n = min(n, 1)
+	}
+	return max(n, 1)
 }

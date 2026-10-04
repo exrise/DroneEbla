@@ -52,6 +52,16 @@ func Load(override string) (*Catalog, error) {
 		}
 	}
 	c.Sides = [2]SideDef{sides.RU, sides.UA}
+	// Старые файлы данных без магазинов ПВО: разумные значения по умолчанию.
+	for i := range c.Units {
+		u := &c.Units[i]
+		if u.Kind == "ad" && u.Magazine <= 0 {
+			u.Magazine = 8
+			if u.ReloadMin <= 0 {
+				u.ReloadMin = 30
+			}
+		}
+	}
 	c.index()
 	return c, c.validate()
 }

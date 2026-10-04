@@ -113,6 +113,9 @@ func (w *World) airDefense(dtMin float64) {
 			continue
 		}
 		sd := w.Sides[u.Side]
+		if u.Ready < 1 {
+			continue
+		}
 		var cands []*Projectile
 		for _, p := range tracks[u.Side] {
 			m := w.cat.MunitionByID[p.Munition]
@@ -140,17 +143,11 @@ func (w *World) airDefense(dtMin float64) {
 			if u.Busy >= ut.Channels {
 				break
 			}
-			if ut.Interceptor != "" {
-				if sd.Stocks[ut.Interceptor] < 1 {
-					break
-				}
-				sd.Stocks[ut.Interceptor]--
-			} else {
-				if sd.Res[4] < 0.2 {
-					break
-				}
-				sd.Res[4] -= 0.2
+			// Стреляем только тем, что заряжено на пусковых.
+			if u.Ready < 1 {
+				break
 			}
+			u.Ready--
 			m := w.cat.MunitionByID[p.Munition]
 			pk := ut.PkHigh
 			if m.Class == "low" {

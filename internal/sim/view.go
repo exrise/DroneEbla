@@ -87,7 +87,8 @@ type View struct {
 	Fog      []uint8 // 2 — видно сейчас, 1 — недавно, 0 — давно/никогда
 	Fort     []uint8 // только свои тайлы
 	FortJobs []int
-	Pressure []uint8 // давление противника на свои тайлы, 0..255
+	Pressure []uint8 // давление: на своих тайлах — противника, на чужих — наше, 0..255
+	Captures []Capture
 }
 
 // BuildView собирает представление для стороны s.
@@ -179,11 +180,12 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		}
 		if w.OwnerSide(i) == s {
 			v.Fort[i] = w.Fort[i]
-			if p := w.Pressure[i]; p > 0 {
-				v.Pressure[i] = uint8(clamp(float64(p)*255, 0, 255))
-			}
+		}
+		if p := w.Pressure[i]; p > 0 {
+			v.Pressure[i] = uint8(clamp(float64(p)*255, 0, 255))
 		}
 	}
+	v.Captures = append([]Capture{}, w.Captures...)
 	for i := range w.FortJobs {
 		if w.OwnerSide(i) == s {
 			v.FortJobs = append(v.FortJobs, i)

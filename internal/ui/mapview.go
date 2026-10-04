@@ -238,9 +238,15 @@ func (r *MapRenderer) update(v *sim.View) {
 			if m.Terrain[i] != world.TerrainLand {
 				c = color.RGBA{}
 			}
-			if p := v.Pressure[i]; p > 20 {
+			if p := v.Pressure[i]; p > 8 && m.Terrain[i] == world.TerrainLand {
 				k := float64(p) / 255
-				c = color.RGBA{uint8(230 * k), uint8(120 * k), 0, uint8(40 + 100*k)}
+				if o == uint8(v.Side+1) {
+					// противник давит на наш тайл
+					c = color.RGBA{240, 110, 0, uint8(50 + 150*k)}
+				} else {
+					// наше наступление на тайл противника
+					c = color.RGBA{90, 200, 60, uint8(50 + 150*k)}
+				}
 			}
 			// premultiplied alpha
 			a := float64(c.A) / 255

@@ -3,6 +3,8 @@ package sim
 import (
 	"container/heap"
 	"math"
+
+	"github.com/exrise/droneebla/internal/data"
 )
 
 type pqItem struct {
@@ -126,6 +128,7 @@ func (w *World) units(dtMin float64) {
 		if u.Reload > 0 {
 			u.Reload = math.Max(0, u.Reload-dtMin)
 		}
+		w.reloadAD(u, ut, dtMin)
 		switch u.State {
 		case UnitPacking:
 			u.Timer -= dtMin
@@ -163,5 +166,29 @@ func (w *World) units(dtMin float64) {
 				u.Timer = ut.DeployMin
 			}
 		}
+	}
+}
+
+// reloadAD — перезарядка пусковых ПВО из национального запаса.
+// Полный магазин перезаряжается за reload_min минут; на марше — нет.
+func (w *World) reloadAD(u *Unit, ut *data.UnitType, dtMin float64) {
+	if ut.Kind != "ad" || ut.Magazine <= 0 || ut.ReloadMin <= 0 {
+		return
+	}
+	if u.State == UnitMoving || u.Ready >= float64(ut.Magazine) {
+		return
+	}
+	sd := w.Sides[u.Side]
+	n := math.Min(float64(ut.Magazine)/ut.ReloadMin*dtMin, float64(ut.Magazine)-u.Ready)
+	if ut.Interceptor != "" {
+		n = math.Min(n, sd.Stocks[ut.Interceptor])
+		sd.Stocks[ut.Interceptor] -= n
+	} else {
+		// пушки и пулемёты: 0.2 боеприпаса на очередь
+		n = math.Min(n, sd.Res[data.ResAmmo]/0.2)
+		sd.Res[data.ResAmmo] -= n * 0.2
+	}
+	if n > 0 {
+		u.Ready += n
 	}
 }
