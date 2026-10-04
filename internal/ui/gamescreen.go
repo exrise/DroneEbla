@@ -242,6 +242,9 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			if ut.Kind != "ad" && ut.Kind != "reb" {
 				continue
 			}
+			if ut.Kind == "ad" && !g.adHasAmmo(&un, ut) {
+				continue // стрелять нечем: зона поражения не показывается
+			}
 			sx, sy := g.cam.ToScreen(un.X, un.Y)
 			r := ut.RangeKm
 			c := withAlpha(sideColor(my2), 90)
@@ -951,4 +954,16 @@ func (g *Game) moraleEffects() string {
 	m := g.view.Morale
 	return fmt.Sprintf("Мораль %.0f. Сила фронта ×%.2f, потери ×%.2f, выпуск и налоги ×%.2f, приток людей ×%.2f.",
 		m, sim.MoraleFront(r, m), sim.MoraleLosses(r, m), sim.MoraleProd(r, m), sim.MoraleLevy(r, m))
+}
+
+// adHasAmmo — может ли комплекс ПВО стрелять: есть заряженные ракеты или
+// запас, из которого их можно перезарядить (у пушек — боеприпасы).
+func (g *Game) adHasAmmo(un *sim.Unit, ut *data.UnitType) bool {
+	if un.Ready >= 1 {
+		return true
+	}
+	if ut.Interceptor != "" {
+		return g.view.Stocks[ut.Interceptor] >= 1
+	}
+	return g.view.Res[data.ResAmmo] >= 0.2
 }
