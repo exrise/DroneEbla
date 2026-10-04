@@ -323,3 +323,23 @@ func TestADOverload(t *testing.T) {
 		t.Fatal("массированный удар не прорвал ПВО")
 	}
 }
+
+func TestSpawnSpread(t *testing.T) {
+	for s := 0; s < 2; s++ {
+		w := newTestWorld(t)
+		pts := map[[2]int]bool{}
+		for i := 0; i < 12; i++ {
+			x, y := w.spawnPoint(s, "ground", "")
+			pts[[2]int{int(x / 20), int(y / 20)}] = true
+		}
+		ents := map[[2]int]bool{}
+		for i := 0; i < 12; i++ {
+			x, y := w.spawnPoint(s, "ground", "entry")
+			ents[[2]int{int(x / 20), int(y / 20)}] = true
+		}
+		t.Logf("%s: заводы %d районов, поставки %d районов", data.SideNames[s], len(pts), len(ents))
+		if len(pts) < 3 || len(ents) < 3 {
+			t.Fatalf("%s: техника появляется в слишком малом числе мест", data.SideNames[s])
+		}
+	}
+}

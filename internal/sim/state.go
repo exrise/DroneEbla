@@ -229,6 +229,7 @@ type World struct {
 	Engs      []Engagement
 	Groups    map[uint32]*StrikeGroup
 	Captures  []Capture
+	SpawnN    [2]int // счётчик для чередования точек появления
 	FrontHour float64
 	NextID    uint32
 	NextEvent uint64

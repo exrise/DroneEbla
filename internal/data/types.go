@@ -247,6 +247,7 @@ type SideDef struct {
 	MenStream     float64            `json:"men_stream"` // приток людей на фронт, тыс./ч (из резерва)
 	EntryLon      float64            `json:"entry_lon"`  // точка появления поставок
 	EntryLat      float64            `json:"entry_lat"`
+	Entries       []EntryPoint       `json:"entries"` // пункты въезда импорта и помощи (по кругу); если пусто — entry_lon/lat
 	Stocks        map[string]float64 `json:"stocks"`  // запасы боеприпасов и зенитных ракет
 	Storage       FrontPool          `json:"storage"` // техника на хранении (советские склады)
 	Front         [3]FrontPool       `json:"front"`   // Север, Донбасс, Юг
@@ -258,6 +259,13 @@ type SideDef struct {
 	Satellites    []Satellite        `json:"satellites"`
 	BomberWarning bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника
 	BelarusAir    bool               `json:"belarus_air"`
+}
+
+// EntryPoint — пункт въезда поставок (граница, порт).
+type EntryPoint struct {
+	Name string  `json:"name"`
+	Lon  float64 `json:"lon"`
+	Lat  float64 `json:"lat"`
 }
 
 // Object — реальный объект на карте на старте.

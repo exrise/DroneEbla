@@ -3,6 +3,7 @@ package sim
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/exrise/droneebla/internal/data"
 )
@@ -467,12 +468,20 @@ func (w *World) distributeFront(s int, what string, n float64) {
 	}
 }
 
-// spawnPoint — где появляется новый юнит.
+// spawnPoint — где появляется новый юнит. Заводы нужного типа и пункты
+// въезда чередуются по кругу, чтобы техника не скапливалась в одном месте.
 func (w *World) spawnPoint(s int, cat, via string) (float64, float64) {
 	def := w.cat.Sides[s]
+	entry := func() (float64, float64) {
+		n := w.nextSpawn(s)
+		if len(def.Entries) > 0 {
+			e := def.Entries[n%len(def.Entries)]
+			return w.m.Project(e.Lon, e.Lat)
+		}
+		return w.m.Project(def.EntryLon, def.EntryLat)
+	}
 	if via == "entry" {
-		x, y := w.m.Project(def.EntryLon, def.EntryLat)
-		return x, y
+		return entry()
 	}
 	want := "armor_plant"
 	if cat == "air" {
@@ -480,19 +489,24 @@ func (w *World) spawnPoint(s int, cat, via string) (float64, float64) {
 	} else if cat == "drone" {
 		want = "drone_workshop"
 	}
-	var best *Building
+	var plants []*Building
 	for _, b := range w.Buildings {
 		if b.Side == s && b.Type == want && b.Operational() && w.sideOfPoint(b.X, b.Y) == s {
-			if best == nil || b.ID < best.ID {
-				best = b
-			}
+			plants = append(plants, b)
 		}
 	}
-	if best != nil {
-		return best.X, best.Y
+	if len(plants) == 0 {
+		return entry()
 	}
-	x, y := w.m.Project(def.EntryLon, def.EntryLat)
-	return x, y
+	sort.Slice(plants, func(a, b int) bool { return plants[a].ID < plants[b].ID })
+	b := plants[w.nextSpawn(s)%len(plants)]
+	return b.X, b.Y
+}
+
+func (w *World) nextSpawn(s int) int {
+	n := w.SpawnN[s]
+	w.SpawnN[s]++
+	return n
 }
 
 // construction — стройка, ремонт, пополнение пусков, авиация.

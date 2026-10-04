@@ -8,6 +8,14 @@
     "base_income": 60,
     "men_stream": 0.6,
     "entry_lon": 40.9, "entry_lat": 50.8,
+    "entries": [
+      {"name": "Воронеж", "lon": 39.2, "lat": 51.6},
+      {"name": "Курск", "lon": 36.2, "lat": 51.7},
+      {"name": "Брянск", "lon": 34.4, "lat": 53.2},
+      {"name": "Ростов-на-Дону", "lon": 39.7, "lat": 47.3},
+      {"name": "Краснодар", "lon": 38.9, "lat": 45.1},
+      {"name": "Новороссийск", "lon": 37.8, "lat": 44.8}
+    ],
     "stocks": {
       "iskander_m": 120, "iskander_k": 60, "kalibr": 180, "kh101": 200, "kh22": 80,
       "smerch_ru": 2400, "orlan10": 80,
@@ -74,6 +82,13 @@
     "base_income": 40,
     "men_stream": 0.45,
     "entry_lon": 24.2, "entry_lat": 50.0,
+    "entries": [
+      {"name": "Львов", "lon": 24.0, "lat": 49.8},
+      {"name": "Ужгород", "lon": 22.4, "lat": 48.6},
+      {"name": "Черновцы", "lon": 25.9, "lat": 48.3},
+      {"name": "Одесса (порт)", "lon": 30.7, "lat": 46.5},
+      {"name": "Ровно", "lon": 26.2, "lat": 50.6}
+    ],
     "stocks": {
       "tochka_u": 90, "smerch_ua": 1200, "tb2": 20,
       "m_5v55": 400, "m_9m38": 250, "m_9m33": 400
