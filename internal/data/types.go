@@ -89,6 +89,15 @@ type BuildingType struct {
 	OilPort      bool               `json:"oil_port"` // множитель нефтяного экспорта
 	Bridge       bool               `json:"bridge"`
 	Desc         string             `json:"desc"`
+	RepairHours  float64            `json:"repair_hours"` // часов на полный ремонт одной бригадой
+}
+
+// RepairHrs — время полного ремонта, ч (если не задано — по прочности).
+func (bt *BuildingType) RepairHrs() float64 {
+	if bt.RepairHours > 0 {
+		return bt.RepairHours
+	}
+	return 20 + 0.15*bt.HP
 }
 
 // UnitType — тип мобильного юнита.
@@ -309,6 +318,10 @@ type Rules struct {
 	FlashMin         float64            `json:"flash_min"`       // засветка пусковой после залпа
 	RepairPerHour    float64            `json:"repair_per_hour"` // доля HP в час
 	RepairCostK      float64            `json:"repair_cost_k"`
+	RepairCrews      int                `json:"repair_crews"`     // зданий, которые сторона чинит одновременно
+	RepairRuinMult   float64            `json:"repair_ruin_mult"` // скорость ремонта почти разрушенного здания
+	DamageFloor      float64            `json:"damage_floor"`     // ниже этой доли HP здание не производит
+	DamageCurve      float64            `json:"damage_curve"`     // выпуск = ((hp−порог)/(1−порог))^кривая
 	MaskCost         map[string]float64 `json:"mask_cost"`
 	ResearchBase     float64            `json:"research_base"`
 	ResearchFundCost float64            `json:"research_fund_cost"`

@@ -62,6 +62,20 @@ func Load(override string) (*Catalog, error) {
 			}
 		}
 	}
+	// Старые файлы правил без новых параметров ремонта.
+	r := &c.Rules
+	if r.RepairCrews <= 0 {
+		r.RepairCrews = 6
+	}
+	if r.RepairRuinMult <= 0 {
+		r.RepairRuinMult = 0.5
+	}
+	if r.DamageFloor <= 0 {
+		r.DamageFloor = 0.15
+	}
+	if r.DamageCurve <= 0 {
+		r.DamageCurve = 1.3
+	}
 	c.index()
 	return c, c.validate()
 }

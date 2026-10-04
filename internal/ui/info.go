@@ -107,6 +107,21 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 	}
 	f := b.HP / b.MaxHP
 	y = g.kv("Состояние", fmt.Sprintf("%.0f%%", f*100), x, y, w, colorForFrac(f))
+	if len(bt.Produces) > 0 || len(bt.Capacity) > 0 || bt.Research > 0 || bt.Export > 0 {
+		ef := sim.Efficiency(g.cat.Rules, f)
+		y = g.kv("Продуктивность", fmt.Sprintf("%.0f%%", ef*100), x, y, w, colorForFrac(ef))
+	}
+	if f < 0.999 && b.Built >= 1 {
+		left := (1 - f) * bt.RepairHrs() / (1 + v.Effects["repair_speed"])
+		switch {
+		case !b.Repair:
+			y = g.kv("Ремонт", "выключен", x, y, w, colDim)
+		case b.Repairing:
+			y = g.kv("Ремонт", fmt.Sprintf("идёт, ещё ~%.0f ч", left), x, y, w, colGood)
+		default:
+			y = g.kv("Ремонт", fmt.Sprintf("ждёт бригаду (~%.0f ч работы)", left), x, y, w, colWarn)
+		}
+	}
 	if bt.Power > 0 {
 		y = g.kv("Генерация", fmt.Sprintf("%.0f МВт", bt.Power*f), x, y, w, colText)
 	} else if bt.Power < 0 {

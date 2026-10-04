@@ -41,22 +41,23 @@ var SpeedMult = []float64{0, 1, 2, 3, 5, 8}
 
 // Building — здание.
 type Building struct {
-	ID       uint32
-	Type     string
-	Name     string
-	Side     int
-	X, Y     float64
-	HP       float64
-	MaxHP    float64
-	Built    float64 // 0..1, 1 — готово
-	Masked   bool
-	Mimic    string // для макета: какой тип изображает
-	Dir      int    // направление для логистики, -1 — авто
-	Aircraft map[string]float64
-	Repair   bool
-	Prewar   bool
-	Budget   float64 // накопленные пуски
-	Region   int
+	ID        uint32
+	Type      string
+	Name      string
+	Side      int
+	X, Y      float64
+	HP        float64
+	MaxHP     float64
+	Built     float64 // 0..1, 1 — готово
+	Masked    bool
+	Mimic     string // для макета: какой тип изображает
+	Dir       int    // направление для логистики, -1 — авто
+	Aircraft  map[string]float64
+	Repair    bool
+	Repairing bool // сейчас чинится бригадой
+	Prewar    bool
+	Budget    float64 // накопленные пуски
+	Region    int
 }
 
 // Unit — мобильный юнит.

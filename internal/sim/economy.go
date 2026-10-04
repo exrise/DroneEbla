@@ -188,7 +188,18 @@ func (w *World) output(b *Building) float64 {
 		return 0
 	}
 	sd := w.Sides[b.Side]
-	return b.frac() * w.powerFactor(b) * w.requirementFactor(b) * (1 - sd.LaborLoss)
+	return Efficiency(w.cat.Rules, b.frac()) * w.powerFactor(b) * w.requirementFactor(b) * (1 - sd.LaborLoss)
+}
+
+// Efficiency — какая доля производительности остаётся у здания с долей HP h.
+// Лёгкие повреждения почти не мешают, тяжёлые резко снижают выпуск, ниже
+// порога здание стоит.
+func Efficiency(r data.Rules, h float64) float64 {
+	x := (h - r.DamageFloor) / (1 - r.DamageFloor)
+	if x <= 0 {
+		return 0
+	}
+	return math.Pow(math.Min(1, x), r.DamageCurve)
 }
 
 // economy — непрерывная экономика за dtH часов.
@@ -233,7 +244,7 @@ func (w *World) economy(dtH float64) {
 			}
 			if bt.Export > 0 {
 				if b.Type == "grain_port" {
-					grain += bt.Export * b.frac()
+					grain += bt.Export * Efficiency(w.cat.Rules, b.frac())
 				} else {
 					oil += bt.Export * w.output(b)
 				}
@@ -511,8 +522,7 @@ func (w *World) nextSpawn(s int) int {
 
 // construction — стройка, ремонт, пополнение пусков, авиация.
 func (w *World) construction(s int, dtH float64) {
-	sd := w.Sides[s]
-	r := w.cat.Rules
+	w.repairs(s, dtH)
 	for _, b := range w.Buildings {
 		if b.Side != s {
 			continue
@@ -529,18 +539,53 @@ func (w *World) construction(s int, dtH float64) {
 			}
 			continue
 		}
-		if b.Repair && b.HP < b.MaxHP {
-			k := r.RepairPerHour * (1 + sd.eff("repair_speed")) * dtH
-			hp := math.Min(b.MaxHP-b.HP, b.MaxHP*k)
-			cost := repairCost(bt, hp/b.MaxHP, r.RepairCostK)
-			if sd.Res.Covers(cost, 1) {
-				sd.Res.Add(cost, -1)
-				b.HP += hp
-			}
-		}
 		if bt.LaunchRate > 0 {
 			b.Budget = math.Min(w.launchCap(b), b.Budget+bt.LaunchRate*dtH)
 		}
+	}
+}
+
+// repairs — ремонт повреждённых зданий: ограниченное число бригад, у каждого
+// типа свой срок; сначала чинятся менее повреждённые (быстрее вернуть в строй).
+func (w *World) repairs(s int, dtH float64) {
+	sd := w.Sides[s]
+	r := w.cat.Rules
+	var list []*Building
+	for _, b := range w.Buildings {
+		if b.Side != s {
+			continue
+		}
+		b.Repairing = false
+		if b.Built >= 1 && b.Repair && b.HP < b.MaxHP-0.01 {
+			list = append(list, b)
+		}
+	}
+	sort.Slice(list, func(a, c int) bool {
+		fa, fc := list[a].frac(), list[c].frac()
+		if fa != fc {
+			return fa > fc
+		}
+		return list[a].ID < list[c].ID
+	})
+	crews := r.RepairCrews
+	for _, b := range list {
+		if crews == 0 {
+			break
+		}
+		bt := w.cat.BuildingByID[b.Type]
+		rate := b.MaxHP / bt.RepairHrs() * (1 + sd.eff("repair_speed"))
+		if b.frac() < r.DamageFloor {
+			rate *= r.RepairRuinMult
+		}
+		hp := math.Min(b.MaxHP-b.HP, rate*dtH)
+		cost := repairCost(bt, hp/b.MaxHP, r.RepairCostK)
+		if !sd.Res.Covers(cost, 1) {
+			continue
+		}
+		sd.Res.Add(cost, -1)
+		b.HP += hp
+		b.Repairing = true
+		crews--
 	}
 }
 

@@ -1,97 +1,97 @@
 [
-  {"id": "oilfield", "name": "Нефтепромысел", "short": "НП", "hp": 80,
+  {"id": "oilfield", "repair_hours": 36, "name": "Нефтепромысел", "short": "НП", "hp": 80,
    "cost": {"money": 40, "steel": 15}, "build_hours": 24, "power": -10,
    "need_deposit": {"oil": 10}, "export": 6, "buildable": ["ru", "ua"],
    "desc": "Добывает нефть. Нужен НПЗ в радиусе 300 км. Даёт экспортную выручку."},
 
-  {"id": "refinery", "name": "НПЗ", "short": "НПЗ", "hp": 300,
+  {"id": "refinery", "repair_hours": 72, "name": "НПЗ", "short": "НПЗ", "hp": 300,
    "cost": {"money": 120, "steel": 60, "electronics": 10}, "build_hours": 72, "power": -40,
    "need_near": "oilfield", "near_km": 300,
    "produces": {"fuel": 25}, "export": 4, "buildable": ["ru", "ua"],
    "desc": "Перерабатывает нефть в топливо. Работает, только если рядом есть целый нефтепромысел."},
 
-  {"id": "steel_mill", "name": "Металлургический комбинат", "short": "МК", "hp": 300,
+  {"id": "steel_mill", "repair_hours": 96, "name": "Металлургический комбинат", "short": "МК", "hp": 300,
    "cost": {"money": 150, "steel": 40}, "build_hours": 96, "power": -60,
    "need_deposit": {"ore": 350, "coal": 0},
    "produces": {"steel": 12}, "consumes": {"fuel": 1}, "buildable": ["ru", "ua"],
    "desc": "Выпускает сталь. Нужна руда в радиусе 350 км и уголь на своей территории."},
 
-  {"id": "chem_plant", "name": "Химзавод (ВВ и пороха)", "short": "ХЗ", "hp": 150,
+  {"id": "chem_plant", "repair_hours": 60, "name": "Химзавод (ВВ и пороха)", "short": "ХЗ", "hp": 150,
    "cost": {"money": 100, "steel": 30, "electronics": 5}, "build_hours": 72, "power": -30,
    "produces": {"ammo": 14}, "consumes": {"steel": 2, "fuel": 1}, "buildable": ["ru", "ua"],
    "desc": "Выпускает боеприпасы и взрывчатку."},
 
-  {"id": "electronics_plant", "name": "Завод электроники", "short": "ЭЛ", "hp": 100,
+  {"id": "electronics_plant", "repair_hours": 72, "name": "Завод электроники", "short": "ЭЛ", "hp": 100,
    "cost": {"money": 120, "steel": 15}, "build_hours": 72, "power": -20,
    "produces": {"electronics": 3}, "consumes": {"money": 2}, "buildable": ["ru", "ua"],
    "desc": "Небольшой собственный выпуск электроники. Основная часть — импорт."},
 
-  {"id": "missile_plant", "name": "Авиаракетный завод", "short": "АРЗ", "hp": 250,
+  {"id": "missile_plant", "repair_hours": 96, "name": "Авиаракетный завод", "short": "АРЗ", "hp": 250,
    "cost": {"money": 200, "steel": 60, "electronics": 30}, "build_hours": 120, "power": -40,
    "capacity": {"air": 10, "drone": 2}, "buildable": ["ru", "ua"],
    "desc": "Мощность для ракет, крылатых ракет и зенитных ракет."},
 
-  {"id": "drone_workshop", "name": "Цех БПЛА", "short": "ЦБ", "hp": 40,
+  {"id": "drone_workshop", "repair_hours": 10, "name": "Цех БПЛА", "short": "ЦБ", "hp": 40,
    "cost": {"money": 25, "steel": 5, "electronics": 5}, "build_hours": 12, "power": -5,
    "capacity": {"drone": 4}, "buildable": ["ru", "ua"],
    "desc": "Малое рассредоточенное производство дронов. Дёшево, быстро, легко поражается."},
 
-  {"id": "armor_plant", "name": "Бронетанковый завод", "short": "БТЗ", "hp": 250,
+  {"id": "armor_plant", "repair_hours": 96, "name": "Бронетанковый завод", "short": "БТЗ", "hp": 250,
    "cost": {"money": 180, "steel": 80, "electronics": 10}, "build_hours": 120, "power": -40,
    "capacity": {"ground": 12}, "buildable": ["ru", "ua"],
    "desc": "Мощность для бронетехники, артиллерии и мобильных комплексов."},
 
-  {"id": "tpp", "name": "ТЭС", "short": "ТЭС", "hp": 200,
+  {"id": "tpp", "repair_hours": 72, "name": "ТЭС", "short": "ТЭС", "hp": 200,
    "cost": {"money": 150, "steel": 60}, "build_hours": 120, "power": 600, "buildable": ["ru", "ua"],
    "desc": "Тепловая электростанция."},
 
-  {"id": "hpp", "name": "ГЭС", "short": "ГЭС", "hp": 400, "power": 300,
+  {"id": "hpp", "repair_hours": 120, "name": "ГЭС", "short": "ГЭС", "hp": 400, "power": 300,
    "desc": "Гидроэлектростанция и плотина."},
 
-  {"id": "npp", "name": "АЭС", "short": "АЭС", "hp": 1000, "power": 1500, "untargetable": true,
+  {"id": "npp", "repair_hours": 240, "name": "АЭС", "short": "АЭС", "hp": 1000, "power": 1500, "untargetable": true,
    "desc": "Атомная электростанция. Удары по АЭС запрещены."},
 
-  {"id": "substation", "name": "Подстанция 750 кВ", "short": "ПС", "hp": 60,
+  {"id": "substation", "repair_hours": 24, "name": "Подстанция 750 кВ", "short": "ПС", "hp": 60,
    "cost": {"money": 30, "steel": 10, "electronics": 5}, "build_hours": 24, "transfer": 600, "buildable": ["ru", "ua"],
    "desc": "Перетоки энергии между областью и соседями."},
 
-  {"id": "rail_hub", "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "supply": 1.0,
+  {"id": "rail_hub", "repair_hours": 20, "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "supply": 1.0,
    "desc": "Логистический узел направления."},
 
-  {"id": "depot", "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
+  {"id": "depot", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
    "cost": {"money": 30, "steel": 10}, "build_hours": 18, "buildable": ["ru", "ua"],
    "desc": "Полевой склад: добавляет снабжение ближайшему направлению."},
 
-  {"id": "bridge", "name": "Мост", "short": "М", "hp": 300, "supply": 1.0, "bridge": true,
+  {"id": "bridge", "repair_hours": 72, "name": "Мост", "short": "М", "hp": 300, "supply": 1.0, "bridge": true,
    "desc": "Мост на пути снабжения направления."},
 
-  {"id": "airfield", "name": "Аэродром", "short": "АЭР", "hp": 200,
+  {"id": "airfield", "repair_hours": 24, "name": "Аэродром", "short": "АЭР", "hp": 200,
    "aircraft": {"tactical": 20}, "launch": ["tactical", "dronesite"], "launch_rate": 10,
    "desc": "Тактическая авиация: бонус фронту в радиусе 250 км. Площадка для разведывательных БПЛА."},
 
-  {"id": "airbase_strat", "name": "Авиабаза дальней авиации", "short": "ДА", "hp": 250,
+  {"id": "airbase_strat", "repair_hours": 36, "name": "Авиабаза дальней авиации", "short": "ДА", "hp": 250,
    "aircraft": {"strategic": 12}, "launch": ["strategic"], "launch_rate": 30,
    "desc": "Носители крылатых ракет."},
 
-  {"id": "naval_base", "name": "Военно-морская база", "short": "ВМБ", "hp": 300,
+  {"id": "naval_base", "repair_hours": 72, "name": "Военно-морская база", "short": "ВМБ", "hp": 300,
    "launch": ["naval"], "launch_rate": 20,
    "desc": "Корабли и подлодки — носители Калибров."},
 
-  {"id": "oil_port", "name": "Нефтеналивной порт", "short": "ПОРТ", "hp": 200, "oil_port": true,
+  {"id": "oil_port", "repair_hours": 48, "name": "Нефтеналивной порт", "short": "ПОРТ", "hp": 200, "oil_port": true,
    "desc": "Через него идёт нефтяной экспорт. Повреждение снижает всю нефтяную выручку."},
 
-  {"id": "grain_port", "name": "Морской торговый порт", "short": "ПОРТ", "hp": 200, "export": 15,
+  {"id": "grain_port", "repair_hours": 48, "name": "Морской торговый порт", "short": "ПОРТ", "hp": 200, "export": 15,
    "desc": "Экспорт зерна и металла."},
 
-  {"id": "research", "name": "НИИ / КБ", "short": "НИИ", "hp": 80, "research": 2,
+  {"id": "research", "repair_hours": 60, "name": "НИИ / КБ", "short": "НИИ", "hp": 80, "research": 2,
    "cost": {"money": 80, "electronics": 10}, "build_hours": 48, "power": -10, "buildable": ["ru", "ua"],
    "desc": "Ускоряет исследования."},
 
-  {"id": "dronesite", "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
+  {"id": "dronesite", "repair_hours": 6, "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
    "cost": {"money": 15, "steel": 5}, "build_hours": 8, "launch": ["dronesite"], "launch_rate": 20, "buildable": ["ru", "ua"],
    "desc": "Пуск ударных и разведывательных БПЛА."},
 
-  {"id": "decoy", "name": "Макет", "short": "?", "hp": 5, "decoy": true,
+  {"id": "decoy", "repair_hours": 4, "name": "Макет", "short": "?", "hp": 5, "decoy": true,
    "cost": {"money": 5, "steel": 1}, "build_hours": 4, "buildable": ["ru", "ua"],
    "desc": "Ложная цель. Для оптической разведки выглядит как настоящий объект выбранного типа, радарная разведка распознаёт подделку."}
 ]

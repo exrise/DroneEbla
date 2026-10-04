@@ -383,3 +383,60 @@ func TestPeaceNoBlackoutWholeMap(t *testing.T) {
 		}
 	}
 }
+
+func TestDamageEfficiency(t *testing.T) {
+	w := newTestWorld(t)
+	r := w.cat.Rules
+	cases := []struct{ h, min, max float64 }{{1, 1, 1}, {0.9, 0.80, 0.90}, {0.5, 0.25, 0.40}, {0.2, 0.001, 0.06}, {0.1, 0, 0}}
+	for _, c := range cases {
+		e := Efficiency(r, c.h)
+		t.Logf("HP %.0f%% → выпуск %.0f%%", c.h*100, e*100)
+		if e < c.min-1e-9 || e > c.max+1e-9 {
+			t.Fatalf("HP %.2f: выпуск %.3f вне [%.2f, %.2f]", c.h, e, c.min, c.max)
+		}
+	}
+}
+
+func TestRepairTimeAndCrews(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, 5)
+	ref := findBuilding(w, "Кременчугский НПЗ")
+	ref.HP = 0
+	// Ещё 9 повреждённых зданий делят бригады.
+	n := 0
+	var hit []*Building
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b != ref && b.Type != "npp" && n < 9 {
+			b.HP = b.MaxHP * 0.3
+			hit = append(hit, b)
+			n++
+		}
+	}
+	run(w, 60)
+	working := 0
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b.Repairing {
+			working++
+		}
+	}
+	if working != w.cat.Rules.RepairCrews {
+		t.Fatalf("работает бригад %d, ожидалось %d", working, w.cat.Rules.RepairCrews)
+	}
+	run(w, 60*40)
+	t.Logf("НПЗ через 41 ч: %.0f%%", ref.HP/ref.MaxHP*100)
+	if ref.HP/ref.MaxHP > 0.7 {
+		t.Fatal("НПЗ с нуля не должен восстанавливаться за 41 час")
+	}
+	run(w, 60*300)
+	if ref.HP < ref.MaxHP-0.01 {
+		t.Fatalf("НПЗ так и не восстановлен за 340 ч: %.0f%%", ref.HP/ref.MaxHP*100)
+	}
+	for _, b := range hit {
+		if b.Side != data.UA {
+			continue // за 340 часов войны объект могли захватить
+		}
+		if b.HP < b.MaxHP-0.01 {
+			t.Fatalf("%s не восстановлен: %.0f%%", b.Name, b.HP/b.MaxHP*100)
+		}
+	}
+}
