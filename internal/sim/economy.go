@@ -568,9 +568,15 @@ func (w *World) repairs(s int, dtH float64) {
 		return list[a].ID < list[c].ID
 	})
 	crews := r.RepairCrews
+	perType := map[string]int{}
 	for _, b := range list {
 		if crews == 0 {
 			break
+		}
+		// Однотипные здания делят специалистов и оборудование: одновременно
+		// чинится не больше repair_per_type зданий каждого типа.
+		if perType[b.Type] >= r.RepairPerType {
+			continue
 		}
 		bt := w.cat.BuildingByID[b.Type]
 		rate := b.MaxHP / bt.RepairHrs() * (1 + sd.eff("repair_speed"))
@@ -585,6 +591,7 @@ func (w *World) repairs(s int, dtH float64) {
 		sd.Res.Add(cost, -1)
 		b.HP += hp
 		b.Repairing = true
+		perType[b.Type]++
 		crews--
 	}
 }

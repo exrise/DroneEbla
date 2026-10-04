@@ -29,6 +29,7 @@
   "flash_min": 40,
   "repair_cost_k": 0.6,
   "repair_crews": 6,
+  "repair_per_type": 2,
   "repair_ruin_mult": 0.5,
   "damage_floor": 0.15,
   "damage_curve": 1.3,

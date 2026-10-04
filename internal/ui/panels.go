@@ -371,8 +371,8 @@ func (g *Game) tabArsenal(x, y, w int) int {
 		if n <= 0 && !v.Unlocked[m.ID] {
 			continue
 		}
-		y = g.kv(m.Name, fmt.Sprintf("%.0f", n), x, y, w, colText)
-		g.ui.Tooltip(x, y-19, w, 19, g.itemDesc(m.ID))
+		y = g.clickRow(m.Name, fmt.Sprintf("%.0f", n), x, y, w, colText, "mun:"+m.ID, func() []cand { return g.munitionSources(m.ID) })
+		g.ui.Tooltip(x, y-19, w, 19, g.itemDesc(m.ID)+"\nКлик — выбрать следующий источник пуска, готовый к залпу.")
 	}
 	y += 8
 	y = g.header("Зенитные ракеты", x, y)
@@ -385,7 +385,7 @@ func (g *Game) tabArsenal(x, y, w int) int {
 		if n < 20 {
 			c = colBad
 		}
-		y = g.kv(m.Name, fmt.Sprintf("%.0f", n), x, y, w, c)
+		y = g.clickRow(m.Name, fmt.Sprintf("%.0f", n), x, y, w, c, "int:"+m.ID, func() []cand { return g.interceptorUnits(m.ID) })
 	}
 	y += 8
 	y = g.header("Авиация", x, y)
@@ -394,8 +394,8 @@ func (g *Game) tabArsenal(x, y, w int) int {
 		tac += b.Aircraft["tactical"]
 		str += b.Aircraft["strategic"]
 	}
-	y = g.kv("Тактическая авиация", fmt.Sprintf("%.0f", tac), x, y, w, colText)
-	y = g.kv("Дальняя авиация", fmt.Sprintf("%.0f", str), x, y, w, colText)
+	y = g.clickRow("Тактическая авиация", fmt.Sprintf("%.0f", tac), x, y, w, colText, "air:tactical", func() []cand { return g.airfields("tactical") })
+	y = g.clickRow("Дальняя авиация", fmt.Sprintf("%.0f", str), x, y, w, colText, "air:strategic", func() []cand { return g.airfields("strategic") })
 	y += 8
 	y = g.header("Мобильные комплексы", x, y)
 	count := map[string]int{}
@@ -408,9 +408,131 @@ func (g *Game) tabArsenal(x, y, w int) int {
 	}
 	sort.Strings(ids)
 	for _, id := range ids {
-		y = g.kv(g.uName(id), fmt.Sprintf("%d", count[id]), x, y, w, colText)
+		y = g.clickRow(g.uName(id), fmt.Sprintf("%d", count[id]), x, y, w, colText, "unit:"+id, func() []cand { return g.unitsOfType(id) })
 	}
 	return y
+}
+
+// cand — кандидат для выбора по клику в арсенале.
+type cand struct {
+	sel  Selection
+	x, y float64
+}
+
+// clickRow — строка арсенала: клик выбирает следующий юнит или источник пуска
+// из списка (ближайший к центру экрана из ещё не показанных).
+func (g *Game) clickRow(k, val string, x, y, w int, c color.Color, key string, list func() []cand) int {
+	u := &g.ui
+	if u.mouseIn(x-2, y-2, w+4, 20) {
+		fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), 20, colButtonHi)
+	}
+	if u.clicked(x-2, y-2, w+4, 20) {
+		g.cycleSelect(key, list())
+	}
+	return g.kv(k, val, x, y, w, c)
+}
+
+// cycleSelect выбирает следующего кандидата и наводит на него камеру.
+func (g *Game) cycleSelect(key string, cs []cand) {
+	if len(cs) == 0 {
+		g.toast("Нет подходящих юнитов или источников пуска, готовых к действию")
+		return
+	}
+	if g.cycleSeen == nil {
+		g.cycleSeen = map[string]map[uint32]bool{}
+	}
+	seen := g.cycleSeen[key]
+	if seen == nil {
+		seen = map[uint32]bool{}
+		g.cycleSeen[key] = seen
+	}
+	cx, cy := g.cam.ToWorld(float64(g.cam.X+g.cam.W/2), float64(g.cam.Y+g.cam.H/2))
+	pick := func() int {
+		best, bd := -1, math.Inf(1)
+		for i, c := range cs {
+			if seen[c.sel.ID] {
+				continue
+			}
+			if d := math.Hypot(c.x-cx, c.y-cy); d < bd {
+				best, bd = i, d
+			}
+		}
+		return best
+	}
+	i := pick()
+	if i < 0 { // показаны все — начинаем новый круг
+		for k := range seen {
+			delete(seen, k)
+		}
+		i = pick()
+	}
+	seen[cs[i].sel.ID] = true
+	g.sel = cs[i].sel
+	g.centerOn(cs[i].x, cs[i].y)
+}
+
+func (g *Game) unitsOfType(id string) []cand {
+	var out []cand
+	for _, un := range g.view.Units {
+		if un.Type == id {
+			out = append(out, cand{Selection{Kind: "unit", ID: un.ID}, un.X, un.Y})
+		}
+	}
+	return out
+}
+
+func (g *Game) interceptorUnits(id string) []cand {
+	var out []cand
+	for _, un := range g.view.Units {
+		if g.cat.UnitByID[un.Type].Interceptor == id {
+			out = append(out, cand{Selection{Kind: "unit", ID: un.ID}, un.X, un.Y})
+		}
+	}
+	return out
+}
+
+func (g *Game) airfields(kind string) []cand {
+	var out []cand
+	for _, b := range g.view.Buildings {
+		if b.Aircraft[kind] >= 1 && b.Operational() {
+			out = append(out, cand{Selection{Kind: "building", ID: b.ID}, b.X, b.Y})
+		}
+	}
+	return out
+}
+
+// munitionSources — источники пуска боеприпаса, у которых сейчас есть запас
+// и готовность к залпу.
+func (g *Game) munitionSources(id string) []cand {
+	v := g.view
+	m := g.cat.MunitionByID[id]
+	if v.Stocks[id] < 1 {
+		return nil
+	}
+	var out []cand
+	for _, un := range v.Units {
+		ut := g.cat.UnitByID[un.Type]
+		if un.State != sim.UnitDeployed || un.Reload > 0 {
+			continue
+		}
+		for _, mid := range ut.Munitions {
+			if mid == id {
+				out = append(out, cand{Selection{Kind: "unit", ID: un.ID}, un.X, un.Y})
+			}
+		}
+	}
+	for _, b := range v.Buildings {
+		if !b.Operational() || b.Budget < 1 {
+			continue
+		}
+		for _, p := range g.cat.BuildingByID[b.Type].Launch {
+			if p == m.Platform {
+				out = append(out, cand{Selection{Kind: "building", ID: b.ID}, b.X, b.Y})
+				break
+			}
+		}
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------

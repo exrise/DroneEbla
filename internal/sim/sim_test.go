@@ -419,8 +419,8 @@ func TestRepairTimeAndCrews(t *testing.T) {
 			working++
 		}
 	}
-	if working != w.cat.Rules.RepairCrews {
-		t.Fatalf("работает бригад %d, ожидалось %d", working, w.cat.Rules.RepairCrews)
+	if working > w.cat.Rules.RepairCrews || working < 3 {
+		t.Fatalf("работает бригад %d, лимит %d", working, w.cat.Rules.RepairCrews)
 	}
 	run(w, 60*40)
 	t.Logf("НПЗ через 41 ч: %.0f%%", ref.HP/ref.MaxHP*100)
@@ -438,5 +438,30 @@ func TestRepairTimeAndCrews(t *testing.T) {
 		if b.HP < b.MaxHP-0.01 {
 			t.Fatalf("%s не восстановлен: %.0f%%", b.Name, b.HP/b.MaxHP*100)
 		}
+	}
+}
+
+func TestRepairPerTypeLimit(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, 5)
+	n := 0
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b.Type == "tpp" {
+			b.HP = b.MaxHP * 0.2
+			n++
+		}
+	}
+	if n < 4 {
+		t.Fatalf("мало ТЭС для проверки: %d", n)
+	}
+	run(w, 30)
+	working := 0
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b.Type == "tpp" && b.Repairing {
+			working++
+		}
+	}
+	if working != w.cat.Rules.RepairPerType {
+		t.Fatalf("ТЭС чинится одновременно %d, лимит на тип %d", working, w.cat.Rules.RepairPerType)
 	}
 }

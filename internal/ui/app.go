@@ -87,6 +87,7 @@ type Game struct {
 	lastW, lastH int
 	auto         *autoShot
 	notices      []string
+	cycleSeen    map[string]map[uint32]bool
 	labels       []image.Rectangle
 }
 

@@ -318,6 +318,7 @@ type Rules struct {
 	RepairPerHour    float64            `json:"repair_per_hour"` // доля HP в час
 	RepairCostK      float64            `json:"repair_cost_k"`
 	RepairCrews      int                `json:"repair_crews"`     // зданий, которые сторона чинит одновременно
+	RepairPerType    int                `json:"repair_per_type"`  // зданий одного типа, которые чинятся одновременно
 	RepairRuinMult   float64            `json:"repair_ruin_mult"` // скорость ремонта почти разрушенного здания
 	DamageFloor      float64            `json:"damage_floor"`     // ниже этой доли HP здание не производит
 	DamageCurve      float64            `json:"damage_curve"`     // выпуск = ((hp−порог)/(1−порог))^кривая

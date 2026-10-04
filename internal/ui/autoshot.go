@@ -161,6 +161,16 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 0.8
 	case 190:
 		g.save(screen, "62_zoom08")
+		g.sess.SetSide(1)
+		g.view = nil
+	case 200:
+		g.tab = 2
+		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))
+	case 215:
+		g.save(screen, "70_arsenal_click1")
+		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))
+	case 230:
+		g.save(screen, "71_arsenal_click2")
 		os.Exit(0)
 	}
 	a.step++

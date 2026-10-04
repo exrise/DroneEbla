@@ -67,6 +67,9 @@ func Load(override string) (*Catalog, error) {
 	if r.RepairCrews <= 0 {
 		r.RepairCrews = 6
 	}
+	if r.RepairPerType <= 0 {
+		r.RepairPerType = 2
+	}
 	if r.RepairRuinMult <= 0 {
 		r.RepairRuinMult = 0.5
 	}
