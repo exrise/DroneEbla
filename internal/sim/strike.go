@@ -332,6 +332,13 @@ func (w *World) impact(p *Projectile, m *data.MunitionType) {
 		hit = true
 		before := b.HP
 		b.HP = math.Max(0, b.HP-m.Damage)
+		// Вывод из строя ключевого объекта поднимает мораль атакующего и
+		// бьёт по морали владельца.
+		if bt.Key && before > b.MaxHP*0.1 && b.HP <= b.MaxHP*0.1 {
+			r := w.cat.Rules
+			w.Sides[p.Side].Morale = clamp(w.Sides[p.Side].Morale+r.MoraleKeyHit, 0, 100)
+			w.Sides[b.Side].Morale = clamp(w.Sides[b.Side].Morale-r.MoraleKeyLoss, 0, 100)
+		}
 		if bt.Aircraft != nil && b.Aircraft != nil {
 			for k, n := range b.Aircraft {
 				b.Aircraft[k] = math.Max(0, n-n*m.Damage/b.MaxHP*0.6)
@@ -376,6 +383,12 @@ func (w *World) groupDone(id uint32, arrived bool) {
 		return
 	}
 	delete(w.Groups, id)
+	if r := w.cat.Rules; g.Arrived == 0 && g.Total >= r.MoraleRepelMin {
+		// Полностью отбитый массированный удар поднимает мораль обороны.
+		w.Sides[1-g.Side].Morale = clamp(w.Sides[1-g.Side].Morale+r.MoraleRepel, 0, 100)
+		w.Sides[g.Side].Morale = clamp(w.Sides[g.Side].Morale-r.MoraleRepel/2, 0, 100)
+		w.Log(1-g.Side, 1, "Массированный удар полностью отбит: мораль растёт")
+	}
 	name := w.cat.MunitionByID[g.Munition].Name
 	lvl := 0
 	if g.Arrived == 0 {

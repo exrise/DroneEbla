@@ -74,6 +74,7 @@ type View struct {
 	AidDone     map[string]bool
 	MobUsed     map[string]int
 	MobReady    map[string]float64
+	PropReady   float64
 	RegionPower map[int]float64
 
 	Buildings []Building
@@ -109,7 +110,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		ResRate: sd.ResRate, ResFund: sd.ResFund, AgentFund: sd.AgentFund,
 		Effects: copyMap(sd.Effects), Deliveries: append([]Delivery{}, sd.Deliveries...),
 		ImportCount: copyInt(sd.ImportCount), AidDone: copyBool(sd.AidDone),
-		MobUsed: copyInt(sd.MobUsed), MobReady: copyMap(sd.MobReady),
+		MobUsed: copyInt(sd.MobUsed), MobReady: copyMap(sd.MobReady), PropReady: sd.PropReady,
 		RegionPower: map[int]float64{},
 	}
 	for k, x := range sd.RegionPower {

@@ -788,7 +788,7 @@ func (g *Game) drawTopBar() {
 	mc := colorForFrac(v.Morale / 100)
 	drawText(u.screen, "Мораль", x, 6, 12, colDim, 0)
 	drawBold(u.screen, fmt.Sprintf("%.0f", v.Morale), x, 22, 16, mc, 0)
-	u.Tooltip(int(x), 0, 70, topH, "Воля к сопротивлению. При нуле — поражение. Падает от потерь, блэкаутов, потери городов и мобилизации.")
+	u.Tooltip(int(x), 0, 70, topH, g.moraleEffects()+"\nПадает от потерь, блэкаутов, потери городов, мобилизации; растёт от помощи, взятия городов, поражения ключевых объектов врага и пропаганды.")
 	x += 72
 	drawText(u.screen, "Резерв", x, 6, 12, colDim, 0)
 	drawBold(u.screen, fmt.Sprintf("%.0fk", v.People), x, 22, 16, colText, 0)
@@ -943,4 +943,12 @@ func (g *Game) mapLabel(dst *ebiten.Image, text string, x, y float64, col color.
 	}
 	g.labels = append(g.labels, r)
 	drawTextHalo(dst, text, x, y, 11, col, color.RGBA{240, 236, 222, 210}, 1)
+}
+
+// moraleEffects — текущее влияние морали на игру (для подсказки и панели).
+func (g *Game) moraleEffects() string {
+	r := g.cat.Rules
+	m := g.view.Morale
+	return fmt.Sprintf("Мораль %.0f. Сила фронта ×%.2f, потери ×%.2f, выпуск и налоги ×%.2f, приток людей ×%.2f.",
+		m, sim.MoraleFront(r, m), sim.MoraleLosses(r, m), sim.MoraleProd(r, m), sim.MoraleLevy(r, m))
 }

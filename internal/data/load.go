@@ -67,6 +67,15 @@ func Load(override string) (*Catalog, error) {
 	if r.RepairCrews <= 0 {
 		r.RepairCrews = 6
 	}
+	if r.MoraleGood <= 0 {
+		r.MoraleGood = 70
+		r.MoraleBad = 30
+		r.MoraleFrontHigh, r.MoraleFrontLow, r.MoraleLossMax = 1.10, 0.60, 1.5
+		r.MoraleProdHigh, r.MoraleProdLow = 1.05, 0.70
+		r.MoraleLevyHigh, r.MoraleLevyLow, r.MoraleMobPenalty = 1.20, 0.50, 2.0
+		r.PropagandaCost, r.PropagandaGain, r.PropagandaCooldownH = 100, 10, 6
+		r.MoraleKeyHit, r.MoraleKeyLoss, r.MoraleRepel, r.MoraleRepelMin = 1.5, 1.0, 2.0, 10
+	}
 	if r.StrikeDroneVisionKm <= 0 {
 		r.StrikeDroneVisionKm = 5
 	}

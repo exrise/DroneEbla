@@ -45,6 +45,7 @@ const (
 	CmdPosture    = "posture"
 	CmdMainEffort = "main_effort"
 	CmdSurrender  = "surrender"
+	CmdPropaganda = "propaganda"
 )
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
@@ -184,6 +185,8 @@ func (w *World) Apply(c Command) string {
 		} else {
 			sd.HasMain, sd.MainX, sd.MainY = true, c.X, c.Y
 		}
+	case CmdPropaganda:
+		return w.propaganda(s)
 	case CmdSurrender:
 		w.Winner = 1 - s
 		w.WinReason = data.SideNames[s] + " капитулировала"
@@ -329,11 +332,37 @@ func (w *World) mobilize(s int, id string) string {
 		sd.People -= mb.Men
 		sd.MobUsed[mb.ID]++
 		sd.MobReady[mb.ID] = w.Time + mb.CooldownH*60
-		sd.Morale = clamp(sd.Morale+mb.Morale, 0, 100)
+		r := w.cat.Rules
+		// Чем ниже мораль, тем сильнее удар по ней и больше уклонистов.
+		pen := mb.Morale
+		if pen < 0 {
+			pen *= lerp(r.MoraleMobPenalty, 1, sd.Morale/100)
+		}
+		men := mb.Men * MoraleLevy(r, sd.Morale)
+		sd.Morale = clamp(sd.Morale+pen, 0, 100)
 		sd.LaborLoss = math.Min(0.5, sd.LaborLoss+mb.Labor)
-		w.distributeFront(s, "men", mb.Men)
-		w.Log(s, 1, fmt.Sprintf("%s: +%.0f тыс. человек на фронт", mb.Name, mb.Men))
+		w.distributeFront(s, "men", men)
+		w.Log(s, 1, fmt.Sprintf("%s: +%.0f тыс. человек на фронт (призвано %.0f тыс.)", mb.Name, men, mb.Men))
 		return ""
 	}
 	return "Нет такого варианта"
+}
+
+// propaganda — информационная кампания: деньги в обмен на мораль.
+func (w *World) propaganda(s int) string {
+	sd := w.Sides[s]
+	r := w.cat.Rules
+	if sd.PropReady > w.Time {
+		return "Кампания будет доступна через " + fmtHours((sd.PropReady-w.Time)/60)
+	}
+	cost := PropagandaCost(r, sd.Morale)
+	if sd.Res[data.ResMoney] < cost {
+		return fmt.Sprintf("Нужно %.0f денег", cost)
+	}
+	gain := PropagandaGain(r, sd.Morale)
+	sd.Res[data.ResMoney] -= cost
+	sd.Morale = clamp(sd.Morale+gain, 0, 100)
+	sd.PropReady = w.Time + r.PropagandaCooldownH*60
+	w.Log(s, 0, fmt.Sprintf("Информационная кампания: мораль +%.1f", gain))
+	return ""
 }

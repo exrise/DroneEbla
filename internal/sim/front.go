@@ -150,7 +150,7 @@ func (w *World) front(dtMin float64) {
 			} else {
 				f.Air = 1
 			}
-			mor := 0.5 + sd.Morale/100
+			mor := MoraleFront(r, sd.Morale)
 			f.Power = w.dirPower(s, d) * f.Supply * mor * f.Air
 			if cnt[d] > 0 {
 				dens[s][d] = f.Power / float64(cnt[d])
@@ -235,7 +235,7 @@ func (w *World) front(dtMin float64) {
 			if f.Power > 0 {
 				ratio = clamp(ep/f.Power, 0.2, 5)
 			}
-			k := r.FrontLoss * ratio * step / r.FrontStepMin
+			k := r.FrontLoss * ratio * step / r.FrontStepMin * MoraleLosses(r, sd.Morale)
 			if sd.Posture == PostureOffense {
 				k *= 1.6
 			} else if sd.Posture == PostureDefense {

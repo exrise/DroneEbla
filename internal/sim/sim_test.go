@@ -2,6 +2,7 @@ package sim
 
 import (
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -399,18 +400,24 @@ func TestDamageEfficiency(t *testing.T) {
 
 func TestRepairTimeAndCrews(t *testing.T) {
 	w := newTestWorld(t)
+	w.Sides[data.RU].Posture = PostureDefense // фронт не должен менять владельцев объектов
+	w.Sides[data.UA].Posture = PostureDefense
 	run(w, 5)
 	ref := findBuilding(w, "Кременчугский НПЗ")
 	ref.HP = 0
-	// Ещё 9 повреждённых зданий делят бригады.
-	n := 0
-	var hit []*Building
-	for _, b := range w.Buildings {
-		if b.Side == data.UA && b != ref && b.Type != "npp" && n < 9 {
-			b.HP = b.MaxHP * 0.3
-			hit = append(hit, b)
-			n++
+	// Ещё 9 повреждённых зданий (по порядку номеров) делят бригады.
+	var ids []uint32
+	for id, b := range w.Buildings {
+		if b.Side == data.UA && b != ref && b.Type != "npp" {
+			ids = append(ids, id)
 		}
+	}
+	sort.Slice(ids, func(a, b int) bool { return ids[a] < ids[b] })
+	var hit []*Building
+	for _, id := range ids[:9] {
+		b := w.Buildings[id]
+		b.HP = b.MaxHP * 0.3
+		hit = append(hit, b)
 	}
 	run(w, 60)
 	working := 0
@@ -497,5 +504,66 @@ func TestStrikeDroneRecon(t *testing.T) {
 	t.Logf("замечено дронами: без исследования %d, с исследованием %d", without, with)
 	if without != 0 || with == 0 {
 		t.Fatal("ударные дроны должны разведывать только после исследования")
+	}
+}
+
+func TestMoraleEffects(t *testing.T) {
+	w := newTestWorld(t)
+	r := w.cat.Rules
+	if MoraleFront(r, 100) <= MoraleFront(r, 50) || MoraleFront(r, 0) >= 0.7 || MoraleProd(r, 0) > 0.71 || MoraleLosses(r, 0) < 1.4 {
+		t.Fatalf("кривые морали неверны: фронт %.2f/%.2f/%.2f", MoraleFront(r, 100), MoraleFront(r, 50), MoraleFront(r, 0))
+	}
+	// Нулевая мораль сама по себе не заканчивает игру.
+	run(w, w.PrepEnd+1)
+	w.Sides[data.UA].Morale = 0
+	run(w, 120)
+	if w.Winner >= 0 {
+		t.Fatalf("партия закончилась из-за морали: %s", w.WinReason)
+	}
+	// Но производство падает.
+	w2 := newTestWorld(t)
+	run(w2, 120)
+	low := newTestWorld(t)
+	low.Sides[data.UA].Morale = 0
+	low.Sides[data.RU].Morale = 100
+	run(low, 120)
+	if low.Sides[data.UA].Income >= w2.Sides[data.UA].Income*0.85 {
+		t.Fatalf("налоги при морали 0 не упали: %.0f против %.0f", low.Sides[data.UA].Income, w2.Sides[data.UA].Income)
+	}
+}
+
+func TestPropagandaAndKeyHit(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	ua.Morale = 40
+	before, money := ua.Morale, ua.Res[data.ResMoney]
+	if e := w.Apply(Command{Kind: CmdPropaganda, Side: data.UA}); e != "" {
+		t.Fatal(e)
+	}
+	if ua.Morale <= before || ua.Res[data.ResMoney] >= money {
+		t.Fatal("кампания не подняла мораль или не стоила денег")
+	}
+	if e := w.Apply(Command{Kind: CmdPropaganda, Side: data.UA}); e == "" {
+		t.Fatal("повторная кампания должна быть на перезарядке")
+	}
+	// Вывод из строя ключевого объекта: мораль атакующего растёт, владельца падает.
+	ru := w.Sides[data.RU]
+	ru.Morale, ua.Morale = 50, 50
+	tpp := findBuilding(w, "Трипольская ТЭС")
+	tpp.HP = tpp.MaxHP * 0.12
+	w.Strike(data.RU, StrikePlan{Source: findBuilding(w, "Севастополь — база ЧФ").ID, Munition: "kalibr", Count: 1, Target: Pt{tpp.X, tpp.Y}})
+	for i := 0; i < 200 && len(w.Projs) > 0; i++ {
+		w.Step(1)
+		ua.Stocks["m_5v55"], ua.Stocks["m_9m38"] = 0, 0 // ПВО без ракет, чтобы дошло
+		for _, u := range w.Units {
+			u.Ready = 0
+		}
+	}
+	if tpp.HP > tpp.MaxHP*0.1 {
+		t.Skip("ракета не попала (вероятностный тест)")
+	}
+	if ru.Morale <= 50 || ua.Morale >= 50 {
+		t.Fatalf("мораль после поражения ключевого объекта: РФ %.1f, Украина %.1f", ru.Morale, ua.Morale)
 	}
 }

@@ -200,6 +200,7 @@ type Side struct {
 	AidDone     map[string]bool
 	MobUsed     map[string]int
 	MobReady    map[string]float64
+	PropReady   float64 // время, с которого доступна следующая кампания
 	Known       map[uint32]*Contact
 	SeenAt      []float32 // время последнего наблюдения тайла
 	Events      []Event

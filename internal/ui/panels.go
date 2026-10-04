@@ -154,6 +154,24 @@ func (g *Game) tabFront(x, y, w int) int {
 		y = g.kv("За прошлый час", fmt.Sprintf("+%d / −%d км²", f.GainedH*25, f.LostH*25), x, y, w, rc)
 		y += 14
 	}
+	y = g.header("Мораль", x, y)
+	y = g.para(g.moraleEffects(), x, y, w, colDim)
+	{
+		r := g.cat.Rules
+		cost := sim.PropagandaCost(r, v.Morale)
+		gain := sim.PropagandaGain(r, v.Morale)
+		wait := v.PropReady - v.Time
+		lbl := fmt.Sprintf("Информационная кампания: +%.1f за %.0f", gain, cost)
+		ok := wait <= 0 && v.Res[data.ResMoney] >= cost
+		if wait > 0 {
+			lbl = "Кампания доступна через " + fmtMin(wait)
+		}
+		if u.ButtonState(x, y, w, 26, lbl, false, ok) {
+			g.sess.Send(sim.Command{Kind: sim.CmdPropaganda})
+		}
+		u.Tooltip(x, y, w, 26, fmt.Sprintf("Деньги в обмен на мораль. Цена растёт с моралью, прирост убывает; перезарядка %.0f ч.", r.PropagandaCooldownH))
+		y += 34
+	}
 	y = g.header("Пополнение людьми", x, y)
 	y = g.label(fmt.Sprintf("Мобилизационный резерв: %.0f тыс.", v.People), x, y, colText)
 	for _, mb := range g.cat.Sides[v.Side].Mobilization {

@@ -188,7 +188,7 @@ func (w *World) output(b *Building) float64 {
 		return 0
 	}
 	sd := w.Sides[b.Side]
-	return Efficiency(w.cat.Rules, b.frac()) * w.powerFactor(b) * w.requirementFactor(b) * (1 - sd.LaborLoss)
+	return Efficiency(w.cat.Rules, b.frac()) * MoraleProd(w.cat.Rules, sd.Morale) * w.powerFactor(b) * w.requirementFactor(b) * (1 - sd.LaborLoss)
 }
 
 // Efficiency — какая доля производительности остаётся у здания с долей HP h.
@@ -229,7 +229,7 @@ func (w *World) economy(dtH float64) {
 					pf = 0.5 + 0.5*f
 				}
 			}
-			income += float64(c.Pop) / 100000 * def.TaxPerCity * pf
+			income += float64(c.Pop) / 100000 * def.TaxPerCity * pf * MoraleProd(r, sd.Morale)
 		}
 		oil, grain := 0.0, 0.0
 		portSum, portN := 0.0, 0
@@ -312,7 +312,8 @@ func (w *World) economy(dtH float64) {
 		if w.War() && sd.People > 0 {
 			men := math.Min(def.MenStream*dtH, sd.People)
 			sd.People -= men
-			w.distributeFront(s, "men", men)
+			// При низкой морали часть призванных не доходит до фронта.
+			w.distributeFront(s, "men", men*MoraleLevy(r, sd.Morale))
 		}
 
 		w.production(s, dtH)

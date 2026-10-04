@@ -97,13 +97,6 @@ func (w *World) checkVictory() {
 	if w.Winner >= 0 || !w.War() {
 		return
 	}
-	for s := 0; s < 2; s++ {
-		if w.Sides[s].Morale <= 0 {
-			w.Winner = 1 - s
-			w.WinReason = data.SideNames[s] + ": воля к сопротивлению исчерпана, экономический и моральный коллапс"
-			return
-		}
-	}
 	if w.kyiv >= 0 && w.OwnerSide(w.kyiv) == data.RU {
 		w.Winner = data.RU
 		w.WinReason = "Киев взят"
