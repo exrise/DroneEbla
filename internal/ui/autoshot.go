@@ -1,0 +1,125 @@
+package ui
+
+import (
+	"fmt"
+	"image"
+	"image/png"
+	"os"
+	"path/filepath"
+
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"github.com/exrise/droneebla/internal/netplay"
+	"github.com/exrise/droneebla/internal/sim"
+)
+
+// Отладка: DRONEEBLA_SHOT=<папка> — игра сама запускает песочницу,
+// делает снимки экрана и выходит. Нужна для проверки интерфейса без монитора.
+
+type autoShot struct {
+	dir   string
+	frame int
+	step  int
+}
+
+func (g *Game) initAutoShot() {
+	if d := os.Getenv("DRONEEBLA_SHOT"); d != "" {
+		os.MkdirAll(d, 0o755)
+		g.auto = &autoShot{dir: d}
+	}
+}
+
+func (g *Game) save(screen *ebiten.Image, name string) {
+	b := screen.Bounds()
+	img := image.NewRGBA(b)
+	screen.ReadPixels(img.Pix)
+	f, err := os.Create(filepath.Join(g.auto.dir, name+".png"))
+	if err != nil {
+		return
+	}
+	png.Encode(f, img)
+	f.Close()
+}
+
+// autoShotStep вызывается в конце Draw.
+func (g *Game) autoShotStep(screen *ebiten.Image) {
+	a := g.auto
+	a.frame++
+	if a.frame < 10 {
+		return
+	}
+	switch a.step {
+	case 0:
+		g.save(screen, "00_menu")
+		g.menuSide = 0
+		w := sim.New(g.cat, g.m, true)
+		g.startGame(netplay.NewSandbox(w, 0))
+	case 3:
+		g.save(screen, "01_start")
+		h := g.sess.(*netplay.Host)
+		h.Advance(g.cat.Rules.PrepMinutes+30, func(w *sim.World) {
+			w.Apply(sim.Command{Kind: sim.CmdResearch, Side: 0, Item: "ru_geran2"})
+			w.Apply(sim.Command{Kind: sim.CmdOrderAdd, Side: 0, Item: "kalibr", Count: 10})
+			w.Apply(sim.Command{Kind: sim.CmdOrderAdd, Side: 0, Item: "armor", Count: 0})
+		})
+		// Удар Калибрами по Киеву.
+		h.Advance(1, func(w *sim.World) {
+			var src, tgt *sim.Building
+			for _, b := range w.Buildings {
+				if b.Name == "Севастополь — база ЧФ" {
+					src = b
+				}
+				if b.Name == "Трипольская ТЭС" {
+					tgt = b
+				}
+			}
+			mx, my := w.Map().Project(30.0, 47.5)
+			e := w.Apply(sim.Command{Kind: sim.CmdStrike, Side: 0, ID: src.ID, Item: "kalibr", Count: 12, Pts: []sim.Pt{{X: mx, Y: my}}, X: tgt.X, Y: tgt.Y})
+			if e != "" {
+				fmt.Println("strike:", e)
+			}
+			w.Apply(sim.Command{Kind: sim.CmdPosture, Side: 0, Int: sim.PostureOffense})
+			ex, ey := w.Map().Project(37.75, 48.14)
+			w.Apply(sim.Command{Kind: sim.CmdMainEffort, Side: 0, Int: 1, X: ex, Y: ey})
+		})
+		h.Advance(25, nil)
+		g.layers["sats"] = true
+	case 6:
+		g.save(screen, "02_war")
+		x, y := g.m.Project(31.5, 48.0)
+		g.cam.CX, g.cam.CY, g.cam.Z = x, y, 1.3
+	case 9:
+		g.save(screen, "03_zoom_strike")
+	case 10, 11, 12, 13, 14, 15, 16, 17, 18:
+		if a.step > 10 {
+			g.save(screen, fmt.Sprintf("1%d_tab", a.step-11))
+		}
+		g.tab = (a.step - 10) % 8
+	case 19:
+		// Выбор ПВО и планирование удара.
+		for _, u := range g.view.Units {
+			if u.Type == "iskander" {
+				g.sel = Selection{Kind: "unit", ID: u.ID}
+				g.centerOn(u.X, u.Y)
+				break
+			}
+		}
+	case 20:
+		g.save(screen, "20_unit")
+		g.mode = modeStrike
+		g.strike = strikePlan{Source: g.sel.ID, Munition: "iskander_m", Count: 2}
+		x, y := g.m.Project(36.25, 49.99)
+		g.strike.Pts = []sim.Pt{{X: x, Y: y}}
+		g.cam.Z = 1.0
+	case 22:
+		g.save(screen, "21_strike_plan")
+		g.mode = modeNone
+		g.sess.SetSide(1)
+		g.view = nil
+		g.evSeen = 0
+	case 26:
+		g.save(screen, "30_ukraine")
+		os.Exit(0)
+	}
+	a.step++
+}

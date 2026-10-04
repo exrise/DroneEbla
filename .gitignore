@@ -1,0 +1,6 @@
+# сборки и рабочие файлы
+/droneebla
+*.log
+/saves/
+/data/
+/dist/

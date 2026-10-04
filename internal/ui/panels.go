@@ -1,0 +1,703 @@
+package ui
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"math"
+	"sort"
+
+	"github.com/exrise/droneebla/internal/data"
+	"github.com/exrise/droneebla/internal/sim"
+)
+
+var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "Стройка", "Наука", "Импорт", "Разведка", "Журнал"}
+
+func (g *Game) drawLeftPanel() {
+	u := &g.ui
+	u.Panel(0, topH, leftW, u.H-topH)
+	tw := (leftW - 12) / 4
+	for i, name := range tabNames {
+		x := 6 + (i%4)*tw
+		y := topH + 6 + (i/4)*28
+		if u.ButtonState(x, y, tw-4, 24, name, g.tab == i, true) {
+			g.tab = i
+		}
+	}
+	top := topH + 6 + 2*28 + 4
+	area := image.Rect(0, top, leftW, u.H)
+	key := tabNames[g.tab]
+	sc := g.scroll[key]
+	if image.Pt(u.in.mx, u.in.my).In(area) && u.in.wheel != 0 {
+		sc -= u.in.wheel * 40
+		u.in.wheel = 0
+	}
+	if sc < 0 {
+		sc = 0
+	}
+	old := u.screen
+	u.screen = u.sub(area.Min.X, area.Min.Y, area.Dx(), area.Dy())
+	u.clip = area
+	y0 := float64(top+8) - sc
+	var bottom int
+	x, w := 12, leftW-24
+	switch g.tab {
+	case 0:
+		bottom = g.tabFront(x, int(y0), w)
+	case 1:
+		bottom = g.tabOrders(x, int(y0), w)
+	case 2:
+		bottom = g.tabArsenal(x, int(y0), w)
+	case 3:
+		bottom = g.tabBuild(x, int(y0), w)
+	case 4:
+		bottom = g.tabScience(x, int(y0), w)
+	case 5:
+		bottom = g.tabImport(x, int(y0), w)
+	case 6:
+		bottom = g.tabIntel(x, int(y0), w)
+	case 7:
+		bottom = g.tabLog(x, int(y0), w)
+	}
+	u.screen = old
+	u.clip = image.Rectangle{}
+	content := float64(bottom) + sc - float64(top+8)
+	maxSc := math.Max(0, content-float64(area.Dy())+30)
+	g.scroll[key] = math.Min(sc, maxSc)
+}
+
+func (g *Game) header(s string, x, y int) int {
+	drawBold(g.ui.screen, s, float64(x), float64(y), 16, colAccent, 0)
+	return y + 26
+}
+
+func (g *Game) label(s string, x, y int, c color.Color) int {
+	drawText(g.ui.screen, s, float64(x), float64(y), 14, c, 0)
+	return y + 20
+}
+
+func (g *Game) para(s string, x, y, w int, c color.Color) int {
+	for _, l := range wrap(s, 13, float64(w)) {
+		drawText(g.ui.screen, l, float64(x), float64(y), 13, c, 0)
+		y += 17
+	}
+	return y
+}
+
+func (g *Game) kv(k, v string, x, y, w int, c color.Color) int {
+	drawText(g.ui.screen, k, float64(x), float64(y), 14, colDim, 0)
+	drawText(g.ui.screen, v, float64(x+w), float64(y), 14, c, 2)
+	return y + 19
+}
+
+func (g *Game) centerOn(x, y float64) {
+	g.cam.CX, g.cam.CY = x, y
+	if g.cam.Z < 1.5 {
+		g.cam.Z = 1.5
+	}
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabFront(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Позиция фронта", x, y)
+	bw := (w - 8) / 3
+	for p := 0; p < 3; p++ {
+		if u.ButtonState(x+p*(bw+4), y, bw, 26, sim.PostureNames[p], v.Posture == p, true) {
+			g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p})
+		}
+	}
+	u.Tooltip(x, y, w, 26, "Оборона: меньше потерь и расход снарядов, фронт не продвигается. Активная оборона: локальные атаки. Наступление: больше потерь и расход, давление по всей линии.")
+	y += 34
+	y = g.header("Главный удар", x, y)
+	if v.HasMain {
+		y = g.label(fmt.Sprintf("Задан: %s направление", sim.DirNames[g.dirAt(v.MainX, v.MainY)]), x, y, colText)
+	} else {
+		y = g.label("Не задан — силы распределены равномерно", x, y, colDim)
+	}
+	if u.ButtonState(x, y, w/2-4, 26, "Указать на карте", g.mode == modeMain, true) {
+		g.mode = modeMain
+	}
+	if u.ButtonState(x+w/2+4, y, w/2-4, 26, "Снять", false, v.HasMain) {
+		g.sess.Send(sim.Command{Kind: sim.CmdMainEffort, Int: 0})
+	}
+	u.Tooltip(x, y, w, 26, fmt.Sprintf("В радиусе %.0f км от метки сила ×%.1f, остальная часть того же направления ослабевает.", g.cat.Rules.MainEffortKm, g.cat.Rules.MainEffortMult))
+	y += 36
+	y = g.header("Направления", x, y)
+	for d := 0; d < 3; d++ {
+		f := v.Front[d]
+		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 176, color.RGBA{30, 35, 42, 255})
+		drawBold(u.screen, sim.DirNames[d], float64(x), float64(y), 15, colText, 0)
+		drawText(u.screen, fmt.Sprintf("доля пополнений %.0f%%", v.Alloc[d]*100), float64(x+w-70), float64(y+1), 13, colDim, 2)
+		if u.Button(x+w-60, y-2, 28, 20, "−") {
+			g.alloc(d, -0.1)
+		}
+		if u.Button(x+w-28, y-2, 28, 20, "+") {
+			g.alloc(d, 0.1)
+		}
+		y += 24
+		y = g.kv("Личный состав, тыс.", fmt.Sprintf("%.1f", f.Men), x, y, w, colText)
+		y = g.kv("Бронетехника", fmt.Sprintf("%.0f", f.Armor), x, y, w, colText)
+		y = g.kv("Артиллерия", fmt.Sprintf("%.0f", f.Artillery), x, y, w, colText)
+		y = g.kv("FPV-дроны", fmt.Sprintf("%.0f", f.FPV), x, y, w, colText)
+		y = g.kv("Снабжение", fmt.Sprintf("%.0f%%", f.Supply*100), x, y, w, colorForFrac(f.Supply))
+		y = g.kv("Поддержка авиации", fmt.Sprintf("×%.2f", f.Air), x, y, w, colText)
+		y = g.kv("Боевая мощь / фронт", fmt.Sprintf("%.0f / %d тайлов", f.Power, f.Tiles), x, y, w, colText)
+		y += 14
+	}
+	y = g.header("Пополнение людьми", x, y)
+	y = g.label(fmt.Sprintf("Мобилизационный резерв: %.0f тыс.", v.People), x, y, colText)
+	for _, mb := range g.cat.Sides[v.Side].Mobilization {
+		reason := g.mobReady(mb)
+		lbl := mb.Name
+		if u.ButtonState(x, y, w, 26, lbl, false, reason == "") {
+			g.sess.Send(sim.Command{Kind: sim.CmdMobilize, Item: mb.ID})
+		}
+		tip := fmt.Sprintf("+%.0f тыс. человек на фронт. Мораль %+.0f, выпуск заводов −%.0f%%.", mb.Men, mb.Morale, mb.Labor*100)
+		if mb.Money > 0 {
+			tip += fmt.Sprintf(" Стоимость %.0f.", mb.Money)
+		}
+		if reason != "" {
+			tip += "\n" + reason
+		}
+		u.Tooltip(x, y, w, 26, tip)
+		y += 30
+	}
+	if v.Storage.Armor > 0 || v.Storage.Artillery > 0 {
+		y += 6
+		y = g.header("Техника на хранении", x, y)
+		y = g.kv("Бронетехника", fmt.Sprintf("%.0f", v.Storage.Armor), x, y, w, colText)
+		y = g.kv("Артиллерия", fmt.Sprintf("%.0f", v.Storage.Artillery), x, y, w, colText)
+		y = g.para("Расконсервация заказывается в госзаказе.", x, y, w, colDim)
+	}
+	y += 8
+	y = g.header("Укрепления", x, y)
+	y = g.para(fmt.Sprintf("Каждый уровень даёт +%.0f%% к обороне тайла (до 3 уровней). Стоимость тайла: %s, %.0f ч.", g.cat.Rules.FortPerLevel*100, resText(data.ToRes(g.cat.Rules.FortCost)), g.cat.Rules.FortHours), x, y, w, colDim)
+	if u.ButtonState(x, y, w, 26, "Рисовать укрепления на карте", g.mode == modeFort, true) {
+		g.mode = modeFort
+	}
+	return y + 34
+}
+
+func (g *Game) dirAt(x, y float64) int {
+	_, lat := g.m.Unproject(x, y)
+	switch {
+	case lat >= 49.8:
+		return 0
+	case lat <= 47.6:
+		return 2
+	}
+	return 1
+}
+
+func (g *Game) alloc(d int, delta float64) {
+	a := g.view.Alloc
+	a[d] = math.Max(0, a[d]+delta)
+	g.sess.Send(sim.Command{Kind: sim.CmdAlloc, Vals: []float64{a[0], a[1], a[2]}})
+}
+
+func (g *Game) mobReady(mb data.Mobilization) string {
+	v := g.view
+	if mb.Limit > 0 && v.MobUsed[mb.ID] >= mb.Limit {
+		return "Уже использовано"
+	}
+	if t := v.MobReady[mb.ID]; t > v.Time {
+		return "Будет доступно через " + fmtMin(t-v.Time)
+	}
+	if v.People < mb.Men {
+		return "Исчерпан резерв"
+	}
+	if v.Res[data.ResMoney] < mb.Money {
+		return "Не хватает денег"
+	}
+	return ""
+}
+
+func resText(r data.Res) string {
+	s := ""
+	for i, x := range r {
+		if x > 0 {
+			if s != "" {
+				s += ", "
+			}
+			s += fmt.Sprintf("%s %g", data.ResNames[i], math.Round(x*10)/10)
+		}
+	}
+	if s == "" {
+		return "бесплатно"
+	}
+	return s
+}
+
+// ---------------------------------------------------------------------
+
+var capNames = map[string]string{data.CapAir: "Ракеты и ЗУР", data.CapDrone: "Дроны", data.CapGround: "Техника и комплексы"}
+
+func (g *Game) tabOrders(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Производственные мощности", x, y)
+	for _, c := range []string{data.CapAir, data.CapDrone, data.CapGround} {
+		y = g.kv(capNames[c], fmt.Sprintf("%.1f очков/ч", v.Capacity[c]), x, y, w, colText)
+	}
+	y = g.para("Мощность категории делится поровну между позициями госзаказа этой категории. Зависит от целостности заводов, энергии и рабочей силы.", x, y, w, colDim)
+	y += 6
+	y = g.header("Госзаказ", x, y)
+	if len(v.Orders) == 0 {
+		y = g.label("Пусто — добавьте позиции ниже", x, y, colDim)
+	}
+	for i, o := range v.Orders {
+		cost, _, pts, _ := g.cat.ItemCost(o.Item)
+		name := g.cat.ItemName(o.Item)
+		rem := "∞"
+		if o.Remaining >= 0 {
+			rem = fmt.Sprintf("%d", o.Remaining)
+		}
+		drawText(u.screen, fitText(name, 14, float64(w-110)), float64(x), float64(y), 14, colText, 0)
+		drawText(u.screen, rem, float64(x+w-92), float64(y), 14, colAccent, 2)
+		if u.Button(x+w-86, y-2, 26, 20, "▲") {
+			g.sess.Send(sim.Command{Kind: sim.CmdOrderMove, Int: i, Count: -1})
+		}
+		if u.Button(x+w-58, y-2, 26, 20, "▼") {
+			g.sess.Send(sim.Command{Kind: sim.CmdOrderMove, Int: i, Count: 1})
+		}
+		if u.Button(x+w-30, y-2, 26, 20, "×") {
+			g.sess.Send(sim.Command{Kind: sim.CmdOrderDel, Int: i})
+		}
+		y += 20
+		c := colGood
+		if o.Stalled {
+			c = colBad
+		}
+		u.Bar(x, y, w-90, 8, o.Progress/math.Max(pts, 0.001), c)
+		if o.Stalled {
+			drawText(u.screen, "нет ресурсов", float64(x+w-86), float64(y-4), 12, colBad, 0)
+		}
+		u.Tooltip(x, y-20, w-90, 30, fmt.Sprintf("%s\nСтоимость: %s, мощность %.1f очков", name, resText(cost), pts))
+		y += 16
+	}
+	y += 8
+	y = g.header("Добавить в госзаказ", x, y)
+	type item struct{ id, cat string }
+	var items []item
+	side := data.SideKeys[v.Side]
+	for _, m := range g.cat.Munitions {
+		if m.Side == side && v.Unlocked[m.ID] {
+			items = append(items, item{m.ID, m.Cap})
+		}
+	}
+	for _, un := range g.cat.Units {
+		if un.Side == side && v.Unlocked[un.ID] {
+			items = append(items, item{un.ID, un.Cap})
+		}
+	}
+	for _, f := range g.cat.Front {
+		if v.Unlocked[f.ID] {
+			items = append(items, item{f.ID, f.Cap})
+		}
+	}
+	for _, c := range []string{data.CapAir, data.CapDrone, data.CapGround} {
+		drawBold(u.screen, capNames[c], float64(x), float64(y), 14, colText, 0)
+		y += 22
+		for _, it := range items {
+			if it.cat != c {
+				continue
+			}
+			cost, _, pts, _ := g.cat.ItemCost(it.id)
+			drawText(u.screen, fitText(g.cat.ItemName(it.id), 13, float64(w-130)), float64(x+6), float64(y), 13, colText, 0)
+			u.Tooltip(x, y, w-130, 18, fmt.Sprintf("%s\nСтоимость: %s\nМощность: %.1f очков\n%s", g.cat.ItemName(it.id), resText(cost), pts, g.itemDesc(it.id)))
+			if u.Button(x+w-124, y-2, 38, 20, "+1") {
+				g.sess.Send(sim.Command{Kind: sim.CmdOrderAdd, Item: it.id, Count: 1})
+			}
+			if u.Button(x+w-82, y-2, 40, 20, "+10") {
+				g.sess.Send(sim.Command{Kind: sim.CmdOrderAdd, Item: it.id, Count: 10})
+			}
+			if u.Button(x+w-38, y-2, 38, 20, "∞") {
+				g.sess.Send(sim.Command{Kind: sim.CmdOrderAdd, Item: it.id, Count: 0})
+			}
+			y += 22
+		}
+		y += 6
+	}
+	return y
+}
+
+func (g *Game) itemDesc(id string) string {
+	if m := g.cat.MunitionByID[id]; m != nil {
+		s := ""
+		if m.Kind != "interceptor" {
+			s = fmt.Sprintf("Дальность %.0f км, скорость %.0f км/ч, урон %.0f, точность %.0f%%", m.RangeKm, m.SpeedKmh, m.Damage, m.Accuracy*100)
+			if m.Class == "high" {
+				s += ", высокая/баллистическая цель"
+			} else {
+				s += ", низколетящая цель"
+			}
+			if m.GPS {
+				s += ", уязвим к РЭБ"
+			}
+		}
+		return s + " " + m.Desc
+	}
+	if un := g.cat.UnitByID[id]; un != nil {
+		s := un.Desc
+		if un.Kind == "ad" {
+			s = fmt.Sprintf("Дальность %.0f км, РЛС %.0f км, каналов %d, вероятность поражения: низкие %.0f%%, высокие %.0f%%. ", un.RangeKm, un.RadarKm, un.Channels, un.PkLow*100, un.PkHigh*100) + s
+		}
+		return s
+	}
+	return ""
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabArsenal(x, y, w int) int {
+	v := g.view
+	side := data.SideKeys[v.Side]
+	y = g.header("Ударные средства", x, y)
+	for _, m := range g.cat.Munitions {
+		if m.Side != side || m.Kind == "interceptor" {
+			continue
+		}
+		n := v.Stocks[m.ID]
+		if n <= 0 && !v.Unlocked[m.ID] {
+			continue
+		}
+		y = g.kv(m.Name, fmt.Sprintf("%.0f", n), x, y, w, colText)
+		g.ui.Tooltip(x, y-19, w, 19, g.itemDesc(m.ID))
+	}
+	y += 8
+	y = g.header("Зенитные ракеты", x, y)
+	for _, m := range g.cat.Munitions {
+		if m.Side != side || m.Kind != "interceptor" {
+			continue
+		}
+		n := v.Stocks[m.ID]
+		c := colText
+		if n < 20 {
+			c = colBad
+		}
+		y = g.kv(m.Name, fmt.Sprintf("%.0f", n), x, y, w, c)
+	}
+	y += 8
+	y = g.header("Авиация", x, y)
+	tac, str := 0.0, 0.0
+	for _, b := range v.Buildings {
+		tac += b.Aircraft["tactical"]
+		str += b.Aircraft["strategic"]
+	}
+	y = g.kv("Тактическая авиация", fmt.Sprintf("%.0f", tac), x, y, w, colText)
+	y = g.kv("Дальняя авиация", fmt.Sprintf("%.0f", str), x, y, w, colText)
+	y += 8
+	y = g.header("Мобильные комплексы", x, y)
+	count := map[string]int{}
+	for _, un := range v.Units {
+		count[un.Type]++
+	}
+	var ids []string
+	for id := range count {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		y = g.kv(g.uName(id), fmt.Sprintf("%d", count[id]), x, y, w, colText)
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+var decoyTypes = []string{"refinery", "tpp", "airfield", "missile_plant", "substation", "rail_hub", "drone_workshop", "dronesite"}
+
+func (g *Game) tabBuild(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Строительство", x, y)
+	y = g.para("Выберите объект и щёлкните по своей территории (не ближе 15 км к фронту). Shift — строить несколько.", x, y, w, colDim)
+	y += 4
+	for _, bt := range g.cat.Buildings {
+		ok := false
+		for _, s := range bt.Buildable {
+			if data.SideIndex(s) == v.Side {
+				ok = true
+			}
+		}
+		if !ok {
+			continue
+		}
+		cost := data.ToRes(bt.Cost)
+		afford := v.Res.Covers(cost, 1)
+		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 2, colBorder)
+		drawBold(u.screen, bt.Name, float64(x), float64(y), 14, colText, 0)
+		y += 20
+		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(cost), bt.BuildHours), x, y, w, colDim)
+		y = g.para(bt.Desc, x, y, w, colDim)
+		if bt.Decoy {
+			drawText(u.screen, "Изображает:", float64(x), float64(y+2), 13, colDim, 0)
+			y += 20
+			bw := (w - 6) / 2
+			for i, t := range decoyTypes {
+				bx := x + (i%2)*(bw+6)
+				if u.ButtonState(bx, y, bw, 22, g.bName(t), g.mode == modeBuild && g.buildType == bt.ID && g.mimic == t, afford) {
+					g.mode, g.buildType, g.mimic = modeBuild, bt.ID, t
+				}
+				if i%2 == 1 {
+					y += 26
+				}
+			}
+			y += 4
+		} else {
+			if u.ButtonState(x, y, 140, 24, "Строить", g.mode == modeBuild && g.buildType == bt.ID, afford) {
+				g.mode, g.buildType, g.mimic = modeBuild, bt.ID, ""
+			}
+			y += 32
+		}
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+var branchNames = map[string]string{"drones": "Дроны", "strike": "Удар", "ad": "ПВО и РЭБ", "industry": "Промышленность"}
+
+func (g *Game) tabScience(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Исследования", x, y)
+	if v.Research != "" {
+		t := g.cat.TechByID[v.Side][v.Research]
+		y = g.label("Сейчас: "+t.Name, x, y, colText)
+		u.Bar(x, y, w, 10, v.Progress[t.ID]/t.Cost, colAccent)
+		y += 14
+		eta := (t.Cost - v.Progress[t.ID]) / math.Max(v.ResRate, 0.01)
+		y = g.label(fmt.Sprintf("%.0f / %.0f очков, ~%s", v.Progress[t.ID], t.Cost, fmtMin(eta*60)), x, y, colDim)
+	} else {
+		y = g.label("Исследование не выбрано", x, y, colWarn)
+	}
+	y = g.kv("Скорость", fmt.Sprintf("%.1f очков/ч", v.ResRate), x, y, w, colText)
+	drawText(u.screen, "Финансирование:", float64(x), float64(y+3), 14, colDim, 0)
+	for k := 0; k <= 3; k++ {
+		if u.ButtonState(x+130+k*44, y, 40, 22, fmt.Sprintf("%d", k), v.ResFund == k, true) {
+			g.sess.Send(sim.Command{Kind: sim.CmdResFund, Int: k})
+		}
+	}
+	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %.0f денег/ч", g.cat.Rules.ResearchFundCost))
+	y += 30
+	y = g.para("Трофеи (сбитые над своей территорией боеприпасы) и боевой опыт дают бонусные очки своей ветке:", x, y, w, colDim)
+	for _, b := range []string{"drones", "strike", "ad", "industry"} {
+		y = g.kv("  "+branchNames[b], fmt.Sprintf("%.0f", v.Bonus[b]), x, y, w, colText)
+	}
+	y += 6
+	for _, b := range []string{"drones", "strike", "ad", "industry"} {
+		y = g.header(branchNames[b], x, y)
+		for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
+			if t.Branch != b {
+				continue
+			}
+			done := v.Researched[t.ID]
+			avail := !done
+			for _, r := range t.Requires {
+				if !v.Researched[r] {
+					avail = false
+				}
+			}
+			c := colText
+			status := fmt.Sprintf("%.0f", t.Cost)
+			switch {
+			case done:
+				c, status = colGood, "изучено"
+			case !avail:
+				c = colDim
+			}
+			drawText(u.screen, fitText(t.Name, 13, float64(w-110)), float64(x), float64(y), 13, c, 0)
+			drawText(u.screen, status, float64(x+w-100), float64(y), 12, c, 2)
+			tip := t.Name + "\n" + t.Desc
+			if len(t.Requires) > 0 {
+				tip += "\nТребует: "
+				for i, r := range t.Requires {
+					if i > 0 {
+						tip += ", "
+					}
+					tip += g.cat.TechByID[v.Side][r].Name
+				}
+			}
+			if len(t.Unlocks) > 0 {
+				tip += "\nОткрывает: "
+				for i, r := range t.Unlocks {
+					if i > 0 {
+						tip += ", "
+					}
+					tip += g.cat.ItemName(r)
+				}
+			}
+			u.Tooltip(x, y, w-96, 20, tip)
+			if avail {
+				if u.ButtonState(x+w-92, y-2, 92, 20, "Изучать", v.Research == t.ID, true) {
+					g.sess.Send(sim.Command{Kind: sim.CmdResearch, Item: t.ID})
+				}
+			}
+			y += 23
+		}
+		y += 6
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabImport(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Закупки за рубежом", x, y)
+	for _, im := range g.cat.Sides[v.Side].Imports {
+		ok := true
+		if im.Requires != "" && !v.Researched[im.Requires] {
+			ok = false
+		}
+		if im.Removes != "" && v.Researched[im.Removes] {
+			ok = false
+		}
+		if im.Limit > 0 && v.ImportCount[im.ID] >= im.Limit {
+			ok = false
+		}
+		price := im.Money * (1 - v.Effects["import_discount"])
+		drawText(u.screen, fitText(im.Name, 13, float64(w-100)), float64(x), float64(y), 13, colText, 0)
+		y += 18
+		info := fmt.Sprintf("%.0f денег, доставка %.0f ч", price, im.DelayH)
+		if im.Limit > 0 {
+			info += fmt.Sprintf(", осталось %d", im.Limit-v.ImportCount[im.ID])
+		}
+		if im.Requires != "" && !v.Researched[im.Requires] {
+			info = "требует: " + g.cat.TechByID[v.Side][im.Requires].Name
+		}
+		drawText(u.screen, info, float64(x), float64(y), 12, colDim, 0)
+		if u.ButtonState(x+w-90, y-16, 90, 26, "Купить", false, ok && v.Res[data.ResMoney] >= price) {
+			g.sess.Send(sim.Command{Kind: sim.CmdImport, Item: im.ID})
+		}
+		y += 24
+	}
+	y += 6
+	y = g.header("В пути", x, y)
+	if len(v.Deliveries) == 0 {
+		y = g.label("Нет ожидаемых поставок", x, y, colDim)
+	}
+	for _, d := range v.Deliveries {
+		y = g.kv(fitText(d.Name, 13, float64(w-80)), fmtMin(d.At-v.Time), x, y, w, colText)
+	}
+	if len(g.cat.Sides[v.Side].Aid) > 0 {
+		y += 6
+		y = g.header("Помощь партнёров", x, y)
+		y = g.para("Пакеты помощи приходят со временем; их размер и сроки зависят от морали и удержания Киева.", x, y, w, colDim)
+		for _, a := range g.cat.Sides[v.Side].Aid {
+			if v.AidDone[a.ID] {
+				y = g.label("✓ "+a.Name, x, y, colGood)
+			}
+		}
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabIntel(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Агентура и OSINT", x, y)
+	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с погрешностью ±%.0f км. Финансирование ускоряет их в 2.5 раза за %.0f денег/ч.", g.cat.Rules.AgentErrorKm, g.cat.Rules.AgentFundCost), x, y, w, colDim)
+	lbl := "Финансировать"
+	if v.AgentFund {
+		lbl = "Финансирование включено"
+	}
+	if u.ButtonState(x, y, w, 26, lbl, v.AgentFund, true) {
+		f := 1
+		if v.AgentFund {
+			f = 0
+		}
+		g.sess.Send(sim.Command{Kind: sim.CmdAgentFund, Int: f})
+	}
+	y += 34
+	y = g.header("Спутники", x, y)
+	y = g.para("Оптика определяет тип объекта и повреждения, но не видит маскировку и путает макеты. Радар видит замаскированное и распознаёт макеты, но не определяет тип.", x, y, w, colDim)
+	for _, s := range v.Sats {
+		c := sideColor(s.Side)
+		sensor := "оптика"
+		if s.Sensor == "radar" {
+			sensor = "радар"
+		}
+		st := "через " + fmtMin(s.Pass.Start-v.Time)
+		if s.Pass.Active {
+			st = "съёмка"
+		}
+		drawText(u.screen, fmt.Sprintf("%s (%s)", s.Name, sensor), float64(x), float64(y), 13, c, 0)
+		drawText(u.screen, st, float64(x+w-60), float64(y), 13, colText, 2)
+		if u.Button(x+w-54, y-2, 54, 20, "трасса") {
+			g.layers["sats"] = true
+			g.centerOn(s.Pass.X0+s.Pass.DX*s.Pass.L/2, s.Pass.Y0+s.Pass.DY*s.Pass.L/2)
+			g.cam.Z = 0.8
+		}
+		y += 22
+	}
+	y += 8
+	y = g.header("Разведданные", x, y)
+	cs := append([]sim.Contact{}, v.Contacts...)
+	sort.Slice(cs, func(a, b int) bool { return cs[a].Seen > cs[b].Seen })
+	nb, nu := 0, 0
+	for _, c := range cs {
+		if c.Kind == 0 {
+			nb++
+		} else {
+			nu++
+		}
+	}
+	y = g.label(fmt.Sprintf("Известно объектов: %d, техники: %d", nb, nu), x, y, colText)
+	for i, c := range cs {
+		if i >= 40 || c.Seen < 0 {
+			break
+		}
+		t := fitText(g.contactTitle(&c), 13, float64(w-110))
+		if u.mouseIn(x, y-2, w, 20) {
+			fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), 20, colButtonHi)
+		}
+		drawText(u.screen, t, float64(x), float64(y), 13, colText, 0)
+		drawText(u.screen, ageText(v.Time, c.Seen), float64(x+w), float64(y), 12, colDim, 2)
+		if u.clicked(x, y-2, w, 20) {
+			g.centerOn(c.X, c.Y)
+			g.sel = Selection{Kind: "contact", ID: c.ID}
+		}
+		y += 20
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabLog(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Журнал событий", x, y)
+	for i := len(v.Events) - 1; i >= 0; i-- {
+		e := v.Events[i]
+		c := colText
+		switch e.Level {
+		case 1:
+			c = colWarn
+		case 2:
+			c = colBad
+		}
+		lines := wrap(e.Text, 13, float64(w-60))
+		h := len(lines)*17 + 4
+		if e.HasPos && u.mouseIn(x, y-2, w, h) {
+			fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), float64(h), colButtonHi)
+		}
+		drawText(u.screen, fmt.Sprintf("%02d:%02d", (int(e.Time)%1440)/60, int(e.Time)%60), float64(x), float64(y), 12, colDim, 0)
+		for k, l := range lines {
+			drawText(u.screen, l, float64(x+50), float64(y+k*17), 13, c, 0)
+		}
+		if e.HasPos && u.clicked(x, y-2, w, h) {
+			g.centerOn(e.X, e.Y)
+		}
+		y += h
+	}
+	return y
+}
