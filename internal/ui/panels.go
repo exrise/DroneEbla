@@ -415,8 +415,6 @@ func (g *Game) tabArsenal(x, y, w int) int {
 
 // ---------------------------------------------------------------------
 
-var decoyTypes = []string{"refinery", "tpp", "airfield", "missile_plant", "substation", "rail_hub", "drone_workshop", "dronesite"}
-
 func (g *Game) tabBuild(x, y, w int) int {
 	u := &g.ui
 	v := g.view
@@ -440,26 +438,10 @@ func (g *Game) tabBuild(x, y, w int) int {
 		y += 20
 		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(cost), bt.BuildHours), x, y, w, colDim)
 		y = g.para(bt.Desc, x, y, w, colDim)
-		if bt.Decoy {
-			drawText(u.screen, "Изображает:", float64(x), float64(y+2), 13, colDim, 0)
-			y += 20
-			bw := (w - 6) / 2
-			for i, t := range decoyTypes {
-				bx := x + (i%2)*(bw+6)
-				if u.ButtonState(bx, y, bw, 22, g.bName(t), g.mode == modeBuild && g.buildType == bt.ID && g.mimic == t, afford) {
-					g.mode, g.buildType, g.mimic = modeBuild, bt.ID, t
-				}
-				if i%2 == 1 {
-					y += 26
-				}
-			}
-			y += 4
-		} else {
-			if u.ButtonState(x, y, 140, 24, "Строить", g.mode == modeBuild && g.buildType == bt.ID, afford) {
-				g.mode, g.buildType, g.mimic = modeBuild, bt.ID, ""
-			}
-			y += 32
+		if u.ButtonState(x, y, 140, 24, "Строить", g.mode == modeBuild && g.buildType == bt.ID, afford) {
+			g.mode, g.buildType = modeBuild, bt.ID
 		}
+		y += 32
 	}
 	return y
 }
@@ -625,7 +607,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 	}
 	y += 34
 	y = g.header("Спутники", x, y)
-	y = g.para("Оптика определяет тип объекта и повреждения, но не видит маскировку и путает макеты. Радар видит замаскированное и распознаёт макеты, но не определяет тип.", x, y, w, colDim)
+	y = g.para("Оптика определяет тип объекта и повреждения, но не видит замаскированное. Радар видит замаскированное, но тип не определяет.", x, y, w, colDim)
 	for _, s := range v.Sats {
 		c := sideColor(s.Side)
 		sensor := "оптика"

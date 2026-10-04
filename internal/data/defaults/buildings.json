@@ -89,9 +89,5 @@
 
   {"id": "dronesite", "repair_hours": 6, "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
    "cost": {"money": 15, "steel": 5}, "build_hours": 8, "launch": ["dronesite"], "launch_rate": 20, "buildable": ["ru", "ua"],
-   "desc": "Пуск ударных и разведывательных БПЛА."},
-
-  {"id": "decoy", "repair_hours": 4, "name": "Макет", "short": "?", "hp": 5, "decoy": true,
-   "cost": {"money": 5, "steel": 1}, "build_hours": 4, "buildable": ["ru", "ua"],
-   "desc": "Ложная цель. Для оптической разведки выглядит как настоящий объект выбранного типа, радарная разведка распознаёт подделку."}
+   "desc": "Пуск ударных и разведывательных БПЛА."}
 ]

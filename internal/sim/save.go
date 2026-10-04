@@ -44,6 +44,11 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 	for _, sd := range w.Sides {
 		sd.ensure(len(m.Initial))
 	}
+	for id, b := range w.Buildings {
+		if cat.BuildingByID[b.Type] == nil {
+			delete(w.Buildings, id) // например, макеты из старых версий
+		}
+	}
 	if w.FortJobs == nil {
 		w.FortJobs = map[int]float64{}
 	}

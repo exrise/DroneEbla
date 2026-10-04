@@ -68,9 +68,6 @@ func (g *Game) drawInfoPanel() {
 		} else {
 			py = g.kv("Оценка состояния", "неизвестно", px, py, pw, colDim)
 		}
-		if c.Decoy {
-			py = g.para("Радарная разведка показала: это макет.", px, py, pw, colWarn)
-		}
 		if ut := g.cat.UnitByID[c.Type]; ut != nil && ut.Kind == "ad" {
 			py = g.kv("Дальность поражения", fmt.Sprintf("%.0f км", ut.RangeKm), px, py, pw, colText)
 		}
@@ -190,12 +187,10 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 		}
 		g.sess.Send(sim.Command{Kind: sim.CmdRepair, ID: b.ID, Int: r})
 	}
-	if !bt.Decoy {
-		if u.ButtonState(x+bw+8, y, bw, 24, "Маскировать", b.Masked, !b.Masked) {
-			g.sess.Send(sim.Command{Kind: sim.CmdMask, ID: b.ID})
-		}
-		u.Tooltip(x+bw+8, y, bw, 24, "Скрывает объект от оптической разведки (спутники, дроны). Радарные спутники видят. Стоимость: "+resText(data.ToRes(g.cat.Rules.MaskCost)))
+	if u.ButtonState(x+bw+8, y, bw, 24, "Маскировать", b.Masked, !b.Masked) {
+		g.sess.Send(sim.Command{Kind: sim.CmdMask, ID: b.ID})
 	}
+	u.Tooltip(x+bw+8, y, bw, 24, "Скрывает объект от оптической разведки (спутники, дроны). Радарные спутники видят. Стоимость: "+resText(data.ToRes(g.cat.Rules.MaskCost)))
 	y += 30
 	if len(bt.Launch) > 0 {
 		g.launchButtons(b.ID, x, y, w, fmt.Sprintf("Пусков доступно: %.0f", math.Floor(b.Budget)))

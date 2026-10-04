@@ -84,8 +84,7 @@ type BuildingType struct {
 	Untargetable bool               `json:"untargetable"`
 	Buildable    []string           `json:"buildable"` // стороны, которым доступно строительство
 	Vision       float64            `json:"vision"`
-	Export       float64            `json:"export"` // доход от экспорта (деньги в час) при целом здании
-	Decoy        bool               `json:"decoy"`
+	Export       float64            `json:"export"`   // доход от экспорта (деньги в час) при целом здании
 	OilPort      bool               `json:"oil_port"` // множитель нефтяного экспорта
 	Bridge       bool               `json:"bridge"`
 	Desc         string             `json:"desc"`

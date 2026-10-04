@@ -309,10 +309,6 @@ func (w *World) captureTile(i, s int) {
 			b.HP *= 1 - r.CaptureDamage
 			b.Side = s
 			b.Masked = false
-			if w.cat.BuildingByID[b.Type].Decoy {
-				delete(w.Buildings, b.ID)
-				continue
-			}
 			w.LogAt(s, 1, "Захвачен объект: "+b.Name, b.X, b.Y)
 			w.LogAt(old, 2, "Потерян объект: "+b.Name, b.X, b.Y)
 			delete(w.Sides[s].Known, b.ID)

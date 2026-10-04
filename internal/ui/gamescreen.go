@@ -360,10 +360,6 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			}
 			s := math.Max(6, math.Min(13, z*4))
 			strokeRect(dst, sx-s/2, sy-s/2, s, s, col, 2)
-			if c.Decoy {
-				line(dst, sx-s/2, sy-s/2, sx+s/2, sy+s/2, col, 1.5)
-				label = "макет"
-			}
 			if c.HP >= 0 && c.HP < 0.99 {
 				fillRect(dst, sx-s/2, sy+s/2+1, s*c.HP, 2, colBad)
 			}
@@ -403,9 +399,6 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			fillRect(dst, sx-s/2, sy-s/2, s, s, c)
 			if b.Masked {
 				strokeRect(dst, sx-s/2-2, sy-s/2-2, s+4, s+4, color.RGBA{60, 120, 50, 255}, 1.5)
-			}
-			if bt.Decoy {
-				line(dst, sx-s/2, sy-s/2, sx+s/2, sy+s/2, color.White, 1)
 			}
 		}
 		if f := b.HP / b.MaxHP; f < 0.99 && b.Built >= 1 {
@@ -616,7 +609,7 @@ func (g *Game) mapInput(hov *hoverItem) {
 	if in.click {
 		switch g.mode {
 		case modeBuild:
-			g.sess.Send(sim.Command{Kind: sim.CmdBuild, Item: g.buildType, X: wx, Y: wy, Text: g.mimic})
+			g.sess.Send(sim.Command{Kind: sim.CmdBuild, Item: g.buildType, X: wx, Y: wy})
 			if !ebiten.IsKeyPressed(ebiten.KeyShift) {
 				g.mode = modeNone
 			}
@@ -705,9 +698,6 @@ func (g *Game) contactTitle(c *sim.Contact) string {
 		}
 	} else if c.Class != "" {
 		name = capFirst(c.Class)
-	}
-	if c.Decoy {
-		name = "Макет (" + name + ")"
 	}
 	return name
 }

@@ -69,7 +69,6 @@ type Game struct {
 	sel            Selection
 	mode           int
 	buildType      string
-	mimic          string
 	strike         strikePlan
 	layers         map[string]bool
 	toasts         []toast

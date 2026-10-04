@@ -50,8 +50,7 @@ type Building struct {
 	MaxHP     float64
 	Built     float64 // 0..1, 1 — готово
 	Masked    bool
-	Mimic     string // для макета: какой тип изображает
-	Dir       int    // направление для логистики, -1 — авто
+	Dir       int // направление для логистики, -1 — авто
 	Aircraft  map[string]float64
 	Repair    bool
 	Repairing bool // сейчас чинится бригадой
@@ -121,7 +120,6 @@ type Contact struct {
 	X, Y   float64
 	Seen   float64 // игровое время, мин (-1 — довоенные данные)
 	HP     float64 // доля HP, -1 — неизвестно
-	Decoy  bool    // распознан как макет
 	Source string
 }
 

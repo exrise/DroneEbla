@@ -64,7 +64,7 @@ func (w *World) Apply(c Command) string {
 	case CmdPause:
 		sd.Pausing = c.Int != 0
 	case CmdBuild:
-		return w.build(s, c.Item, c.X, c.Y, c.Text)
+		return w.build(s, c.Item, c.X, c.Y)
 	case CmdRepair:
 		b, ok := w.Buildings[c.ID]
 		if !ok || b.Side != s {
@@ -242,22 +242,13 @@ func (w *World) CanBuild(s int, typ string, x, y float64) string {
 	return ""
 }
 
-func (w *World) build(s int, typ string, x, y float64, mimic string) string {
+func (w *World) build(s int, typ string, x, y float64) string {
 	if e := w.CanBuild(s, typ, x, y); e != "" {
 		return e
 	}
 	bt := w.cat.BuildingByID[typ]
-	if bt.Decoy {
-		if mimic == "" || w.cat.BuildingByID[mimic] == nil {
-			return "Выберите, какой объект изображает макет"
-		}
-	}
 	w.Sides[s].Res.Add(data.ToRes(bt.Cost), -1)
 	b := w.addBuilding(typ, s, x, y, 0)
-	if bt.Decoy {
-		b.Mimic = mimic
-		b.Name = "Макет: " + w.cat.BuildingByID[mimic].Name
-	}
 	if bt.Supply > 0 {
 		b.Dir = w.PointDir(x, y)
 	}

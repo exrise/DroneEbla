@@ -337,11 +337,6 @@ func (w *World) impact(p *Projectile, m *data.MunitionType) {
 				b.Aircraft[k] = math.Max(0, n-n*m.Damage/b.MaxHP*0.6)
 			}
 		}
-		if bt.Decoy {
-			delete(w.Buildings, b.ID)
-			w.LogAt(b.Side, 0, "Противник поразил макет", b.X, b.Y)
-			continue
-		}
 		lvl := 1
 		if b.HP <= 0 && before > 0 {
 			lvl = 2

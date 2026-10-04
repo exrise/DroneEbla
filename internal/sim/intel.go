@@ -76,7 +76,6 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 		if b.Side == s {
 			return
 		}
-		bt := w.cat.BuildingByID[b.Type]
 		if c == nil {
 			c = &Contact{ID: id, Kind: 0, HP: -1}
 			sd.Known[id] = c
@@ -84,27 +83,16 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 		c.X, c.Y = b.X, b.Y
 		switch sensor {
 		case SensorOptical:
-			if bt.Decoy {
-				c.Type, c.Decoy, c.HP = b.Mimic, false, 1
-			} else {
-				c.Type, c.HP = b.Type, b.frac()
-				if b.Built < 1 {
-					c.HP = 0
-				}
+			c.Type, c.HP = b.Type, b.frac()
+			if b.Built < 1 {
+				c.HP = 0
 			}
 		case SensorRadar:
-			if bt.Decoy {
-				c.Decoy, c.Type = true, b.Mimic
-				c.HP = 0
-			} else if c.Type == "" {
+			if c.Type == "" {
 				c.Class = "крупный объект"
 			}
 		case "agent":
-			if bt.Decoy {
-				c.Type = b.Mimic
-			} else {
-				c.Type = b.Type
-			}
+			c.Type = b.Type
 		}
 		c.Seen, c.Source = w.Time, source
 		if errKm > 0 {
