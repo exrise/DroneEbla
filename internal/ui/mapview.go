@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -14,7 +16,7 @@ import (
 	"github.com/exrise/droneebla/internal/world"
 )
 
-const baseScale = 3.0 // пикселей на км в подложке
+const baseScale = 2.5 // пикселей на км в подложке
 const chunkPx = 1024
 
 // Camera — камера карты.
@@ -52,6 +54,8 @@ type MapRenderer struct {
 	front    []float32 // отрезки линии фронта x0,y0,x1,y1 в км
 	energy   *ebiten.Image
 	depImg   *ebiten.Image
+	rgba     *image.RGBA   // подложка, подготовленная в фоне
+	done     chan struct{} // закрывается, когда подложка готова
 }
 
 var (
@@ -68,11 +72,24 @@ var (
 )
 
 func newMapRenderer(m *world.MapData) *MapRenderer {
-	return &MapRenderer{m: m}
+	r := &MapRenderer{m: m, done: make(chan struct{})}
+	// Тяжёлая часть (растеризация линий) не требует графики и идёт в фоне,
+	// пока игрок в меню.
+	go func() {
+		defer close(r.done)
+		r.cpuBuild()
+	}()
+	return r
 }
 
-// build рисует подложку (один раз) на CPU и загружает фрагментами.
-func (r *MapRenderer) build() {
+// cpuBuild рисует подложку на CPU (можно вызывать не из главного потока).
+func (r *MapRenderer) cpuBuild() {
+	if os.Getenv("DRONEEBLA_SHOT") != "" {
+		t0 := time.Now()
+		defer func() {
+			fmt.Fprintf(os.Stderr, "подложка карты построена за %v\n", time.Since(t0))
+		}()
+	}
 	m := r.m
 	pw := int(m.WidthKm() * baseScale)
 	ph := int(m.HeightKm() * baseScale)
@@ -176,12 +193,21 @@ func (r *MapRenderer) build() {
 		st := style[kind]
 		stroke(segs, st.c, st.w)
 	}
+	r.rgba = rgba
+}
+
+// build загружает подготовленную подложку в видеопамять (главный поток).
+func (r *MapRenderer) build() {
+	<-r.done
+	m := r.m
+	pw, ph := r.rgba.Bounds().Dx(), r.rgba.Bounds().Dy()
 	for cy := 0; cy < ph; cy += chunkPx {
 		for cx := 0; cx < pw; cx += chunkPx {
 			rect := image.Rect(cx, cy, min(cx+chunkPx, pw), min(cy+chunkPx, ph))
-			r.chunks = append(r.chunks, chunk{img: ebiten.NewImageFromImage(rgba.SubImage(rect)), x: cx, y: cy})
+			r.chunks = append(r.chunks, chunk{img: ebiten.NewImageFromImage(r.rgba.SubImage(rect)), x: cx, y: cy})
 		}
 	}
+	r.rgba = nil
 	// Месторождения — отдельный слой.
 	dep := image.NewRGBA(image.Rect(0, 0, m.W, m.H))
 	for i, d := range m.Deposit {

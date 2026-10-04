@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	lonMin, lonMax = 22.0, 41.6
-	latMin, latMax = 44.2, 54.3
+	lonMin, lonMax = 22.0, 54.8
+	latMin, latMax = 44.2, 56.6
 	tileKm         = 5.0
-	refLat         = 49.0
+	refLat         = 50.0
 )
 
 type geom struct {
@@ -290,6 +290,10 @@ var deposits = []deposit{
 	{34.3, 49.4, 30, world.DepositGas},  // Полтавские месторождения
 	{40.4, 45.8, 30, world.DepositGas},  // Кубанские газовые
 	{24.0, 49.6, 20, world.DepositGas},  // Прикарпатье
+	{52.2, 54.9, 90, world.DepositOil},  // Татарстан: Ромашкинское и др.
+	{50.6, 52.9, 60, world.DepositOil},  // Самарская область
+	{46.8, 50.7, 55, world.DepositOil},  // Саратов, Волгоград
+	{45.3, 49.2, 40, world.DepositGas},  // Нижнее Поволжье
 }
 
 func main() {

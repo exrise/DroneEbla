@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
+	"fmt"
 	"os"
 
 	"github.com/exrise/droneebla/internal/data"
@@ -36,6 +37,9 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 	var w World
 	if err := gob.NewDecoder(zr).Decode(&w); err != nil {
 		return nil, err
+	}
+	if len(w.Owner) != len(m.Initial) {
+		return nil, fmt.Errorf("сохранение сделано на другой карте (старая версия игры)")
 	}
 	for _, sd := range w.Sides {
 		sd.ensure(len(m.Initial))

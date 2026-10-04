@@ -343,3 +343,43 @@ func TestSpawnSpread(t *testing.T) {
 		}
 	}
 }
+
+func TestTatarstanAndDeepStrike(t *testing.T) {
+	w := newTestWorld(t)
+	for _, n := range []string{"ОЭЗ «Алабуга» (Елабуга, Татарстан)", "ТАНЕКО (Нижнекамск)", "Казанский авиазавод им. Горбунова", "Заинская ГРЭС (Татарстан)", "ТЭЦ-22 (Москва)", "Авиабаза Энгельс"} {
+		b := findBuilding(w, n)
+		if b == nil || b.Side != data.RU {
+			t.Fatalf("%s должен быть на карте у России", n)
+		}
+	}
+	// Дальний удар Украины по Алабуге возможен только Фламинго.
+	run(w, w.PrepEnd+1)
+	air := findBuilding(w, "Аэродром Миргород")
+	alabuga := findBuilding(w, "ОЭЗ «Алабуга» (Елабуга, Татарстан)")
+	ua := w.Sides[data.UA]
+	ua.Stocks["flamingo"], ua.Stocks["lyutyi"] = 5, 5
+	air.Budget = 10
+	if e := w.Strike(data.UA, StrikePlan{Source: air.ID, Munition: "lyutyi", Count: 1, Target: Pt{alabuga.X, alabuga.Y}}); e == "" {
+		t.Fatal("Лютый (1000 км) не должен долетать до Татарстана")
+	}
+	if e := w.ValidateStrike(data.UA, StrikePlan{Source: air.ID, Munition: "flamingo", Count: 1, Target: Pt{alabuga.X, alabuga.Y}}); e != "" {
+		t.Fatalf("Фламинго должен долетать до Алабуги: %s", e)
+	}
+	// А до Москвы Лютый долетает с аэродрома под Харьковом/Миргородом.
+	msk := findBuilding(w, "ТЭЦ-22 (Москва)")
+	if e := w.ValidateStrike(data.UA, StrikePlan{Source: air.ID, Munition: "lyutyi", Count: 1, Target: Pt{msk.X, msk.Y}}); e != "" {
+		t.Fatalf("Лютый должен долетать до Москвы: %s", e)
+	}
+}
+
+func TestPeaceNoBlackoutWholeMap(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, 300)
+	for s := 0; s < 2; s++ {
+		for r, f := range w.Sides[s].RegionPower {
+			if f < 0.8 && w.Sides[s].Blackout > 0.01 {
+				t.Errorf("%s: дефицит энергии в области %s (%.2f)", data.SideNames[s], w.m.Regions[r].Name, f)
+			}
+		}
+	}
+}

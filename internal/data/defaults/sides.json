@@ -4,7 +4,7 @@
     "resources": {"money": 600, "fuel": 400, "steel": 400, "electronics": 120, "ammo": 600},
     "morale": 70,
     "people": 1500,
-    "tax_per_city": 1.2,
+    "tax_per_city": 0.5,
     "base_income": 60,
     "men_stream": 0.6,
     "entry_lon": 40.9, "entry_lat": 50.8,
@@ -46,7 +46,19 @@
       {"type": "iskander", "lon": 36.40, "lat": 50.80}, {"type": "iskander", "lon": 36.00, "lat": 51.60},
       {"type": "iskander", "lon": 34.30, "lat": 45.75}, {"type": "iskander", "lon": 39.50, "lat": 47.50},
       {"type": "tornado", "lon": 36.80, "lat": 50.40}, {"type": "tornado", "lon": 38.30, "lat": 47.95},
-      {"type": "tornado", "lon": 39.00, "lat": 48.40}, {"type": "tornado", "lon": 34.00, "lat": 46.10}
+      {"type": "tornado", "lon": 39.00, "lat": 48.40}, {"type": "tornado", "lon": 34.00, "lat": 46.10},
+      {"type": "s400", "lon": 37.45, "lat": 55.90},
+      {"type": "s400", "lon": 37.95, "lat": 55.55},
+      {"type": "s400", "lon": 37.60, "lat": 55.98},
+      {"type": "pantsir", "lon": 37.60, "lat": 55.75},
+      {"type": "pantsir", "lon": 37.80, "lat": 55.70},
+      {"type": "radar_ru", "lon": 37.20, "lat": 55.70},
+      {"type": "s300", "lon": 49.00, "lat": 55.90},
+      {"type": "pantsir", "lon": 52.05, "lat": 55.78},
+      {"type": "pantsir", "lon": 52.10, "lat": 55.72},
+      {"type": "pantsir", "lon": 51.80, "lat": 55.60},
+      {"type": "s300", "lon": 46.10, "lat": 51.55},
+      {"type": "pantsir", "lon": 46.30, "lat": 51.45}
     ],
     "unlocked": [
       "armor", "artillery", "armor_storage", "artillery_storage",
@@ -148,10 +160,10 @@
       {"id": "ua_age", "name": "Снижение призывного возраста", "men": 120, "morale": -12, "labor": 0.05, "limit": 1}
     ],
     "satellites": [
-      {"name": "Maxar WorldView-3", "sensor": "optical", "period_h": 4, "phase_h": 0.5, "swath_km": 30, "tracks": [36, 33, 39, 35, 38, 34], "angle": -12},
-      {"name": "Maxar WorldView-2", "sensor": "optical", "period_h": 5, "phase_h": 2.5, "swath_km": 30, "tracks": [34, 37, 40, 36, 33], "angle": -12},
-      {"name": "ICEYE-1", "sensor": "radar", "period_h": 5, "phase_h": 1.5, "swath_km": 25, "tracks": [35, 38, 34, 40, 37], "angle": 10},
-      {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38], "angle": 10}
+      {"name": "Maxar WorldView-3", "sensor": "optical", "period_h": 4, "phase_h": 0.5, "swath_km": 30, "tracks": [36, 33, 39, 35, 38, 34, 44, 48], "angle": -12},
+      {"name": "Maxar WorldView-2", "sensor": "optical", "period_h": 5, "phase_h": 2.5, "swath_km": 30, "tracks": [34, 37, 40, 36, 33, 51, 46], "angle": -12},
+      {"name": "ICEYE-1", "sensor": "radar", "period_h": 5, "phase_h": 1.5, "swath_km": 25, "tracks": [35, 38, 34, 40, 37, 47, 53], "angle": 10},
+      {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38, 45, 50], "angle": 10}
     ],
     "bomber_warning": true,
     "belarus_air": false

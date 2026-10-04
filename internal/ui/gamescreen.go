@@ -81,7 +81,7 @@ func (g *Game) gameKeys() {
 
 func (g *Game) zoomAt(k, sx, sy float64) {
 	wx, wy := g.cam.ToWorld(sx, sy)
-	g.cam.Z = math.Max(0.35, math.Min(14, g.cam.Z*k))
+	g.cam.Z = math.Max(0.3, math.Min(14, g.cam.Z*k))
 	nx, ny := g.cam.ToWorld(sx, sy)
 	g.cam.CX += wx - nx
 	g.cam.CY += wy - ny
