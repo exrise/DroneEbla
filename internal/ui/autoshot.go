@@ -116,7 +116,7 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.mode = modeNone
 		g.sess.SetSide(1)
 		g.view = nil
-		g.evSeen = 0
+		g.evSeen, g.evInit = 0, false
 	case 26:
 		g.save(screen, "30_ukraine")
 		g.sess.SetSide(0)

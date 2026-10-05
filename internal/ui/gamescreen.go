@@ -112,12 +112,13 @@ func (g *Game) drawGame() {
 	// Новые события → всплывающие сообщения для важных.
 	for _, e := range v.Events {
 		if e.ID > g.evSeen {
-			if e.Level >= 1 && g.evSeen > 0 {
+			if e.Level >= 1 && g.evInit {
 				g.toast(e.Text)
 			}
 			g.evSeen = e.ID
 		}
 	}
+	g.evInit = true
 	g.rend.update(v)
 
 	// Карта.
@@ -135,6 +136,7 @@ func (g *Game) drawGame() {
 	g.drawInfoPanel()
 	g.drawLayerButtons()
 	g.drawToasts()
+	g.drawResearchNotice()
 	if st := g.sess.Status(); st != "" {
 		w := textWidth(st, 16) + 30
 		fillRect(u.screen, float64(g.cam.X)+float64(g.cam.W)/2-w/2, float64(topH+10), w, 32, color.RGBA{120, 30, 20, 230})
@@ -767,7 +769,7 @@ func (g *Game) drawTopBar() {
 			g.sess.SetSide(1 - v.Side)
 			g.sel = Selection{}
 			g.mode = modeNone
-			g.evSeen = 0
+			g.evSeen, g.evInit = 0, false
 			g.rend.lastFog = nil
 		}
 	}
@@ -878,6 +880,53 @@ func (g *Game) drawLayerButtons() {
 	}
 }
 
+// noResearch — исследование не выбрано, хотя есть что изучать.
+func (g *Game) noResearch() bool {
+	v := g.view
+	if v.Research != "" {
+		return false
+	}
+	for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
+		if v.Researched[t.ID] {
+			continue
+		}
+		ok := true
+		for _, r := range t.Requires {
+			if !v.Researched[r] {
+				ok = false
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// drawResearchNotice — висящее уведомление, пока не выбрано исследование.
+func (g *Game) drawResearchNotice() {
+	if !g.noResearch() {
+		return
+	}
+	u := &g.ui
+	txt := "Не выбрано исследование — нажмите, чтобы открыть «Наука»"
+	w := textWidth(txt, 15) + 30
+	x := float64(g.cam.X) + float64(g.cam.W)/2 - w/2
+	y := float64(topH + 42)
+	hot := u.mouseIn(int(x), int(y), int(w), 28)
+	c := color.RGBA{140, 90, 15, 235}
+	if hot {
+		c = color.RGBA{175, 115, 20, 245}
+	}
+	fillRect(u.screen, x, y, w, 28, c)
+	strokeRect(u.screen, x, y, w, 28, colWarn, 1)
+	drawText(u.screen, txt, x+w/2, y+6, 15, colText, 1)
+	u.blockUI(int(x), int(y), int(w), 28)
+	if u.clicked(int(x), int(y), int(w), 28) {
+		g.tab = 4
+	}
+}
+
 func (g *Game) drawToasts() {
 	u := &g.ui
 	y := float64(u.H - 40)
@@ -885,7 +934,7 @@ func (g *Game) drawToasts() {
 	for i := len(g.toasts) - 1; i >= 0; i-- {
 		t := g.toasts[i]
 		age := now.Sub(t.at).Seconds()
-		if age > 7 {
+		if age > 9 {
 			continue
 		}
 		w := textWidth(t.text, 14) + 20

@@ -73,6 +73,7 @@ type Game struct {
 	layers         map[string]bool
 	toasts         []toast
 	evSeen         uint64
+	evInit         bool
 	dragging       bool
 	dragX, dragY   int
 	dragCX, dragCY float64
@@ -184,8 +185,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) toast(s string) {
 	g.toasts = append(g.toasts, toast{text: s, at: time.Now()})
-	if len(g.toasts) > 6 {
-		g.toasts = g.toasts[len(g.toasts)-6:]
+	if len(g.toasts) > 8 {
+		g.toasts = g.toasts[len(g.toasts)-8:]
 	}
 }
 
@@ -397,7 +398,7 @@ func (g *Game) startGame(s netplay.Session) {
 	g.view = nil
 	g.sel = Selection{}
 	g.mode = modeNone
-	g.evSeen = 0
+	g.evSeen, g.evInit = 0, false
 	g.menuErr = ""
 	// Камера на центр карты.
 	x, y := g.m.Project(32.5, 48.8)

@@ -390,9 +390,9 @@ func (w *World) groupDone(id uint32, arrived bool) {
 		w.Log(1-g.Side, 1, "Массированный удар полностью отбит: мораль растёт")
 	}
 	name := w.cat.MunitionByID[g.Munition].Name
-	lvl := 0
+	lvl := 1 // итог удара всегда всплывает на экране
 	if g.Arrived == 0 {
-		lvl = 1
+		lvl = 2
 	}
 	w.LogAt(g.Side, lvl, fmt.Sprintf("Итог удара (%s): долетело %d из %d. Оценка ущерба — по данным разведки.", name, g.Arrived, g.Total), g.X, g.Y)
 }
