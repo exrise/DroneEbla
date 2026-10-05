@@ -142,6 +142,9 @@
     ],
     "aid": [
       {"id": "aid_manpads", "name": "Javelin, Stinger и снаряды", "at_hour": 6, "items": {"res:ammo": 400}, "morale": 2},
+      {"id": "aid_buk1", "name": "Бук-М1: пусковые от партнёров", "at_hour": 14, "items": {"buk_ua": 2, "m_9m38": 40}, "morale": 1},
+      {"id": "aid_buk2", "name": "Бук-М1: вторая партия", "at_hour": 45, "items": {"buk_ua": 2, "m_9m38": 40}, "morale": 1},
+      {"id": "aid_buk3", "name": "Бук-М1: третья партия", "at_hour": 95, "items": {"buk_ua": 3, "m_9m38": 60}, "morale": 1},
       {"id": "aid_s300", "name": "Ракеты для С-300 от союзников", "at_hour": 20, "items": {"m_5v55": 120}, "morale": 1},
       {"id": "aid_money1", "name": "Макрофинансовая помощь", "at_hour": 30, "items": {"res:money": 600}, "morale": 2},
       {"id": "aid_himars", "name": "HIMARS: первая партия", "at_hour": 40, "min_morale": 35, "items": {"himars": 4, "gmlrs": 240}, "morale": 4},
