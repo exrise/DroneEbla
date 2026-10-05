@@ -275,6 +275,7 @@ func TestMoveUnit(t *testing.T) {
 
 func TestSaveLoad(t *testing.T) {
 	w := newTestWorld(t)
+	w.Solo = true
 	run(w, 30)
 	p := filepath.Join(t.TempDir(), "save.gob")
 	if err := w.Save(p); err != nil {
@@ -286,6 +287,9 @@ func TestSaveLoad(t *testing.T) {
 	}
 	if w2.Time != w.Time || len(w2.Buildings) != len(w.Buildings) || len(w2.Units) != len(w.Units) {
 		t.Fatal("состояние не совпало")
+	}
+	if !w2.Solo {
+		t.Fatal("флаг одиночной игры потерялся при сохранении")
 	}
 	run(w2, 10)
 }

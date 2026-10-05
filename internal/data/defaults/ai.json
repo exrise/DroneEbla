@@ -1,0 +1,60 @@
+{
+  "think_min": 3,
+  "sides": {
+    "ua": {
+      "research": [
+        "ua_fpv", "ua_uj22", "ua_frankensam", "ua_lyutyi", "ua_drone_recon", "ua_idrone",
+        "ua_s300_revive", "ua_repair", "ua_neptune", "ua_ad_net", "ua_acoustic", "ua_palianytsia",
+        "ua_fort", "ua_reb_net", "ua_neptune_long", "ua_drone_line", "ua_dispersed", "ua_sapsan",
+        "ua_flamingo"
+      ],
+      "fund_levels": [700, 1400, 2400],
+      "orders": [
+        "m_9m33", "m_9m38", "m_5v55", "uj22", "lyutyi", "palianytsia", "m_idrone_ua",
+        "idrone_ua:6", "mfg_ua:6", "neptune", "neptune_long", "flamingo", "fpv", "armor", "artillery", "smerch_ua"
+      ],
+      "imports": ["ua_imp_ammo", "ua_imp_elec", "ua_imp_fuel", "ua_imp_tb2"],
+      "import_reserve": 400,
+      "import_below": 300,
+      "mobilize_below": 90,
+      "propaganda_below": 55,
+      "build": [
+        {"type": "dronesite", "max": 6, "min_money": 250},
+        {"type": "drone_workshop", "max": 4, "min_money": 300},
+        {"type": "training_center", "max": 4, "min_money": 200}
+      ],
+      "build_every_min": 120,
+      "prep_posture": 0,
+      "war_posture": 1,
+      "fort_tiles": 4,
+      "strike_every_min": 20,
+      "strike_munitions": [
+        "gmlrs", "smerch_ua", "tochka_u", "uj22", "palianytsia", "lyutyi",
+        "neptune", "storm_shadow", "atacms", "neptune_long", "sapsan", "flamingo"
+      ],
+      "strike_weights": {
+        "refinery": 10, "airbase_strat": 10, "missile_plant": 9, "oil_port": 8, "tpp": 8,
+        "drone_workshop": 8, "substation": 7, "armor_plant": 7, "chem_plant": 7,
+        "electronics_plant": 7, "steel_mill": 6, "airfield": 6, "naval_base": 6, "hpp": 6,
+        "depot": 5, "rail_hub": 5, "research": 5, "bridge": 4, "oilfield": 3
+      },
+      "salvo_base": 3,
+      "salvo_per_channel": 2.5,
+      "min_salvo_frac": 0.5,
+      "target_cooldown_min": 180,
+      "recon_every_min": 90,
+      "recon_stale_min": 720,
+      "protect": {
+        "tpp": 8, "substation": 7, "refinery": 8, "missile_plant": 9, "armor_plant": 7,
+        "drone_workshop": 6, "electronics_plant": 7, "steel_mill": 6, "chem_plant": 6,
+        "airfield": 5, "airbase_strat": 5, "hpp": 7, "rail_hub": 5, "depot": 4, "bridge": 3,
+        "research": 4, "training_center": 3, "oil_port": 6, "naval_base": 5
+      },
+      "ad_every_min": 30,
+      "ad_moves_max": 1,
+      "ad_move_cooldown_min": 240,
+      "ad_move_max_km": 600,
+      "repair_min_weight": 4
+    }
+  }
+}

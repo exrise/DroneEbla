@@ -368,6 +368,7 @@ type Catalog struct {
 	Tech      map[string][]Tech // по сторонам
 	Sides     [2]SideDef
 	Objects   []Object
+	AI        AIConfig
 
 	BuildingByID map[string]*BuildingType
 	UnitByID     map[string]*UnitType
@@ -391,4 +392,53 @@ func SideIndex(s string) int {
 		return UA
 	}
 	return RU
+}
+
+// AIConfig — параметры компьютерного противника (ai.json).
+type AIConfig struct {
+	ThinkMin float64           `json:"think_min"` // как часто ИИ принимает решения, игровые минуты
+	Sides    map[string]AISide `json:"sides"`     // по ключам сторон (ru, ua)
+}
+
+// AIBuild — что ИИ достраивает.
+type AIBuild struct {
+	Type     string  `json:"type"`
+	Max      int     `json:"max"`       // сколько зданий такого типа держать
+	MinMoney float64 `json:"min_money"` // строить, только если денег не меньше
+}
+
+// AISide — поведение ИИ за одну сторону.
+type AISide struct {
+	// Экономика.
+	Research        []string  `json:"research"`         // приоритет исследований; остальные — по стоимости
+	FundLevels      []float64 `json:"fund_levels"`      // порог денег для финансирования науки 1, 2, 3
+	Orders          []string  `json:"orders"`           // позиции госзаказа по приоритету
+	Imports         []string  `json:"imports"`          // закупки (id) по приоритету
+	ImportReserve   float64   `json:"import_reserve"`   // денег не тратить на импорт ниже этого запаса
+	ImportBelow     float64   `json:"import_below"`     // ресурс докупать, если его меньше (для предметов — штук)
+	MobilizeBelow   float64   `json:"mobilize_below"`   // мобилизация, если людей на фронте меньше, тыс.
+	PropagandaBelow float64   `json:"propaganda_below"` // кампания, если мораль ниже
+	Build           []AIBuild `json:"build"`
+	BuildEveryMin   float64   `json:"build_every_min"`
+	// Фронт.
+	PrepPosture int `json:"prep_posture"` // 0 оборона, 1 активная, 2 наступление
+	WarPosture  int `json:"war_posture"`
+	FortTiles   int `json:"fort_tiles"` // тайлов укреплять за раз
+	// Удары.
+	StrikeEveryMin    float64            `json:"strike_every_min"`
+	StrikeWeights     map[string]float64 `json:"strike_weights"`    // ценность целей по типу зданий
+	StrikeMunitions   []string           `json:"strike_munitions"`  // порядок выбора боеприпасов
+	SalvoBase         float64            `json:"salvo_base"`        // базовый залп
+	SalvoPerChannel   float64            `json:"salvo_per_channel"` // добавка за каждый известный канал ПВО у цели
+	MinSalvoFrac      float64            `json:"min_salvo_frac"`    // не бить слабее этой доли нужного залпа
+	TargetCooldownMin float64            `json:"target_cooldown_min"`
+	ReconEveryMin     float64            `json:"recon_every_min"`
+	ReconStaleMin     float64            `json:"recon_stale_min"` // данные о цели старше — пора разведать
+	// ПВО и ремонт.
+	Protect         map[string]float64 `json:"protect"` // ценность своих зданий для прикрытия
+	AdEveryMin      float64            `json:"ad_every_min"`
+	AdMovesMax      int                `json:"ad_moves_max"`
+	AdMoveCooldown  float64            `json:"ad_move_cooldown_min"`
+	AdMoveMaxKm     float64            `json:"ad_move_max_km"`
+	RepairMinWeight float64            `json:"repair_min_weight"` // здания дешевле — не чинить, пока ждут важные
 }

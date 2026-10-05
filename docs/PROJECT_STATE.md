@@ -23,7 +23,7 @@
 - Заказчик просил **не додумывать геймплей самому** и задавать вопросы. Принцип упрощений: глубина как в Civilization и Warcraft (немного понятных чисел, явные контры), а не как в Paradox.
 - Удары по городам и жилой застройке **не** реализованы намеренно: цели только промышленные и военные объекты. Города влияют лишь косвенно (налоги, мораль при потере).
 - Квалифицированных кадров, эвакуации заводов и макетов зданий в игре нет (убрано по просьбе). АЭС атаковать нельзя.
-- Компьютерного противника заказчик не выбирал. Песочница — один игрок, сторону можно переключать.
+- Одиночная игра: человек за Россию, ИИ за Украину (`internal/ai`, настройки `ai.json`, флаг `World.Solo`, `netplay.NewSolo`). Песочница — оба игрока вручную, сторону можно переключать.
 
 ## 3. Структура репозитория
 
@@ -50,7 +50,8 @@ internal/sim/              симуляция (работает только у 
   commands.go                Command и Apply: все приказы игрока
   view.go                    View и BuildView: то, что видит сторона (фильтр тумана)
   save.go                    сохранение и загрузка (gob + gzip)
-internal/netplay/session.go  хост/клиент по TCP, интерфейс Session, песочница
+internal/netplay/session.go  хост/клиент по TCP, интерфейс Session, песочница, одиночная игра (NewSolo, хук ИИ в loop)
+internal/ai/                 компьютерный противник: economy/front/strike/defense, читает только View стороны
 internal/ui/               интерфейс на Ebitengine
   app.go                     Game, меню, сцены, ввод
   gamescreen.go              главный экран: карта, объекты, верхняя панель, ввод по карте
@@ -115,6 +116,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 
 - Go 1.26 (тулчейн скачивается автоматически). Для запуска/тестов `ui` в Linux нужны `libgl1-mesa-dev libxrandr-dev libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev libasound2-dev` и `xvfb`.
 - **Проверка интерфейса без монитора**: `DRONEEBLA_DIR=<папка> DRONEEBLA_SHOT=<папка/shots> xvfb-run -a -s "-screen 0 1600x900x24" ./droneebla` — игра сама проходит сценарий (песочница, удары, вкладки, зумы) и сохраняет PNG; сценарий в `internal/ui/autoshot.go`.
+- Сценарий одиночной игры для скриншотов: `DRONEEBLA_SOLO=1` вместе с `DRONEEBLA_SHOT` (`autoSolo` в `internal/ui/autoshot.go`).
 - **Пересборка карты**: `go run ./cmd/mapbake -ne <папка с ne_10m_*.geojson>`. Нужные слои Natural Earth (`admin_0_countries`, `admin_1_states_provinces`, `lakes`, `populated_places`, `railroads`, `roads`, `rivers_lake_centerlines`) скачиваются с `raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/` (другие хосты в песочнице закрыты). Границы бокса, месторождения и линия соприкосновения на 23.02.2022 — константы в начале `cmd/mapbake/main.go`.
 - Превью карты: `MAP_PREVIEW=out.png go test ./internal/world -run Preview`.
 - Старые сохранения несовместимы при смене размера карты (`sim.Load` отклоняет с понятным сообщением).

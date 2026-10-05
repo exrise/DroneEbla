@@ -238,6 +238,7 @@ type World struct {
 	Winner    int
 	WinReason string
 	Sandbox   bool
+	Solo      bool // одиночная игра против ИИ (человек — сторона 0)
 	Seed      int64
 
 	cat      *data.Catalog

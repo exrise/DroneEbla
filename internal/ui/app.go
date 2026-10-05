@@ -25,6 +25,7 @@ const (
 	sceneHostSetup
 	sceneConnect
 	sceneSandbox
+	sceneSolo
 	sceneLoad
 	sceneGame
 )
@@ -171,6 +172,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawConnect()
 	case sceneSandbox:
 		g.drawSandboxSetup()
+	case sceneSolo:
+		g.drawSoloSetup()
 	case sceneLoad:
 		g.drawLoad()
 	case sceneGame:
@@ -212,14 +215,17 @@ func (g *Game) drawMenu() {
 	if u.Button(cx-bw/2, y+56, bw, 44, "Подключиться к игре") {
 		g.scene, g.menuErr = sceneConnect, ""
 	}
-	if u.Button(cx-bw/2, y+112, bw, 44, "Песочница (один игрок)") {
+	if u.Button(cx-bw/2, y+112, bw, 44, "Одиночная игра (против ИИ)") {
+		g.scene, g.menuErr = sceneSolo, ""
+	}
+	if u.Button(cx-bw/2, y+168, bw, 44, "Песочница (оба игрока вручную)") {
 		g.scene, g.menuErr = sceneSandbox, ""
 	}
-	if u.Button(cx-bw/2, y+168, bw, 44, "Загрузить сохранение (хост)") {
+	if u.Button(cx-bw/2, y+224, bw, 44, "Загрузить сохранение") {
 		g.scene, g.menuErr = sceneLoad, ""
 		g.saves = g.listSaves()
 	}
-	if u.Button(cx-bw/2, y+224, bw, 44, "Выход") {
+	if u.Button(cx-bw/2, y+280, bw, 44, "Выход") {
 		os.Exit(0)
 	}
 	lines := []string{
@@ -227,9 +233,9 @@ func (g *Game) drawMenu() {
 		"Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у обоих игроков файлы должны совпадать).",
 	}
 	for i, l := range lines {
-		drawText(u.screen, l, float64(cx), float64(y+300+i*22), 14, colDim, 1)
+		drawText(u.screen, l, float64(cx), float64(y+356+i*22), 14, colDim, 1)
 	}
-	ny := float64(y + 360)
+	ny := float64(y + 416)
 	for _, n := range g.notices {
 		for _, l := range wrap(n, 14, float64(u.W)-200) {
 			drawText(u.screen, l, float64(cx), ny, 14, colWarn, 1)
@@ -323,6 +329,26 @@ func (g *Game) drawSandboxSetup() {
 	}
 }
 
+func (g *Game) drawSoloSetup() {
+	u := &g.ui
+	cx, y := g.menuFrame("Одиночная игра")
+	drawText(u.screen, "Ваша сторона:", float64(cx-180), float64(y+8), 16, colText, 0)
+	u.ButtonState(cx-40, y, 110, 34, "Россия", true, true)
+	u.ButtonState(cx+80, y, 110, 34, "Украина", false, false)
+	drawText(u.screen, "Пока доступна игра только за Россию. Украиной управляет компьютер.", float64(cx), float64(y+60), 14, colDim, 1)
+	drawText(u.screen, "ИИ играет по тем же правилам: видит только то, что видит его разведка, и делает те же приказы.", float64(cx), float64(y+82), 14, colDim, 1)
+	drawText(u.screen, "Его настройки — файл ai.json в папке data рядом с игрой.", float64(cx), float64(y+104), 14, colDim, 1)
+	by := y + 150
+	if u.Button(cx-180, by, 170, 40, "Назад") {
+		g.scene = sceneMenu
+	}
+	if u.Button(cx+10, by, 170, 40, "Начать") {
+		g.menuSide = data.RU
+		w := sim.New(g.cat, g.m, true)
+		g.startGame(netplay.NewSolo(w, data.RU))
+	}
+}
+
 func (g *Game) listSaves() []string {
 	files, _ := filepath.Glob(filepath.Join(g.saveDir, "*.sav"))
 	sort.Slice(files, func(a, b int) bool {
@@ -355,7 +381,7 @@ func (g *Game) drawLoad() {
 		if u.Button(cx-bw-5, ly+i*38, bw, 32, name) {
 			g.loadSave(f, false)
 		}
-		if u.Button(cx+5, ly+i*38, bw, 32, "в песочнице") {
+		if u.Button(cx+5, ly+i*38, bw, 32, "без сети (песочница / одиночная)") {
 			g.loadSave(f, true)
 		}
 	}
@@ -374,7 +400,11 @@ func (g *Game) loadSave(path string, sandbox bool) {
 		g.menuErr = "Не удалось загрузить: " + err.Error()
 		return
 	}
-	w.Sandbox = sandbox
+	if sandbox && w.Solo {
+		g.startGame(netplay.NewSolo(w, data.RU))
+		return
+	}
+	w.Sandbox, w.Solo = sandbox, false
 	if sandbox {
 		g.startGame(netplay.NewSandbox(w, g.menuSide))
 		return

@@ -763,7 +763,7 @@ func (g *Game) drawTopBar() {
 	u.blockUI(0, 0, u.W, topH)
 	x := 10.0
 	drawBold(u.screen, data.SideNames[v.Side], x, 6, 16, sideColor(v.Side), 0)
-	if v.Sandbox {
+	if v.Sandbox && !v.Solo {
 		if u.Button(int(x), 30, 110, 20, "Сменить сторону") {
 			// Новое представление придёт со следующим кадром.
 			g.sess.SetSide(1 - v.Side)

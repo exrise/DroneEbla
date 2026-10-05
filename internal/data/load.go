@@ -12,7 +12,7 @@ import (
 var defaults embed.FS
 
 // Files — имена файлов каталога.
-var Files = []string{"rules.json", "buildings.json", "units.json", "munitions.json", "front.json", "tech.json", "sides.json", "objects.json"}
+var Files = []string{"rules.json", "buildings.json", "units.json", "munitions.json", "front.json", "tech.json", "sides.json", "objects.json", "ai.json"}
 
 // readFile берёт файл из папки override (если есть), иначе встроенный.
 func readFile(override, name string) ([]byte, error) {
@@ -41,6 +41,7 @@ func Load(override string) (*Catalog, error) {
 		"tech.json":      &c.Tech,
 		"sides.json":     &sides,
 		"objects.json":   &c.Objects,
+		"ai.json":        &c.AI,
 	}
 	for _, f := range Files {
 		b, err := readFile(override, f)
@@ -90,6 +91,9 @@ func Load(override string) (*Catalog, error) {
 	}
 	if r.DamageCurve <= 0 {
 		r.DamageCurve = 1.3
+	}
+	if c.AI.ThinkMin <= 0 {
+		c.AI.ThinkMin = 3
 	}
 	c.index()
 	return c, c.validate()

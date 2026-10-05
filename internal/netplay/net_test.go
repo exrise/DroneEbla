@@ -62,3 +62,34 @@ func TestHostClient(t *testing.T) {
 		t.Fatal("время не идёт")
 	}
 }
+
+// В одиночной игре ИИ управляет Украиной, а смена стороны заблокирована.
+func TestSolo(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := world.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewSolo(sim.New(cat, m, true), data.RU)
+	defer h.Close()
+	h.SetSide(data.UA)
+	if h.Side() != data.RU {
+		t.Fatal("в одиночной игре сторону менять нельзя")
+	}
+	time.Sleep(700 * time.Millisecond)
+	var research string
+	var solo bool
+	h.Advance(0, func(w *sim.World) { research, solo = w.Sides[data.UA].Research, w.Solo })
+	if !solo {
+		t.Fatal("не выставлен флаг одиночной игры")
+	}
+	if research == "" {
+		t.Fatal("ИИ не выбрал исследование")
+	}
+	if v := h.View(); v == nil || v.Side != data.RU || !v.Solo {
+		t.Fatal("неверное представление игрока")
+	}
+}

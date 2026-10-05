@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/exrise/droneebla/internal/ai"
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
 	"github.com/exrise/droneebla/internal/world"
@@ -142,11 +143,21 @@ type Host struct {
 	view     *sim.View
 	viewAt   time.Time
 	dataHash string
+	ai       *ai.AI // компьютерный противник (одиночная игра)
 }
 
 // NewSandbox — одиночная игра без сети.
 func NewSandbox(w *sim.World, side int) *Host {
 	h := &Host{w: w, side: side, sandbox: true, stop: make(chan struct{})}
+	go h.loop()
+	return h
+}
+
+// NewSolo — одиночная игра: человек играет за сторону human, другой стороной
+// управляет ИИ. Правила и туман войны те же, что в сетевой игре.
+func NewSolo(w *sim.World, human int) *Host {
+	w.Sandbox, w.Solo = true, true
+	h := &Host{w: w, side: human, sandbox: true, ai: ai.New(w.Catalog(), 1-human), stop: make(chan struct{})}
 	go h.loop()
 	return h
 }
@@ -251,6 +262,9 @@ func (h *Host) loop() {
 			running := h.sandbox || h.client != nil
 			if running {
 				h.w.Update(dt)
+				if h.ai != nil && !h.w.Paused() {
+					h.ai.Tick(h.w)
+				}
 			}
 			var v *sim.View
 			k := h.client
@@ -320,7 +334,7 @@ func (h *Host) Side() int { return h.side }
 
 // SetSide — смена стороны в песочнице.
 func (h *Host) SetSide(s int) {
-	if h.sandbox {
+	if h.sandbox && h.ai == nil {
 		h.mu.Lock()
 		h.side = s
 		h.view = nil
@@ -511,6 +525,9 @@ func (h *Host) Advance(minutes float64, f func(w *sim.World)) {
 	}
 	for k := 0.0; k < minutes; k++ {
 		h.w.Step(1)
+		if h.ai != nil {
+			h.ai.Tick(h.w)
+		}
 	}
 	h.view = nil
 }

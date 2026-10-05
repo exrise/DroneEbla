@@ -48,6 +48,10 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 	if a.frame < 10 {
 		return
 	}
+	if os.Getenv("DRONEEBLA_SOLO") != "" {
+		g.autoSolo(screen)
+		return
+	}
 	switch a.step {
 	case 0:
 		g.save(screen, "00_menu")
@@ -171,6 +175,33 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))
 	case 230:
 		g.save(screen, "71_arsenal_click2")
+		os.Exit(0)
+	}
+	a.step++
+}
+
+// autoSolo — сценарий одиночной игры (DRONEEBLA_SOLO=1): меню, начало, 12 игровых часов, журнал.
+func (g *Game) autoSolo(screen *ebiten.Image) {
+	a := g.auto
+	switch a.step {
+	case 0:
+		g.save(screen, "s0_menu")
+		g.scene = sceneSolo
+	case 2:
+		g.save(screen, "s1_setup")
+		g.startGame(netplay.NewSolo(sim.New(g.cat, g.m, true), 0))
+	case 6:
+		g.save(screen, "s2_start")
+		h := g.sess.(*netplay.Host)
+		h.Advance(g.cat.Rules.PrepMinutes+720, func(w *sim.World) {
+			w.Apply(sim.Command{Kind: sim.CmdPosture, Side: 0, Int: sim.PostureOffense})
+		})
+		g.tab = 7
+	case 9:
+		g.save(screen, "s3_journal")
+		g.tab = 4
+	case 12:
+		g.save(screen, "s4_science")
 		os.Exit(0)
 	}
 	a.step++

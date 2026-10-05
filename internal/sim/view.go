@@ -29,6 +29,7 @@ type SatView struct {
 type View struct {
 	Side       int
 	Sandbox    bool
+	Solo       bool
 	Time       float64
 	PrepEnd    float64
 	War        bool
@@ -96,7 +97,7 @@ type View struct {
 func (w *World) BuildView(s int, eventsSince uint64) *View {
 	sd := w.Sides[s]
 	v := &View{
-		Side: s, Sandbox: w.Sandbox, Time: w.Time, PrepEnd: w.PrepEnd, War: w.War(),
+		Side: s, Sandbox: w.Sandbox, Solo: w.Solo, Time: w.Time, PrepEnd: w.PrepEnd, War: w.War(),
 		Speed: w.EffectiveSpeed(), MySpeed: sd.Speed, EnemySpeed: w.Sides[1-s].Speed,
 		Paused: w.Paused(), Pausing: sd.Pausing, PauseLeft: sd.PauseLeft,
 		Winner: w.Winner, WinReason: w.WinReason,
