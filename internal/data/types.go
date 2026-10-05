@@ -131,6 +131,7 @@ type UnitType struct {
 	Cost        map[string]float64 `json:"cost"`
 	Cap         string             `json:"cap"`
 	CapPoints   float64            `json:"cap_points"`
+	SpawnAt     string             `json:"spawn_at"` // тип здания, у которого появляется юнит (по умолчанию — завод своей категории)
 	Desc        string             `json:"desc"`
 }
 

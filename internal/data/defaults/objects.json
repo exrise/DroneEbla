@@ -205,5 +205,11 @@
   {"type": "substation", "name": "ПС «Саратов» 500", "lon": 46.0, "lat": 51.6},
   {"type": "substation", "name": "ПС «Волгоград» 500", "lon": 44.5, "lat": 48.7},
   {"type": "substation", "name": "ПС «Рязань» 500", "lon": 39.7, "lat": 54.6},
-  {"type": "airbase_strat", "name": "Авиабаза Энгельс", "lon": 46.2, "lat": 51.48}
+  {"type": "airbase_strat", "name": "Авиабаза Энгельс", "lon": 46.2, "lat": 51.48},
+  {"type": "training_center", "name": "Центр подготовки (Яворов)", "lon": 23.4, "lat": 49.95},
+  {"type": "training_center", "name": "Центр подготовки (Новоград-Волынский)", "lon": 27.62, "lat": 50.6},
+  {"type": "training_center", "name": "Центр подготовки (Белая Церковь)", "lon": 30.12, "lat": 49.8},
+  {"type": "training_center", "name": "Центр подготовки (Мулино)", "lon": 43.2, "lat": 56.3},
+  {"type": "training_center", "name": "Центр подготовки (Погоново)", "lon": 39.1, "lat": 51.55},
+  {"type": "training_center", "name": "Центр подготовки (Кадамовский)", "lon": 40.3, "lat": 47.62}
 ]

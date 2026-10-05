@@ -36,6 +36,11 @@
    "capacity": {"drone": 4}, "buildable": ["ru", "ua"],
    "desc": "Малое рассредоточенное производство дронов. Дёшево, быстро, легко поражается."},
 
+  {"id": "training_center", "repair_hours": 12, "name": "Центр подготовки", "short": "ЦП", "hp": 40,
+   "cost": {"money": 20, "steel": 5, "electronics": 3}, "build_hours": 16, "power": -3,
+   "buildable": ["ru", "ua"],
+   "desc": "Здесь формируются расчёты: мобильные огневые группы и дроны-перехватчики появляются у центров подготовки."},
+
   {"id": "armor_plant", "key": true, "repair_hours": 96, "name": "Бронетанковый завод", "short": "БТЗ", "hp": 250,
    "cost": {"money": 180, "steel": 80, "electronics": 10}, "build_hours": 120, "power": -40,
    "capacity": {"ground": 12}, "buildable": ["ru", "ua"],

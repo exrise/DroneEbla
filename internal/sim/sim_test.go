@@ -567,3 +567,37 @@ func TestPropagandaAndKeyHit(t *testing.T) {
 		t.Fatalf("мораль после поражения ключевого объекта: РФ %.1f, Украина %.1f", ru.Morale, ua.Morale)
 	}
 }
+
+// МОГ и расчёты дронов-перехватчиков выходят только у центров подготовки.
+func TestTrainingCenterSpawn(t *testing.T) {
+	w := newTestWorld(t)
+	for s := 0; s < 2; s++ {
+		var centers int
+		for _, b := range w.Buildings {
+			if b.Side == s && b.Type == "training_center" {
+				centers++
+			}
+		}
+		if centers < 2 {
+			t.Fatalf("%s: центров подготовки %d, ожидалось не меньше 2", data.SideNames[s], centers)
+		}
+		for _, id := range []string{"mfg_ru", "mfg_ua", "idrone_ru", "idrone_ua"} {
+			ut := w.cat.UnitByID[id]
+			if (ut.Side == "ru") != (s == data.RU) {
+				continue
+			}
+			for i := 0; i < 6; i++ {
+				x, y := w.spawnUnit(s, ut, "")
+				ok := false
+				for _, b := range w.Buildings {
+					if b.Side == s && b.Type == "training_center" && b.X == x && b.Y == y {
+						ok = true
+					}
+				}
+				if !ok {
+					t.Fatalf("%s: %s появился не у центра подготовки", data.SideNames[s], id)
+				}
+			}
+		}
+	}
+}

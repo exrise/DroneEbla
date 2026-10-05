@@ -431,7 +431,7 @@ func (w *World) deliver(s int, item string, amount float64, via string) {
 	}
 	if ut, ok := w.cat.UnitByID[item]; ok {
 		for n := 0; n < int(amount+0.5); n++ {
-			x, y := w.spawnPoint(s, ut.Cap, via)
+			x, y := w.spawnUnit(s, ut, via)
 			u := w.addUnit(item, s, x+w.rng.Float64()*4-2, y+w.rng.Float64()*4-2)
 			w.LogAt(s, 0, "Поступил на вооружение: "+ut.Name, u.X, u.Y)
 		}
@@ -483,17 +483,8 @@ func (w *World) distributeFront(s int, what string, n float64) {
 // spawnPoint — где появляется новый юнит. Заводы нужного типа и пункты
 // въезда чередуются по кругу, чтобы техника не скапливалась в одном месте.
 func (w *World) spawnPoint(s int, cat, via string) (float64, float64) {
-	def := w.cat.Sides[s]
-	entry := func() (float64, float64) {
-		n := w.nextSpawn(s)
-		if len(def.Entries) > 0 {
-			e := def.Entries[n%len(def.Entries)]
-			return w.m.Project(e.Lon, e.Lat)
-		}
-		return w.m.Project(def.EntryLon, def.EntryLat)
-	}
 	if via == "entry" {
-		return entry()
+		return w.entryPoint(s)
 	}
 	want := "armor_plant"
 	if cat == "air" {
@@ -501,6 +492,35 @@ func (w *World) spawnPoint(s int, cat, via string) (float64, float64) {
 	} else if cat == "drone" {
 		want = "drone_workshop"
 	}
+	if x, y, ok := w.spawnAtBuilding(s, want); ok {
+		return x, y
+	}
+	return w.entryPoint(s)
+}
+
+// spawnUnit — точка появления юнита: у здания из spawn_at (например, центра подготовки),
+// а если такого нет — как у остальных юнитов его категории.
+func (w *World) spawnUnit(s int, ut *data.UnitType, via string) (float64, float64) {
+	if via != "entry" && ut.SpawnAt != "" {
+		if x, y, ok := w.spawnAtBuilding(s, ut.SpawnAt); ok {
+			return x, y
+		}
+	}
+	return w.spawnPoint(s, ut.Cap, via)
+}
+
+func (w *World) entryPoint(s int) (float64, float64) {
+	def := w.cat.Sides[s]
+	n := w.nextSpawn(s)
+	if len(def.Entries) > 0 {
+		e := def.Entries[n%len(def.Entries)]
+		return w.m.Project(e.Lon, e.Lat)
+	}
+	return w.m.Project(def.EntryLon, def.EntryLat)
+}
+
+// spawnAtBuilding — по очереди работающие здания типа want на своей территории.
+func (w *World) spawnAtBuilding(s int, want string) (float64, float64, bool) {
 	var plants []*Building
 	for _, b := range w.Buildings {
 		if b.Side == s && b.Type == want && b.Operational() && w.sideOfPoint(b.X, b.Y) == s {
@@ -508,11 +528,11 @@ func (w *World) spawnPoint(s int, cat, via string) (float64, float64) {
 		}
 	}
 	if len(plants) == 0 {
-		return entry()
+		return 0, 0, false
 	}
 	sort.Slice(plants, func(a, b int) bool { return plants[a].ID < plants[b].ID })
 	b := plants[w.nextSpawn(s)%len(plants)]
-	return b.X, b.Y
+	return b.X, b.Y, true
 }
 
 func (w *World) nextSpawn(s int) int {
