@@ -38,6 +38,7 @@
     {"id": "ua_sapsan", "name": "ОТРК «Сапсан»", "branch": "strike", "cost": 280, "requires": ["ua_neptune"], "unlocks": ["sapsan_launcher", "sapsan"], "desc": "Своя баллистическая ракета."},
     {"id": "ua_flamingo", "name": "Фламинго FP-5", "branch": "strike", "cost": 320, "requires": ["ua_neptune_long"], "unlocks": ["flamingo"], "desc": "Тяжёлая крылатая ракета на 3000 км."},
     {"id": "ua_frankensam", "name": "FrankenSAM", "branch": "ad", "cost": 120, "unlocks": ["m_9m38"], "desc": "Своё производство ракет для Буков."},
+    {"id": "ua_s300_revive", "name": "Возрождение ракет С-300", "branch": "ad", "cost": 220, "requires": ["ua_frankensam"], "unlocks": ["m_5v55"], "desc": "Модернизация советских ракет 5В55 и своё производство (программа с США)."},
     {"id": "ua_acoustic", "name": "Акустическая сеть «Небесный страж»", "branch": "ad", "cost": 100, "effects": {"radar_low": 0.4, "air_watch": 15}, "desc": "Низкие цели видны дальше."},
     {"id": "ua_reb_net", "name": "Сеть РЭБ", "branch": "ad", "cost": 110, "effects": {"reb_power": 0.3}, "desc": "+30% к силе своих РЭБ."},
     {"id": "ua_ad_net", "name": "Единая сеть ПВО", "branch": "ad", "cost": 150, "effects": {"ad_pk": 0.06}, "desc": "+6% к вероятности перехвата."},
