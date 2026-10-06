@@ -199,9 +199,12 @@ func (g *Game) autoSolo(screen *ebiten.Image) {
 		g.tab = 7
 	case 9:
 		g.save(screen, "s3_journal")
-		g.tab = 4
+		g.tab = 8
 	case 12:
-		g.save(screen, "s4_science")
+		g.save(screen, "s4_missions")
+		g.sess.SetSide(1)
+		g.tab = 8
+	case 15:
 		os.Exit(0)
 	}
 	a.step++

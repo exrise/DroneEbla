@@ -326,9 +326,13 @@ func (w *World) captureTile(i, s int) {
 		c := w.m.Cities[ci]
 		if c.Pop >= 20000 {
 			k := r.MoraleCity * math.Max(0.3, float64(c.Pop)/500000)
-			w.Sides[s].Morale = clamp(w.Sides[s].Morale+k, 0, 100)
+			if w.Sides[s].CitySeen[ci] > 0 {
+				k *= r.MoraleCityRepeat // повторный захват того же города — малая награда
+			}
+			w.Sides[s].CitySeen[ci]++
+			w.addMorale(s, w.moraleGain(s, "city", k))
 			if old >= 0 {
-				w.Sides[old].Morale = clamp(w.Sides[old].Morale-k, 0, 100)
+				w.addMorale(old, -k)
 				w.LogAt(old, 2, fmt.Sprintf("Потерян город: %s", c.Name), c.X, c.Y)
 			}
 			w.LogAt(s, 1, fmt.Sprintf("Взят город: %s", c.Name), c.X, c.Y)

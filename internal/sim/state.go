@@ -56,6 +56,8 @@ type Building struct {
 	Repairing bool // сейчас чинится бригадой
 	Prewar    bool
 	Budget    float64 // накопленные пуски
+	KeyHit    bool    // ключевой объект уже выведен из строя (повторно мораль не меняется до ремонта)
+	Scale     float64 // множитель выпуска (0 — как 1)
 	Region    int
 }
 
@@ -200,7 +202,11 @@ type Side struct {
 	AidDone     map[string]bool
 	MobUsed     map[string]int
 	MobReady    map[string]float64
-	PropReady   float64 // время, с которого доступна следующая кампания
+	PropReady   float64              // время, с которого доступна следующая кампания
+	MoraleHist  map[string][]float64 // время недавних успехов по видам (убывающая отдача)
+	CitySeen    map[int]int          // сколько раз сторона брала город
+	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
+	MissionFail map[string]bool      // задания, которые уже не выполнить
 	Known       map[uint32]*Contact
 	SeenAt      []float32 // время последнего наблюдения тайла
 	Events      []Event

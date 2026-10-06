@@ -52,6 +52,10 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 			Speed:       2,
 			PauseLeft:   cat.Rules.PauseBudgetSec,
 			RegionPower: map[int]float64{},
+			MoraleHist:  map[string][]float64{},
+			CitySeen:    map[int]int{},
+			MissionSeen: map[string][]uint32{},
+			MissionFail: map[string]bool{},
 		}
 		for i := range sd.SeenAt {
 			sd.SeenAt[i] = -1e9
@@ -80,6 +84,7 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 		b.Name = o.Name
 		b.Prewar = true
 		b.Dir = o.Dir
+		b.Scale = o.Scale
 		if o.Type != "rail_hub" && o.Type != "bridge" && o.Type != "depot" {
 			b.Dir = -1
 		}

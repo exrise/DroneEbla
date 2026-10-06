@@ -77,6 +77,7 @@ type View struct {
 	MobReady    map[string]float64
 	PropReady   float64
 	RegionPower map[int]float64
+	Missions    []MissionView
 
 	Buildings []Building
 	Units     []Unit
@@ -117,6 +118,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 	for k, x := range sd.RegionPower {
 		v.RegionPower[k] = x
 	}
+	v.Missions = w.missionViews(s)
 	for d := 0; d < 3; d++ {
 		v.EnemyFront[d] = w.Sides[1-s].Front[d].Tiles
 	}

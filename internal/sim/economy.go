@@ -266,7 +266,7 @@ func (w *World) economy(dtH float64) {
 			if len(bt.Produces) == 0 {
 				continue
 			}
-			k := w.output(b) * dtH
+			k := w.output(b) * dtH * b.scale()
 			if k <= 0 {
 				continue
 			}
@@ -611,6 +611,9 @@ func (w *World) repairs(s int, dtH float64) {
 		}
 		sd.Res.Add(cost, -1)
 		b.HP += hp
+		if b.KeyHit && b.HP > b.MaxHP*0.5 {
+			b.KeyHit = false // починен достаточно: новый вывод из строя снова считается
+		}
 		b.Repairing = true
 		perType[b.Type]++
 		crews--
@@ -673,6 +676,10 @@ func (w *World) deliveries(s int) {
 	}
 	h := w.HoursSinceWar()
 	for _, a := range w.cat.Sides[s].Aid {
+		if a.Mission != nil {
+			w.missionTick(s, a) // выдаётся только за выполнение задания
+			continue
+		}
 		if sd.AidDone[a.ID] || h < a.AtHour {
 			continue
 		}
@@ -682,13 +689,27 @@ func (w *World) deliveries(s int) {
 		if a.NeedKyiv && w.kyiv >= 0 && w.OwnerSide(w.kyiv) != s {
 			continue
 		}
-		sd.AidDone[a.ID] = true
-		for id, n := range a.Items {
-			w.deliver(s, id, n, "entry")
-		}
-		sd.Morale = clamp(sd.Morale+a.Morale, 0, 100)
-		w.Log(s, 1, "Пакет помощи: "+a.Name)
+		w.grantAid(s, a, "Пакет помощи: ")
 	}
+}
+
+// grantAid выдаёт пакет помощи.
+func (w *World) grantAid(s int, a data.AidPackage, prefix string) {
+	sd := w.Sides[s]
+	sd.AidDone[a.ID] = true
+	for id, n := range a.Items {
+		w.deliver(s, id, n, "entry")
+	}
+	if a.Morale > 0 {
+		w.addMorale(s, w.moraleGain(s, "aid", a.Morale))
+	} else {
+		w.addMorale(s, a.Morale)
+	}
+	name := a.Name
+	if a.Title != "" {
+		name = a.Title
+	}
+	w.Log(s, 1, prefix+name)
 }
 
 // morale — изменение морали.

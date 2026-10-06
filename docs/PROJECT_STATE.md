@@ -147,3 +147,9 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 2. Запустить `go test ./internal/... -count=1`, убедиться, что всё зелёное.
 3. Для любой геймплейной идеи сначала спросить заказчика (он просил не додумывать); цифры править в JSON, а не в коде.
 4. После изменения — тесты, при правках интерфейса скриншот-прогон, затем сборка exe, коммит и пуш в ту же ветку.
+
+
+## Обновления блока A (баланс)
+- Мораль: `World.moraleGain` (убывающая отдача, усталость по видам успехов), `Building.KeyHit` (ключевой объект — мораль один раз до ремонта), `Side.CitySeen`.
+- Задания: `data.MissionDef`, `sim/missions.go` (`missionBuildingHit` из `impact`, `missionTick` для удержания), `View.Missions`, вкладка «Задания» (`ui.tabMissions`).
+- Сталь/тыл: `Object.Scale` → `Building.Scale`, тип `rail_station`, ~13 комбинатов и ~24 узла и станции; руда для комбинатов в радиусе 800 км.

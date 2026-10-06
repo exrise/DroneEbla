@@ -206,6 +206,21 @@ type AidPackage struct {
 	NeedKyiv  bool               `json:"need_kyiv"`  // условие: Киев удержан
 	Items     map[string]float64 `json:"items"`      // id → количество (res:<ключ> для ресурсов)
 	Morale    float64            `json:"morale"`
+	Title     string             `json:"title"`   // задание: заголовок (если пакет выдаётся за задание)
+	Hint      string             `json:"hint"`    // задание: пояснение
+	Mission   *MissionDef        `json:"mission"` // если задано — пакет выдаётся только за выполнение
+}
+
+// MissionDef — задание с наградой (пакет помощи).
+type MissionDef struct {
+	Kind     string  `json:"kind"`    // disable_building, disable_type, hit_region, hold
+	Target   string  `json:"target"`  // имя здания / тип здания / название города (hold)
+	Count    int     `json:"count"`   // сколько объектов (по умолчанию 1)
+	HpFrac   float64 `json:"hp_frac"` // объект «поражён», когда его HP опускается ниже этой доли (по умолчанию 0.1)
+	Lon      float64 `json:"lon"`     // центр области (hit_region, disable_type)
+	Lat      float64 `json:"lat"`
+	RadiusKm float64 `json:"radius_km"` // радиус области (0 — вся карта)
+	Hours    float64 `json:"hours"`     // hold: сколько часов войны держать
 }
 
 // Mobilization — вариант пополнения людьми.
@@ -285,6 +300,8 @@ type Object struct {
 	Lon  float64 `json:"lon"`
 	Lat  float64 `json:"lat"`
 	Dir  int     `json:"dir"` // для мостов и узлов: направление (-1 — авто)
+	// Scale — множитель выпуска (0 — как 1): мощность комбината, включая то, что за краем карты.
+	Scale float64 `json:"scale"`
 }
 
 // Rules — общие параметры.
@@ -337,6 +354,11 @@ type Rules struct {
 	MoraleRepel         float64            `json:"morale_repel"`           // бонус обороне, если массированный удар полностью отбит
 	MoraleRepelMin      int                `json:"morale_repel_min"`       // минимальный размер такого удара
 	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
+	MoraleGainRef       float64            `json:"morale_gain_ref"`        // при этой морали успехи дают полный прирост; выше — меньше
+	MoraleGainFloor     float64            `json:"morale_gain_floor"`      // минимальная доля прироста
+	MoraleFatigue       float64            `json:"morale_fatigue"`         // спад прироста за каждый недавний успех того же вида
+	MoraleFatigueH      float64            `json:"morale_fatigue_h"`       // за сколько игровых часов считаются недавние успехи
+	MoraleCityRepeat    float64            `json:"morale_city_repeat"`     // доля награды за повторный захват города
 	RepairPerType       int                `json:"repair_per_type"`        // зданий одного типа, которые чинятся одновременно
 	RepairRuinMult      float64            `json:"repair_ruin_mult"`       // скорость ремонта почти разрушенного здания
 	DamageFloor         float64            `json:"damage_floor"`           // ниже этой доли HP здание не производит

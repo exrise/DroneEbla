@@ -12,9 +12,9 @@
 
   {"id": "steel_mill", "key": true, "repair_hours": 96, "name": "Металлургический комбинат", "short": "МК", "hp": 300,
    "cost": {"money": 150, "steel": 40}, "build_hours": 96, "power": -60,
-   "need_deposit": {"ore": 350, "coal": 0},
+   "need_deposit": {"ore": 800, "coal": 0},
    "produces": {"steel": 12}, "consumes": {"fuel": 1}, "buildable": ["ru", "ua"],
-   "desc": "Выпускает сталь. Нужна руда в радиусе 350 км и уголь на своей территории."},
+   "desc": "Выпускает сталь. Нужна руда в радиусе 800 км (рудные районы связаны железной дорогой) и уголь на своей территории."},
 
   {"id": "chem_plant", "repair_hours": 60, "name": "Химзавод (ВВ и пороха)", "short": "ХЗ", "hp": 150,
    "cost": {"money": 100, "steel": 30, "electronics": 5}, "build_hours": 72, "power": -30,
@@ -63,6 +63,7 @@
   {"id": "rail_hub", "key": true, "repair_hours": 20, "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "supply": 1.0,
    "desc": "Логистический узел направления."},
 
+  {"id": "rail_station", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
   {"id": "depot", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
    "cost": {"money": 30, "steel": 10}, "build_hours": 18, "buildable": ["ru", "ua"],
    "desc": "Полевой склад: добавляет снабжение ближайшему направлению."},

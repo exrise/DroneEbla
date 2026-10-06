@@ -1,6 +1,10 @@
 package sim
 
-import "github.com/exrise/droneebla/internal/data"
+import (
+	"math"
+
+	"github.com/exrise/droneebla/internal/data"
+)
 
 // Мораль влияет на саму игру плавными множителями; прямого проигрыша
 // от нулевой морали нет — армия и тыл просто разваливаются.
@@ -50,4 +54,28 @@ func PropagandaCost(r data.Rules, m float64) float64 {
 // PropagandaGain — прирост морали (меньше, чем выше мораль).
 func PropagandaGain(r data.Rules, m float64) float64 {
 	return r.PropagandaGain * (1 - m/100)
+}
+
+// moraleGain — прирост морали стороны s от успеха вида kind с убывающей
+// отдачей: чем выше мораль, тем меньше прирост, и каждый недавний успех того
+// же вида ослабляет следующий (нет «снежного кома»).
+func (w *World) moraleGain(s int, kind string, base float64) float64 {
+	r := w.cat.Rules
+	sd := w.Sides[s]
+	lvl := (100 - sd.Morale) / (100 - r.MoraleGainRef)
+	lvl = math.Max(r.MoraleGainFloor, math.Min(1.5, lvl))
+	keep := sd.MoraleHist[kind][:0]
+	for _, t := range sd.MoraleHist[kind] {
+		if w.Time-t < r.MoraleFatigueH*60 {
+			keep = append(keep, t)
+		}
+	}
+	n := float64(len(keep))
+	sd.MoraleHist[kind] = append(keep, w.Time)
+	return base * lvl / (1 + r.MoraleFatigue*n)
+}
+
+// addMorale прибавляет к морали стороны s (с ограничением 0..100).
+func (w *World) addMorale(s int, d float64) {
+	w.Sides[s].Morale = clamp(w.Sides[s].Morale+d, 0, 100)
 }

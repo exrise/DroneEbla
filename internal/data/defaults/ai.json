@@ -36,7 +36,7 @@
         "refinery": 10, "airbase_strat": 10, "missile_plant": 9, "oil_port": 8, "tpp": 8,
         "drone_workshop": 8, "substation": 7, "armor_plant": 7, "chem_plant": 7,
         "electronics_plant": 7, "steel_mill": 6, "airfield": 6, "naval_base": 6, "hpp": 6,
-        "depot": 5, "rail_hub": 5, "research": 5, "bridge": 4, "oilfield": 3
+        "depot": 5, "rail_hub": 5, "rail_station": 3, "research": 5, "bridge": 4, "oilfield": 3
       },
       "salvo_base": 3,
       "salvo_per_channel": 2.5,
@@ -47,7 +47,7 @@
       "protect": {
         "tpp": 8, "substation": 7, "refinery": 8, "missile_plant": 9, "armor_plant": 7,
         "drone_workshop": 6, "electronics_plant": 7, "steel_mill": 6, "chem_plant": 6,
-        "airfield": 5, "airbase_strat": 5, "hpp": 7, "rail_hub": 5, "depot": 4, "bridge": 3,
+        "airfield": 5, "airbase_strat": 5, "hpp": 7, "rail_hub": 5, "rail_station": 2, "depot": 4, "bridge": 3,
         "research": 4, "training_center": 3, "oil_port": 6, "naval_base": 5
       },
       "ad_every_min": 30,

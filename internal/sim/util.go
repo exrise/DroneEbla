@@ -105,3 +105,11 @@ func (w *World) groundTile(i int) bool {
 	c := w.m.Country[i]
 	return w.m.Terrain[i] == 1 && (c == 1 || c == 2) && w.Owner[i] != 0
 }
+
+// scale — множитель выпуска здания.
+func (b *Building) scale() float64 {
+	if b.Scale <= 0 {
+		return 1
+	}
+	return b.Scale
+}

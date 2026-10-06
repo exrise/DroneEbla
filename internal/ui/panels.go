@@ -11,15 +11,15 @@ import (
 	"github.com/exrise/droneebla/internal/sim"
 )
 
-var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "Стройка", "Наука", "Импорт", "Разведка", "Журнал"}
+var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "Стройка", "Наука", "Импорт", "Разведка", "Журнал", "Задания"}
 
 func (g *Game) drawLeftPanel() {
 	u := &g.ui
 	u.Panel(0, topH, leftW, u.H-topH)
-	tw := (leftW - 12) / 4
+	tw := (leftW - 12) / 5
 	for i, name := range tabNames {
-		x := 6 + (i%4)*tw
-		y := topH + 6 + (i/4)*28
+		x := 6 + (i%5)*tw
+		y := topH + 6 + (i/5)*28
 		if u.ButtonState(x, y, tw-4, 24, name, g.tab == i, true) {
 			g.tab = i
 		}
@@ -58,6 +58,8 @@ func (g *Game) drawLeftPanel() {
 		bottom = g.tabIntel(x, int(y0), w)
 	case 7:
 		bottom = g.tabLog(x, int(y0), w)
+	case 8:
+		bottom = g.tabMissions(x, int(y0), w)
 	}
 	u.screen = old
 	u.clip = image.Rectangle{}
@@ -827,6 +829,40 @@ func (g *Game) tabLog(x, y, w int) int {
 			g.centerOn(e.X, e.Y)
 		}
 		y += h
+	}
+	return y
+}
+
+// ---------------------------------------------------------------------
+
+func (g *Game) tabMissions(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Задания", x, y)
+	if len(v.Missions) == 0 {
+		return g.para("Для вашей стороны заданий нет: помощь приходит только по таймеру.", x, y, w, colDim)
+	}
+	y = g.para("За выполнение задания приходит крупный пакет помощи. Прогресс засчитывается по данным о поражении объектов.", x, y, w, colDim)
+	y += 4
+	for _, m := range v.Missions {
+		c := colText
+		status := fmt.Sprintf("%.0f / %.0f", m.Progress, m.Target)
+		switch {
+		case m.Done:
+			c, status = colGood, "выполнено"
+		case m.Failed:
+			c, status = colBad, "провалено"
+		}
+		drawBold(u.screen, m.Title, float64(x), float64(y), 14, c, 0)
+		drawText(u.screen, status, float64(x+w), float64(y+1), 13, c, 2)
+		y += 22
+		if !m.Done && !m.Failed {
+			u.Bar(x, y, w, 8, m.Progress/math.Max(m.Target, 0.001), colAccent)
+			y += 14
+		}
+		y = g.para(m.Hint, x, y, w, colDim)
+		y = g.para("Награда: "+m.Reward, x, y, w, colText)
+		y += 10
 	}
 	return y
 }

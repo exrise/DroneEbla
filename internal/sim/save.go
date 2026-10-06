@@ -100,6 +100,18 @@ func (sd *Side) ensure(n int) {
 	if sd.Known == nil {
 		sd.Known = map[uint32]*Contact{}
 	}
+	if sd.MoraleHist == nil {
+		sd.MoraleHist = map[string][]float64{}
+	}
+	if sd.MissionSeen == nil {
+		sd.MissionSeen = map[string][]uint32{}
+	}
+	if sd.MissionFail == nil {
+		sd.MissionFail = map[string]bool{}
+	}
+	if sd.CitySeen == nil {
+		sd.CitySeen = map[int]int{}
+	}
 	if sd.RegionPower == nil {
 		sd.RegionPower = map[int]float64{}
 	}

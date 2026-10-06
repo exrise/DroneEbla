@@ -677,3 +677,170 @@ func TestStaleContactsOnCaptured(t *testing.T) {
 		t.Fatal("метка на реальном здании противника пропала")
 	}
 }
+
+func TestMoraleDiminishingReturns(t *testing.T) {
+	w := newTestWorld(t)
+	sd := w.Sides[data.UA]
+	sd.Morale = 50
+	g1 := w.moraleGain(data.UA, "key", 2)
+	g2 := w.moraleGain(data.UA, "key", 2)
+	g3 := w.moraleGain(data.UA, "key", 2)
+	if !(g1 > g2 && g2 > g3) {
+		t.Fatalf("повторные успехи должны давать всё меньше: %.2f %.2f %.2f", g1, g2, g3)
+	}
+	sd.Morale = 90
+	hi := w.moraleGain(data.UA, "other", 2)
+	sd.Morale = 20
+	lo := w.moraleGain(data.UA, "another", 2)
+	if hi >= lo || hi > 2*w.cat.Rules.MoraleGainFloor+0.5 {
+		t.Fatalf("у высокой морали прирост должен быть меньше: %.2f против %.2f", hi, lo)
+	}
+	// Усталость проходит со временем.
+	sd.Morale = 50
+	run(w, w.cat.Rules.MoraleFatigueH*60+5)
+	if g := w.moraleGain(data.UA, "key", 2); g < 1.99 {
+		t.Fatalf("усталость не прошла: %.2f", g)
+	}
+}
+
+func TestKeyHitMoraleOnce(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	tgt := findBuilding(w, "Ж/д узел Киев")
+	if tgt == nil || tgt.Side != data.UA {
+		t.Fatal("нет ж/д узла Киев у Украины")
+	}
+	m := *w.cat.MunitionByID["kalibr"]
+	m.Accuracy, m.Damage = 1, 100000
+	ru := w.Sides[data.RU]
+	ru.Morale = 40
+	w.impact(&Projectile{Side: data.RU, X: tgt.X, Y: tgt.Y}, &m)
+	first := ru.Morale
+	if first <= 40 {
+		t.Fatal("вывод ключевого объекта из строя не поднял мораль")
+	}
+	tgt.HP = tgt.MaxHP // «починили» в обход бригад: флаг остаётся
+	w.impact(&Projectile{Side: data.RU, X: tgt.X, Y: tgt.Y}, &m)
+	if ru.Morale != first {
+		t.Fatalf("повторное поражение того же объекта изменило мораль: %.2f → %.2f", first, ru.Morale)
+	}
+	// После настоящего ремонта флаг снимается.
+	tgt.HP = tgt.MaxHP * 0.2
+	tgt.Repair = true
+	tgt.Built = 1
+	w.Sides[data.UA].Res = data.ToRes(map[string]float64{"money": 1e6, "fuel": 1e6, "steel": 1e6, "electronics": 1e6, "ammo": 1e6})
+	run(w, 48*60)
+	if tgt.KeyHit {
+		t.Fatal("флаг KeyHit не снят после ремонта")
+	}
+}
+
+// Сталь РФ к Украине — ближе к реальному соотношению; все тыловые объекты встали на карту.
+func TestSteelBalanceAndRear(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, 30)
+	var sum [2]float64
+	for _, b := range w.Buildings {
+		if b.Type == "steel_mill" {
+			sum[b.Side] += 12 * b.scale() * w.output(b)
+		}
+	}
+	if sum[data.UA] <= 0 || sum[data.RU]/sum[data.UA] < 2.5 {
+		t.Fatalf("сталь РФ/Украина = %.0f/%.0f, нужно не меньше 2.5×", sum[data.RU], sum[data.UA])
+	}
+	have := map[string]bool{}
+	for _, b := range w.Buildings {
+		have[b.Name] = true
+	}
+	for _, o := range w.cat.Objects {
+		if !have[o.Name] {
+			t.Errorf("объект %q не получил владельца на карте", o.Name)
+		}
+	}
+	hubs := map[int]int{}
+	for _, b := range w.Buildings {
+		if b.Type == "rail_hub" || b.Type == "rail_station" {
+			hubs[b.Side]++
+		}
+	}
+	if hubs[data.UA] < 15 || hubs[data.RU] < 10 {
+		t.Fatalf("мало узлов и станций: %v", hubs)
+	}
+}
+
+func TestMissions(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	hammer := *w.cat.MunitionByID["kalibr"]
+	hammer.Accuracy, hammer.Damage, hammer.BlastKm = 1, 100000, 0
+	// У Украины есть задания, и в представлении они видны.
+	if n := len(w.BuildView(data.UA, 0).Missions); n < 4 {
+		t.Fatalf("заданий у Украины %d, ожидалось 4", n)
+	}
+	if len(w.BuildView(data.RU, 0).Missions) != 0 {
+		t.Fatal("у России заданий быть не должно")
+	}
+	strike := func(b *Building) {
+		w.impact(&Projectile{Side: data.UA, X: b.X, Y: b.Y}, &hammer)
+	}
+	// Крымский мост.
+	before := ua.Stocks["atacms"]
+	bridge := findBuilding(w, "Крымский мост")
+	strike(bridge)
+	if !ua.AidDone["mis_crimea_bridge"] || ua.Stocks["atacms"] < before+20 {
+		t.Fatal("за Крымский мост награда не выдана")
+	}
+	// Москва: нужно три разных объекта в радиусе 60 км.
+	cx, cy := w.m.Project(37.62, 55.75)
+	var moscow []*Building
+	for _, b := range w.Buildings {
+		if b.Side == data.RU && dist(b.X, b.Y, cx, cy) <= 60 {
+			moscow = append(moscow, b)
+		}
+	}
+	sort.Slice(moscow, func(i, j int) bool { return moscow[i].ID < moscow[j].ID })
+	if len(moscow) < 3 {
+		t.Fatalf("в Москве всего %d объектов", len(moscow))
+	}
+	strike(moscow[0])
+	strike(moscow[0]) // повторное поражение не считается
+	strike(moscow[1])
+	if ua.AidDone["mis_moscow"] {
+		t.Fatal("награда выдана раньше времени")
+	}
+	strike(moscow[2])
+	if !ua.AidDone["mis_moscow"] {
+		t.Fatal("за три объекта в Москве награда не выдана")
+	}
+	// НПЗ: четыре штуки.
+	n := 0
+	for _, b := range w.Buildings {
+		if b.Side == data.RU && b.Type == "refinery" && n < 4 {
+			strike(b)
+			n++
+		}
+	}
+	if !ua.AidDone["mis_refineries"] {
+		t.Fatal("за четыре НПЗ награда не выдана")
+	}
+	// Удержание Киева.
+	run(w, 72*60+5)
+	if !ua.AidDone["mis_hold_kyiv"] {
+		t.Fatal("за удержание Киева награда не выдана")
+	}
+}
+
+func TestMissionHoldFailed(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	for i := range w.Owner {
+		if i == w.kyiv {
+			w.Owner[i] = uint8(data.RU + 1)
+		}
+	}
+	run(w, 72*60+5)
+	if !w.Sides[data.UA].MissionFail["mis_hold_kyiv"] || w.Sides[data.UA].AidDone["mis_hold_kyiv"] {
+		t.Fatal("задание на удержание потерянного Киева должно быть провалено")
+	}
+}

@@ -77,6 +77,9 @@ func Load(override string) (*Catalog, error) {
 		r.PropagandaCost, r.PropagandaGain, r.PropagandaCooldownH = 100, 10, 6
 		r.MoraleKeyHit, r.MoraleKeyLoss, r.MoraleRepel, r.MoraleRepelMin = 1.5, 1.0, 2.0, 10
 	}
+	if r.MoraleGainRef <= 0 {
+		r.MoraleGainRef, r.MoraleGainFloor, r.MoraleFatigue, r.MoraleFatigueH, r.MoraleCityRepeat = 50, 0.15, 0.35, 6, 0.25
+	}
 	if r.StrikeDroneVisionKm <= 0 {
 		r.StrikeDroneVisionKm = 5
 	}
