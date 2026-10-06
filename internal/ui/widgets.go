@@ -94,6 +94,8 @@ type input struct {
 	overUI     bool // курсор над панелью
 	lastClickT int
 	tick       int
+	chars      []rune // введённые за тики с прошлого кадра символы
+	backspace  int    // нажатия Backspace (с автоповтором) с прошлого кадра
 }
 
 // UI — непосредственный режим: виджеты рисуются и обрабатывают ввод в Draw.
@@ -320,6 +322,32 @@ type TextField struct {
 	Text    string
 	Focused bool
 	Max     int
+	Allowed func(rune) bool // допустимые символы (nil — любые печатные)
+}
+
+// applyInput применяет введённые символы и Backspace к тексту.
+func (t *TextField) applyInput(chars []rune, backspaces int) {
+	for _, r := range chars {
+		if r < 32 || r == 127 || (t.Allowed != nil && !t.Allowed(r)) {
+			continue
+		}
+		if t.Max == 0 || utf8.RuneCountInString(t.Text) < t.Max {
+			t.Text += string(r)
+		}
+	}
+	for ; backspaces > 0 && len(t.Text) > 0; backspaces-- {
+		_, n := utf8.DecodeLastRuneInString(t.Text)
+		t.Text = t.Text[:len(t.Text)-n]
+	}
+}
+
+// collectTextInput вызывается из Update раз за тик: Draw может идти чаще
+// (монитор 120/144 Гц), и ввод, прочитанный в Draw, дублировался бы.
+func (in *input) collectTextInput() {
+	in.chars = ebiten.AppendInputChars(in.chars)
+	if repeatKey(ebiten.KeyBackspace) {
+		in.backspace++
+	}
 }
 
 // Draw рисует поле и обрабатывает ввод.
@@ -330,16 +358,8 @@ func (t *TextField) Draw(u *UI, x, y, w, h int) {
 		t.Focused = false
 	}
 	if t.Focused {
-		chars := ebiten.AppendInputChars(nil)
-		for _, r := range chars {
-			if t.Max == 0 || utf8.RuneCountInString(t.Text) < t.Max {
-				t.Text += string(r)
-			}
-		}
-		if repeatKey(ebiten.KeyBackspace) && len(t.Text) > 0 {
-			_, n := utf8.DecodeLastRuneInString(t.Text)
-			t.Text = t.Text[:len(t.Text)-n]
-		}
+		t.applyInput(u.in.chars, u.in.backspace)
+		u.in.chars, u.in.backspace = nil, 0
 	}
 	fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), color.RGBA{14, 16, 20, 255})
 	bc := colBorder

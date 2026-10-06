@@ -113,8 +113,10 @@ func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 	g.initAutoShot()
 	g.portField.Text = strconv.Itoa(netplay.DefaultPort)
 	g.portField.Max = 5
+	g.portField.Allowed = func(r rune) bool { return r >= '0' && r <= '9' }
 	g.ipField.Text = "26."
 	g.ipField.Max = 40
+	g.ipField.Allowed = func(r rune) bool { return r != ' ' }
 	return g
 }
 
@@ -146,6 +148,7 @@ func (g *Game) Update() error {
 	in.mdown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
 	_, wy := ebiten.Wheel()
 	in.wheel += wy
+	in.collectTextInput()
 	if g.scene == sceneGame {
 		g.gameKeys()
 	}
@@ -156,6 +159,7 @@ func (g *Game) resetInput() {
 	in := &g.ui.in
 	in.click, in.rclick, in.dblclick, in.consumed, in.overUI = false, false, false, false, false
 	in.wheel = 0
+	in.chars, in.backspace = in.chars[:0], 0
 }
 
 // Draw — отрисовка и обработка интерфейса (непосредственный режим).
