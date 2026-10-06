@@ -58,6 +58,7 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 			CitySeen:    map[int]int{},
 			MissionSeen: map[string][]uint32{},
 			MissionFail: map[string]bool{},
+			Reserve:     map[string]int{},
 		}
 		for i := range sd.SeenAt {
 			sd.SeenAt[i] = -1e9
@@ -87,6 +88,12 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 		b.Prewar = true
 		b.Dir = o.Dir
 		b.Scale = o.Scale
+		for k, n := range o.Aircraft {
+			if b.Aircraft == nil {
+				b.Aircraft = map[string]float64{}
+			}
+			b.Aircraft[k] = float64(n)
+		}
 		if o.Type != "rail_hub" && o.Type != "bridge" && o.Type != "depot" {
 			b.Dir = -1
 		}

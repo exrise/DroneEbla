@@ -80,7 +80,8 @@ type BuildingType struct {
 	Transfer     float64            `json:"transfer"` // пропускная способность перетока энергии, МВт
 	Launch       []string           `json:"launch"`   // платформы пуска: dronesite, strategic, naval, tactical
 	LaunchRate   float64            `json:"launch_rate"`
-	Aircraft     map[string]int     `json:"aircraft"` // tactical / strategic
+	Aircraft     map[string]int     `json:"aircraft"` // tactical / strategic / fighter
+	Intercept    *InterceptDef      `json:"intercept"`
 	Untargetable bool               `json:"untargetable"`
 	Buildable    []string           `json:"buildable"` // стороны, которым доступно строительство
 	Vision       float64            `json:"vision"`
@@ -98,6 +99,14 @@ func (bt *BuildingType) RepairHrs() float64 {
 		return bt.RepairHours
 	}
 	return 20 + 0.15*bt.HP
+}
+
+// InterceptDef — перехват самолётами с аэродрома.
+type InterceptDef struct {
+	Km        float64 `json:"km"`         // радиус от аэродрома
+	Channels  int     `json:"channels"`   // максимум одновременных перехватов
+	PkLow     float64 `json:"pk_low"`     // вероятность сбить низкую цель
+	EngageSec float64 `json:"engage_sec"` // время одного перехвата
 }
 
 // UnitType — тип мобильного юнита.
@@ -263,27 +272,28 @@ type FrontPool struct {
 
 // SideDef — стартовые условия и особенности стороны.
 type SideDef struct {
-	Name          string             `json:"name"`
-	Resources     map[string]float64 `json:"resources"`
-	Morale        float64            `json:"morale"`
-	People        float64            `json:"people"`       // мобилизационный резерв
-	TaxPerCity    float64            `json:"tax_per_city"` // деньги в час за 100 тыс. жителей
-	BaseIncome    float64            `json:"base_income"`
-	MenStream     float64            `json:"men_stream"` // приток людей на фронт, тыс./ч (из резерва)
-	EntryLon      float64            `json:"entry_lon"`  // точка появления поставок
-	EntryLat      float64            `json:"entry_lat"`
-	Entries       []EntryPoint       `json:"entries"` // пункты въезда импорта и помощи (по кругу); если пусто — entry_lon/lat
-	Stocks        map[string]float64 `json:"stocks"`  // запасы боеприпасов и зенитных ракет
-	Storage       FrontPool          `json:"storage"` // техника на хранении (советские склады)
-	Front         [3]FrontPool       `json:"front"`   // Север, Донбасс, Юг
-	Units         []StartUnit        `json:"units"`
-	Unlocked      []string           `json:"unlocked"` // доступно для производства с начала
-	Imports       []ImportOffer      `json:"imports"`
-	Aid           []AidPackage       `json:"aid"`
-	Mobilization  []Mobilization     `json:"mobilization"`
-	Satellites    []Satellite        `json:"satellites"`
-	BomberWarning bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника
-	BelarusAir    bool               `json:"belarus_air"`
+	Name             string             `json:"name"`
+	Resources        map[string]float64 `json:"resources"`
+	Morale           float64            `json:"morale"`
+	People           float64            `json:"people"`       // мобилизационный резерв
+	TaxPerCity       float64            `json:"tax_per_city"` // деньги в час за 100 тыс. жителей
+	BaseIncome       float64            `json:"base_income"`
+	MenStream        float64            `json:"men_stream"` // приток людей на фронт, тыс./ч (из резерва)
+	EntryLon         float64            `json:"entry_lon"`  // точка появления поставок
+	EntryLat         float64            `json:"entry_lat"`
+	Entries          []EntryPoint       `json:"entries"` // пункты въезда импорта и помощи (по кругу); если пусто — entry_lon/lat
+	Stocks           map[string]float64 `json:"stocks"`  // запасы боеприпасов и зенитных ракет
+	Storage          FrontPool          `json:"storage"` // техника на хранении (советские склады)
+	Front            [3]FrontPool       `json:"front"`   // Север, Донбасс, Юг
+	Units            []StartUnit        `json:"units"`
+	ReserveBuildings map[string]int     `json:"reserve_buildings"` // здания (площадки), выдаваемые в резерв для расстановки
+	Unlocked         []string           `json:"unlocked"`          // доступно для производства с начала
+	Imports          []ImportOffer      `json:"imports"`
+	Aid              []AidPackage       `json:"aid"`
+	Mobilization     []Mobilization     `json:"mobilization"`
+	Satellites       []Satellite        `json:"satellites"`
+	BomberWarning    bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника
+	BelarusAir       bool               `json:"belarus_air"`
 }
 
 // EntryPoint — пункт въезда поставок (граница, порт).
@@ -302,6 +312,8 @@ type Object struct {
 	Dir  int     `json:"dir"` // для мостов и узлов: направление (-1 — авто)
 	// Scale — множитель выпуска (0 — как 1): мощность комбината, включая то, что за краем карты.
 	Scale float64 `json:"scale"`
+	// Aircraft — своё число самолётов у объекта (перекрывает значения типа по ключам).
+	Aircraft map[string]int `json:"aircraft"`
 }
 
 // Rules — общие параметры.
@@ -354,6 +366,8 @@ type Rules struct {
 	MoraleRepel         float64            `json:"morale_repel"`           // бонус обороне, если массированный удар полностью отбит
 	MoraleRepelMin      int                `json:"morale_repel_min"`       // минимальный размер такого удара
 	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
+	PlacementKinds      []string           `json:"placement_kinds"`        // виды юнитов, которые игрок сам расставляет перед стартом
+	AircraftLoss        float64            `json:"aircraft_loss"`          // вероятность потерять истребитель за перехват
 	MoraleGainRef       float64            `json:"morale_gain_ref"`        // при этой морали успехи дают полный прирост; выше — меньше
 	MoraleGainFloor     float64            `json:"morale_gain_floor"`      // минимальная доля прироста
 	MoraleFatigue       float64            `json:"morale_fatigue"`         // спад прироста за каждый недавний успех того же вида

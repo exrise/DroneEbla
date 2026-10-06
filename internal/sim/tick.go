@@ -16,7 +16,7 @@ func (w *World) EffectiveSpeed() int {
 
 // Paused — стоит ли игра на паузе.
 func (w *World) Paused() bool {
-	if w.Winner >= 0 {
+	if w.Winner >= 0 || w.Placement {
 		return true
 	}
 	for s := 0; s < 2; s++ {

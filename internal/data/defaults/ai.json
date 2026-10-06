@@ -10,7 +10,7 @@
       ],
       "fund_levels": [700, 1400, 2400],
       "orders": [
-        "m_9m33", "m_9m38", "m_5v55", "uj22", "lyutyi", "palianytsia", "m_idrone_ua",
+        "m_9m33", "m_9m38", "m_5v55", "m_aam_ua", "uj22", "lyutyi", "palianytsia", "m_idrone_ua",
         "idrone_ua:6", "mfg_ua:6", "neptune", "neptune_long", "flamingo", "fpv", "armor", "artillery", "smerch_ua"
       ],
       "imports": ["ua_imp_ammo", "ua_imp_elec", "ua_imp_fuel", "ua_imp_tb2"],
@@ -56,6 +56,10 @@
       "ad_move_cooldown_min": 240,
       "ad_move_max_km": 600,
       "repair_min_weight": 4
+    },
+    "ru": {
+      "protect": {"tpp": 8, "substation": 7, "refinery": 8, "missile_plant": 9, "armor_plant": 7, "drone_workshop": 6, "electronics_plant": 7, "steel_mill": 6, "chem_plant": 6, "airfield": 5, "airbase_strat": 5, "hpp": 7, "rail_hub": 5, "rail_station": 2, "depot": 4, "bridge": 3, "research": 4, "training_center": 3, "oil_port": 6, "naval_base": 5},
+      "strike_weights": {"refinery": 10, "airbase_strat": 10, "missile_plant": 9, "oil_port": 8, "tpp": 8, "drone_workshop": 8, "substation": 7, "armor_plant": 7, "chem_plant": 7, "electronics_plant": 7, "steel_mill": 6, "airfield": 6, "naval_base": 6, "hpp": 6, "depot": 5, "rail_hub": 5, "rail_station": 3, "research": 5, "bridge": 4, "oilfield": 3}
     }
   }
 }

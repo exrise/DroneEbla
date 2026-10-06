@@ -157,3 +157,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 ## Обновления блока D (интерфейс)
 - `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 2`.
 - `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), F11/Alt+Enter в `Game.Update`, `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).
+
+## Обновления блока B (ПВО)
+- Перехват самолётами: `BuildingType.Intercept`, `Aircraft["fighter"]`, `Building.Busy`, `Engagement.Bld`, `sim/airdefense.go fighterIntercepts` и `underEnemyAD`; запасы `m_aam_ru/m_aam_ua`.
+- Расстановка: `sim/placement.go` (`StartPlacement`, `CanPlace`, `CmdPlace/CmdUnplace/CmdReady`), `World.Placement/PlacementDone`, `Side.Reserve/Hints/Ready`, `View.Placement/Reserve/Hints/Ready/EnemyReady`; `netplay.NewHost` и `NewSolo` вызывают `StartPlacement`; `ai/place.go`; панель `ui.drawPlacementPanel` и режим `modePlace`.

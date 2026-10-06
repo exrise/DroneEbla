@@ -56,6 +56,8 @@ type Building struct {
 	Repairing bool // сейчас чинится бригадой
 	Prewar    bool
 	Budget    float64 // накопленные пуски
+	Busy      int     // занятые каналы перехвата (аэродром)
+	Placed    bool    // поставлен игроком на экране расстановки
 	KeyHit    bool    // ключевой объект уже выведен из строя (повторно мораль не меняется до ремонта)
 	Scale     float64 // множитель выпуска (0 — как 1)
 	Region    int
@@ -75,6 +77,7 @@ type Unit struct {
 	Reload    float64 // минут до готовности к залпу
 	Ready     float64 // ПВО: ракет на пусковых
 	FlashTill float64 // засветка после залпа
+	Placed    bool    // поставлен игроком на экране расстановки
 }
 
 // Projectile — летящий боеприпас или БПЛА.
@@ -106,11 +109,18 @@ type StrikeGroup struct {
 
 // Engagement — перехват в процессе.
 type Engagement struct {
-	AD   uint32
+	AD   uint32 // юнит ПВО (0 — перехват самолётами)
+	Bld  uint32 // аэродром, с которого взлетели перехватчики
 	Proj uint32
 	T    float64
 	Pk   float64
 	Side int
+}
+
+// PlaceHint — стартовая позиция юнита из данных стороны.
+type PlaceHint struct {
+	Type string
+	X, Y float64
 }
 
 // Contact — разведданные об объекте противника.
@@ -209,6 +219,9 @@ type Side struct {
 	CitySeen    map[int]int          // сколько раз сторона брала город
 	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
 	MissionFail map[string]bool      // задания, которые уже не выполнить
+	Reserve     map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
+	Hints       []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
+	Ready       bool                 // расстановка завершена
 	Known       map[uint32]*Contact
 	SeenAt      []float32 // время последнего наблюдения тайла
 	Events      []Event
@@ -224,30 +237,32 @@ type Side struct {
 
 // World — всё состояние партии.
 type World struct {
-	Time      float64 // игровые минуты с начала партии
-	PrepEnd   float64
-	Owner     []uint8 // 0 никто, 1 РФ, 2 Украина
-	Fort      []uint8
-	FortJobs  map[int]float64
-	Pressure  []float32
-	Sides     [2]*Side
-	Buildings map[uint32]*Building
-	Units     map[uint32]*Unit
-	Projs     map[uint32]*Projectile
-	Engs      []Engagement
-	Groups    map[uint32]*StrikeGroup
-	Captures  []Capture
-	SpawnN    [2]int // счётчик для чередования точек появления
-	FrontHour float64
-	NextID    uint32
-	NextEvent uint64
-	FrontAcc  float64
-	HourAcc   float64
-	Winner    int
-	WinReason string
-	Sandbox   bool
-	Solo      bool // одиночная игра против ИИ (человек — сторона 0)
-	Seed      int64
+	Time          float64 // игровые минуты с начала партии
+	PrepEnd       float64
+	Owner         []uint8 // 0 никто, 1 РФ, 2 Украина
+	Fort          []uint8
+	FortJobs      map[int]float64
+	Pressure      []float32
+	Sides         [2]*Side
+	Buildings     map[uint32]*Building
+	Units         map[uint32]*Unit
+	Projs         map[uint32]*Projectile
+	Engs          []Engagement
+	Groups        map[uint32]*StrikeGroup
+	Captures      []Capture
+	SpawnN        [2]int // счётчик для чередования точек появления
+	FrontHour     float64
+	NextID        uint32
+	NextEvent     uint64
+	FrontAcc      float64
+	HourAcc       float64
+	Winner        int
+	WinReason     string
+	Sandbox       bool
+	Placement     bool // идёт расстановка перед стартом: время стоит
+	PlacementDone bool // расстановка уже была (повторно не начинается)
+	Solo          bool // одиночная игра против ИИ (человек — сторона 0)
+	Seed          int64
 
 	cat      *data.Catalog
 	m        *world.MapData

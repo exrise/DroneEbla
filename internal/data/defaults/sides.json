@@ -19,7 +19,7 @@
     "stocks": {
       "iskander_m": 120, "iskander_k": 60, "kalibr": 180, "kh101": 200, "kh22": 80,
       "smerch_ru": 2400, "orlan10": 80,
-      "m_48n6": 800, "m_9m317": 600, "m_57e6": 1000, "m_9m338": 600
+      "m_48n6": 800, "m_9m317": 600, "m_57e6": 1000, "m_9m338": 600, "m_aam_ru": 300
     },
     "storage": {"men": 0, "armor": 4000, "artillery": 3000, "fpv": 0},
     "front": [
@@ -27,6 +27,7 @@
       {"men": 70, "armor": 900, "artillery": 900, "fpv": 0},
       {"men": 45, "armor": 600, "artillery": 600, "fpv": 0}
     ],
+    "reserve_buildings": {"dronesite": 6},
     "units": [
       {"type": "s400", "lon": 34.40, "lat": 45.70}, {"type": "s400", "lon": 36.60, "lat": 50.62},
       {"type": "s400", "lon": 36.15, "lat": 51.72}, {"type": "s400", "lon": 39.70, "lat": 47.25},
@@ -64,7 +65,7 @@
       "armor", "artillery", "armor_storage", "artillery_storage",
       "iskander_m", "iskander_k", "kalibr", "kh101", "kh22", "smerch_ru", "orlan10",
       "m_48n6", "m_9m317", "m_57e6", "m_9m338",
-      "s400", "s300", "buk_ru", "pantsir", "tor", "radar_ru", "reb_ru", "rtr_ru", "iskander", "tornado"
+      "m_aam_ru", "s400", "s300", "buk_ru", "pantsir", "tor", "radar_ru", "reb_ru", "rtr_ru", "iskander", "tornado"
     ],
     "imports": [
       {"id": "ru_imp_shahed", "name": "Шахеды из Ирана (×20)", "item": "shahed136", "amount": 20, "money": 70, "delay_h": 12},
@@ -103,7 +104,7 @@
     ],
     "stocks": {
       "tochka_u": 90, "smerch_ua": 1200, "tb2": 20,
-      "m_5v55": 400, "m_9m38": 250, "m_9m33": 400
+      "m_5v55": 400, "m_9m38": 250, "m_9m33": 400, "m_aam_ua": 120
     },
     "storage": {"men": 0, "armor": 600, "artillery": 400, "fpv": 0},
     "front": [
@@ -111,6 +112,7 @@
       {"men": 75, "armor": 650, "artillery": 550, "fpv": 0},
       {"men": 35, "armor": 300, "artillery": 300, "fpv": 0}
     ],
+    "reserve_buildings": {"dronesite": 4},
     "units": [
       {"type": "s300ps", "lon": 30.25, "lat": 50.52}, {"type": "s300ps", "lon": 30.75, "lat": 50.35},
       {"type": "s300ps", "lon": 35.05, "lat": 48.50}, {"type": "s300ps", "lon": 36.25, "lat": 49.95},
@@ -138,7 +140,7 @@
     ],
     "unlocked": [
       "armor", "artillery", "armor_storage", "artillery_storage", "smerch_ua",
-      "mfg_ua", "radar_ua", "reb_ua", "rtr_ua", "smerch_ua", "osa", "m_9m33"
+      "mfg_ua", "radar_ua", "reb_ua", "rtr_ua", "smerch_ua", "osa", "m_9m33", "m_aam_ua"
     ],
     "imports": [
       {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8},

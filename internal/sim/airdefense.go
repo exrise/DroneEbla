@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"sort"
+
+	"github.com/exrise/droneebla/internal/data"
 )
 
 // detectRange — дальность обнаружения сенсором цели данного класса.
@@ -72,7 +74,18 @@ func (w *World) airDefense(dtMin float64) {
 			keep = append(keep, e)
 			continue
 		}
-		if u, ok := w.Units[e.AD]; ok {
+		if e.Bld != 0 {
+			if b, ok := w.Buildings[e.Bld]; ok {
+				b.Busy--
+				if b.Busy < 0 {
+					b.Busy = 0
+				}
+				if n := b.Aircraft["fighter"]; n >= 1 && w.rng.Float64() < w.cat.Rules.AircraftLoss {
+					b.Aircraft["fighter"] = n - 1
+					w.LogAt(b.Side, 1, "Потерян истребитель-перехватчик: "+b.Name, b.X, b.Y)
+				}
+			}
+		} else if u, ok := w.Units[e.AD]; ok {
 			u.Busy--
 		}
 		p, ok := w.Projs[e.Proj]
@@ -162,6 +175,75 @@ func (w *World) airDefense(dtMin float64) {
 			w.Engs = append(w.Engs, Engagement{AD: u.ID, Proj: p.ID, T: ut.EngageSec / 60, Pk: clamp(pk, 0, 0.98), Side: u.Side})
 		}
 	}
+	w.fighterIntercepts(tracks)
+}
+
+// fighterIntercepts — перехват низких целей истребителями с аэродромов, которые
+// не находятся в зоне поражения вражеской ПВО.
+func (w *World) fighterIntercepts(tracks [2][]*Projectile) {
+	ids := make([]uint32, 0, 16)
+	for id, b := range w.Buildings {
+		if bt := w.cat.BuildingByID[b.Type]; bt.Intercept != nil && b.Aircraft["fighter"] >= 1 {
+			ids = append(ids, id)
+		}
+	}
+	sort.Slice(ids, func(a, b int) bool { return ids[a] < ids[b] })
+	for _, id := range ids {
+		b := w.Buildings[id]
+		bt := w.cat.BuildingByID[b.Type]
+		ic := bt.Intercept
+		if !b.Operational() {
+			continue
+		}
+		channels := int(math.Min(float64(ic.Channels), math.Floor(b.Aircraft["fighter"]/3)))
+		if channels < 1 || b.Busy >= channels {
+			continue
+		}
+		sd := w.Sides[b.Side]
+		aam := "m_aam_" + data.SideKeys[b.Side]
+		if sd.Stocks[aam] < 1 || w.underEnemyAD(b) {
+			continue
+		}
+		var cands []*Projectile
+		for _, p := range tracks[b.Side] {
+			m := w.cat.MunitionByID[p.Munition]
+			if m.Class != "low" || p.Engaged >= 1 || dist(b.X, b.Y, p.X, p.Y) > ic.Km {
+				continue
+			}
+			cands = append(cands, p)
+		}
+		sort.Slice(cands, func(a, c int) bool {
+			da, dc := dist(b.X, b.Y, cands[a].X, cands[a].Y), dist(b.X, b.Y, cands[c].X, cands[c].Y)
+			if da != dc {
+				return da < dc
+			}
+			return cands[a].ID < cands[c].ID
+		})
+		for _, p := range cands {
+			if b.Busy >= channels || sd.Stocks[aam] < 1 {
+				break
+			}
+			sd.Stocks[aam]--
+			b.Busy++
+			p.Engaged++
+			pk := ic.PkLow + sd.eff("intercept_pk")
+			w.Engs = append(w.Engs, Engagement{Bld: b.ID, Proj: p.ID, T: ic.EngageSec / 60, Pk: clamp(pk, 0, 0.98), Side: b.Side})
+		}
+	}
+}
+
+// underEnemyAD — аэродром в зоне поражения развёрнутого вражеского ПВО.
+func (w *World) underEnemyAD(b *Building) bool {
+	for _, u := range w.Units {
+		if u.Side == b.Side || u.State != UnitDeployed {
+			continue
+		}
+		ut := w.cat.UnitByID[u.Type]
+		if ut.Kind == "ad" && ut.RangeKm > 0 && dist(u.X, u.Y, b.X, b.Y) <= ut.RangeKm {
+			return true
+		}
+	}
+	return false
 }
 
 // downed — сообщение о сбитии.

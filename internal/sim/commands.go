@@ -46,6 +46,9 @@ const (
 	CmdMainEffort = "main_effort"
 	CmdSurrender  = "surrender"
 	CmdPropaganda = "propaganda"
+	CmdPlace      = "place"   // Item — тип из резерва, X, Y — точка
+	CmdUnplace    = "unplace" // ID — поставленный объект возвращается в резерв
+	CmdReady      = "ready"   // Int 1/0 — готовность к старту
 )
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
@@ -66,6 +69,12 @@ func (w *World) Apply(c Command) string {
 		sd.Pausing = c.Int != 0
 	case CmdBuild:
 		return w.build(s, c.Item, c.X, c.Y)
+	case CmdPlace:
+		return w.place(s, c.Item, c.X, c.Y)
+	case CmdUnplace:
+		return w.unplace(s, c.ID)
+	case CmdReady:
+		return w.ready(s, c.Int != 0)
 	case CmdRepair:
 		b, ok := w.Buildings[c.ID]
 		if !ok || b.Side != s {

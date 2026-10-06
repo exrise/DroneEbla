@@ -157,6 +157,7 @@ func NewSandbox(w *sim.World, side int) *Host {
 // управляет ИИ. Правила и туман войны те же, что в сетевой игре.
 func NewSolo(w *sim.World, human int) *Host {
 	w.Sandbox, w.Solo = true, true
+	w.StartPlacement()
 	h := &Host{w: w, side: human, sandbox: true, ai: ai.New(w.Catalog(), 1-human), stop: make(chan struct{})}
 	go h.loop()
 	return h
@@ -168,6 +169,7 @@ func NewHost(w *sim.World, side int, port int, dataHash string) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
+	w.StartPlacement()
 	h := &Host{w: w, side: side, ln: ln, stop: make(chan struct{}), dataHash: dataHash,
 		status: fmt.Sprintf("Ожидание второго игрока на порту %d…", port)}
 	go h.accept()
@@ -262,7 +264,7 @@ func (h *Host) loop() {
 			running := h.sandbox || h.client != nil
 			if running {
 				h.w.Update(dt)
-				if h.ai != nil && !h.w.Paused() {
+				if h.ai != nil && (!h.w.Paused() || h.w.Placement) {
 					h.ai.Tick(h.w)
 				}
 			}

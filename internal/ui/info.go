@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -16,6 +17,10 @@ import (
 func (g *Game) drawInfoPanel() {
 	u := &g.ui
 	v := g.view
+	if v.Placement {
+		g.drawPlacementPanel()
+		return
+	}
 	if g.mode == modeStrike {
 		g.drawStrikePanel()
 		return
@@ -162,9 +167,18 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 	}
 	if b.Aircraft != nil {
 		for k, n := range b.Aircraft {
-			name := map[string]string{"tactical": "Тактическая авиация", "strategic": "Дальняя авиация"}[k]
+			name := map[string]string{"tactical": "Тактическая авиация", "strategic": "Дальняя авиация", "fighter": "Истребители-перехватчики"}[k]
 			y = g.kv(name, fmt.Sprintf("%.0f", n), x, y, w, colText)
 		}
+	}
+	if bt.Intercept != nil {
+		n := v.Stocks["m_aam_"+data.SideKeys[v.Side]]
+		c := colText
+		if n < 20 {
+			c = colBad
+		}
+		y = g.kv("Ракеты воздух—воздух", fmt.Sprintf("%.0f на складе", n), x, y, w, c)
+		y = g.para(fmt.Sprintf("Перехват в радиусе %.0f км, каналов до %d. Не работает под вражеской ПВО.", bt.Intercept.Km, bt.Intercept.Channels), x, y, w, colDim)
 	}
 	if bt.Supply > 0 {
 		d := b.Dir
@@ -494,9 +508,9 @@ func (g *Game) drawHelp() {
 	lines := []string{
 		"ЛКМ — выбрать объект, перетаскивание — сдвиг карты",
 		"Колесо — масштаб, WASD/стрелки — прокрутка",
-		"ПКМ — марш выбранного юнита, F — пуск (выбрана пусковая)",
-		"Ctrl+1…9 — запомнить выбранное в группу, 1…9 — выбрать",
-		"Пробел — пауза, [ ] — скорость, F5 — сохранить, F11 — экран",
+		"ПКМ — марш юнита, F — пуск (пусковая выбрана)",
+		"Ctrl+1…9 — запомнить в группу, 1…9 — выбрать",
+		"Пробел — пауза, [ ] — скорость, F5 — сохр., F11 — экран",
 	}
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)
@@ -527,4 +541,68 @@ func (g *Game) maxSalvo() int {
 		n = min(n, 1)
 	}
 	return max(n, 1)
+}
+
+// drawPlacementPanel — расстановка резерва перед стартом партии.
+func (g *Game) drawPlacementPanel() {
+	u := &g.ui
+	v := g.view
+	var types []string
+	total := 0
+	for t, n := range v.Reserve {
+		types = append(types, t)
+		total += n
+	}
+	sort.Strings(types)
+	h := 190 + 28*len(types)
+	if h > u.H-topH-40 {
+		h = u.H - topH - 40
+	}
+	x, y := u.W-infoW-8, u.H-h-8
+	u.Panel(x, y, infoW, h)
+	px, py, pw := x+12, y+10, infoW-24
+	drawBold(u.screen, "Расстановка перед стартом", float64(px), float64(py), 16, colAccent, 0)
+	py += 26
+	py = g.para("Поставьте выданные комплексы ПВО, РЛС, пусковые и площадки на своей территории (не ближе 15 км к фронту). ПКМ по поставленному — вернуть в резерв. Время стоит, пока обе стороны не нажмут «Готово». Противник не видит, что и где вы поставили.", px, py, pw, colDim)
+	py += 4
+	if g.mode == modePlace && v.Reserve[g.placeType] == 0 {
+		g.mode, g.placeType = modeNone, ""
+	}
+	for _, t := range types {
+		name := g.bName(t)
+		if un := g.cat.UnitByID[t]; un != nil {
+			name = un.Name
+		}
+		sel := g.mode == modePlace && g.placeType == t
+		if u.ButtonState(px, py, pw, 24, fmt.Sprintf("%s — осталось %d", name, v.Reserve[t]), sel, true) {
+			g.mode, g.placeType = modePlace, t
+		}
+		if un := g.cat.UnitByID[t]; un != nil && un.Desc != "" {
+			u.Tooltip(px, py, pw, 24, un.Desc)
+		} else if bt := g.cat.BuildingByID[t]; bt != nil {
+			u.Tooltip(px, py, pw, 24, bt.Desc)
+		}
+		py += 28
+	}
+	if len(types) == 0 {
+		drawText(u.screen, "Всё расставлено", float64(px), float64(py), 14, colGood, 0)
+		py += 24
+	}
+	label := "Готово"
+	if v.Ready {
+		label = "Готово (отменить)"
+	}
+	if u.ButtonState(px, py+4, pw, 30, label, v.Ready, total == 0 || v.Ready) {
+		r := 1
+		if v.Ready {
+			r = 0
+		}
+		g.sess.Send(sim.Command{Kind: sim.CmdReady, Int: r})
+	}
+	st := "Противник расставляет"
+	c := colWarn
+	if v.EnemyReady {
+		st, c = "Противник готов", colGood
+	}
+	drawText(u.screen, st, float64(px), float64(py+42), 13, c, 0)
 }

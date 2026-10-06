@@ -541,6 +541,18 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	if g.mode == modeMain {
 		drawTextHalo(dst, "Укажите направление главного удара", mx+14, my, 13, colMapText, color.White, 0)
 	}
+	if g.mode == modePlace && g.placeType != "" {
+		if ut := g.cat.UnitByID[g.placeType]; ut != nil {
+			if ut.RangeKm > 0 {
+				circle(dst, mx, my, ut.RangeKm*g.cam.Z, withAlpha(sideColor(my2), 160), 1)
+			}
+			unitGlyph(dst, ut, mx, my, 7, sideColor(my2))
+			drawTextHalo(dst, ut.Name, mx+14, my-6, 13, colMapText, color.White, 0)
+		} else {
+			disc(dst, mx, my, 6, withAlpha(sideColor(my2), 160))
+			drawTextHalo(dst, g.bName(g.placeType), mx+14, my-6, 13, colMapText, color.White, 0)
+		}
+	}
 	return hov
 }
 
@@ -631,6 +643,9 @@ func (g *Game) mapInput(hov *hoverItem) {
 			g.sess.Send(sim.Command{Kind: sim.CmdMainEffort, Int: 1, X: wx, Y: wy})
 			g.mode = modeNone
 			return
+		case modePlace:
+			g.sess.Send(sim.Command{Kind: sim.CmdPlace, Item: g.placeType, X: wx, Y: wy})
+			return
 		case modeStrike:
 			p := sim.Pt{X: wx, Y: wy}
 			if hov != nil && (hov.kind == "contact" || hov.kind == "city") {
@@ -655,8 +670,14 @@ func (g *Game) mapInput(hov *hoverItem) {
 				g.strike.Pts = g.strike.Pts[:n-1]
 			}
 			return
-		case modeBuild, modeMain:
+		case modeBuild, modeMain, modePlace:
 			g.mode = modeNone
+			return
+		}
+		if g.view.Placement { // ПКМ по поставленному объекту возвращает его в резерв
+			if hov != nil && (hov.kind == "unit" || hov.kind == "building") {
+				g.sess.Send(sim.Command{Kind: sim.CmdUnplace, ID: hov.id})
+			}
 			return
 		}
 		if g.sel.Kind == "unit" {

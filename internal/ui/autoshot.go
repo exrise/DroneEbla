@@ -9,6 +9,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/exrise/droneebla/internal/ai"
 	"github.com/exrise/droneebla/internal/netplay"
 	"github.com/exrise/droneebla/internal/sim"
 )
@@ -190,9 +191,12 @@ func (g *Game) autoSolo(screen *ebiten.Image) {
 	case 2:
 		g.save(screen, "s1_setup")
 		g.startGame(netplay.NewSolo(sim.New(g.cat, g.m, true), 0))
+	case 4:
+		g.save(screen, "s1b_placement")
 	case 6:
 		g.save(screen, "s2_start")
 		h := g.sess.(*netplay.Host)
+		h.Advance(0, func(w *sim.World) { ai.New(g.cat, 0).Place(w) })
 		h.Advance(g.cat.Rules.PrepMinutes+720, func(w *sim.World) {
 			w.Apply(sim.Command{Kind: sim.CmdPosture, Side: 0, Int: sim.PostureOffense})
 		})

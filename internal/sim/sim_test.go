@@ -884,3 +884,181 @@ func TestPosturePerDirection(t *testing.T) {
 		t.Fatalf("давление появилось на направлениях в обороне: %.2f", north)
 	}
 }
+
+// Истребители с аэродрома перехватывают низкие цели, пока аэродром не под вражеской ПВО.
+func TestFighterIntercept(t *testing.T) {
+	setup := func() (*World, *Building, *Projectile) {
+		w := newTestWorld(t)
+		run(w, w.PrepEnd+1)
+		af := findBuilding(w, "Аэродром Миргород")
+		if af == nil || af.Side != data.UA || af.Aircraft["fighter"] < 3 {
+			t.Fatal("нет украинского аэродрома с истребителями")
+		}
+		w.cat.BuildingByID["airfield"].Intercept.PkLow = 0.98
+		// убираем всю ПВО обеих сторон: работают только истребители
+		for id, u := range w.Units {
+			if w.cat.UnitByID[u.Type].Kind == "ad" {
+				delete(w.Units, id)
+			}
+		}
+		p := &Projectile{ID: w.newID(), Munition: "geran2", Side: data.RU, X: af.X + 10, Y: af.Y,
+			Path: []Pt{{af.X + 60, af.Y}}, Home: Pt{af.X + 200, af.Y}}
+		w.Projs[p.ID] = p
+		return w, af, p
+	}
+	fighterEngs := func(w *World, af *Building) int {
+		n := 0
+		for _, e := range w.Engs {
+			if e.Bld == af.ID {
+				n++
+			}
+		}
+		return n
+	}
+
+	w, af, p := setup()
+	aam := w.Sides[data.UA].Stocks["m_aam_ua"]
+	w.airDefense(0.01)
+	if fighterEngs(w, af) != 1 || af.Busy != 1 {
+		t.Fatalf("перехват не начался: перехватов %d, занято %d", fighterEngs(w, af), af.Busy)
+	}
+	if w.Sides[data.UA].Stocks["m_aam_ua"] != aam-1 {
+		t.Fatal("ракета воздух—воздух не потрачена")
+	}
+	for i := 0; i < 5 && len(w.Engs) > 0; i++ {
+		w.airDefense(1)
+	}
+	if _, alive := w.Projs[p.ID]; alive {
+		t.Fatal("цель не сбита истребителями")
+	}
+	if af.Busy != 0 {
+		t.Fatalf("канал перехвата не освободился: %d", af.Busy)
+	}
+
+	// Аэродром в зоне вражеской ПВО не взлетает.
+	w, af, _ = setup()
+	w.addUnit("s400", data.RU, af.X+5, af.Y)
+	w.airDefense(0.01)
+	if fighterEngs(w, af) != 0 {
+		t.Fatal("аэродром под вражеской ПВО не должен поднимать истребители")
+	}
+
+	// Без ракет воздух—воздух не стреляют.
+	w, af, _ = setup()
+	w.Sides[data.UA].Stocks["m_aam_ua"] = 0
+	w.airDefense(0.01)
+	if fighterEngs(w, af) != 0 {
+		t.Fatal("без ракет перехват невозможен")
+	}
+
+	// Баллистику и высокие цели истребители не берут.
+	w, af, p = setup()
+	p.Munition = "iskander_m"
+	w.airDefense(0.01)
+	if fighterEngs(w, af) != 0 {
+		t.Fatal("истребители не должны перехватывать баллистику")
+	}
+}
+
+func TestPlacement(t *testing.T) {
+	w := newTestWorld(t)
+	adBefore := 0
+	for _, u := range w.Units {
+		if w.cat.UnitByID[u.Type].Kind == "ad" {
+			adBefore++
+		}
+	}
+	w.StartPlacement()
+	if !w.Placement || !w.Paused() {
+		t.Fatal("расстановка не началась или время не остановлено")
+	}
+	for _, u := range w.Units {
+		if w.cat.UnitByID[u.Type].Kind == "ad" {
+			t.Fatal("комплексы ПВО должны уйти в резерв")
+		}
+	}
+	ua := w.Sides[data.UA]
+	if ua.Reserve["buk_ua"] < 8 || ua.Reserve["dronesite"] != 4 || len(ua.Hints) == 0 {
+		t.Fatalf("резерв Украины: %v, подсказок %d", ua.Reserve, len(ua.Hints))
+	}
+	// Нельзя поставить на чужую территорию и у фронта.
+	ru := w.Sides[data.RU]
+	var enemyTile, frontish int = -1, -1
+	for i, o := range w.Owner {
+		if int(o)-1 == data.RU && w.m.Terrain[i] == 1 && enemyTile < 0 {
+			enemyTile = i
+		}
+	}
+	ex, ey := w.m.TileCenter(enemyTile%w.m.W, enemyTile/w.m.W)
+	if e := w.Apply(Command{Kind: CmdPlace, Side: data.UA, Item: "buk_ua", X: ex, Y: ey}); e == "" {
+		t.Fatal("поставили на чужую территорию")
+	}
+	fi := w.frontT[data.UA][0]
+	frontish = fi
+	fx, fy := w.m.TileCenter(frontish%w.m.W, frontish/w.m.W)
+	if e := w.Apply(Command{Kind: CmdPlace, Side: data.UA, Item: "buk_ua", X: fx, Y: fy}); e == "" {
+		t.Fatal("поставили у самого фронта")
+	}
+	// Своя территория далеко от фронта: Киев.
+	kx, ky := w.m.Project(30.5, 50.4)
+	stock := ua.Stocks["m_9m38"]
+	if e := w.Apply(Command{Kind: CmdPlace, Side: data.UA, Item: "buk_ua", X: kx, Y: ky}); e != "" {
+		t.Fatalf("не удалось поставить: %s", e)
+	}
+	if ua.Reserve["buk_ua"] < 7 || ua.Stocks["m_9m38"] >= stock {
+		t.Fatal("резерв не уменьшился или ракеты не взяты на пусковые")
+	}
+	var placed uint32
+	for id, u := range w.Units {
+		if u.Placed && u.Type == "buk_ua" {
+			placed = id
+		}
+	}
+	if placed == 0 {
+		t.Fatal("юнит не создан")
+	}
+	if e := w.Apply(Command{Kind: CmdUnplace, Side: data.UA, ID: placed}); e != "" {
+		t.Fatal(e)
+	}
+	if ua.Stocks["m_9m38"] != stock || ua.Reserve["buk_ua"] < 8 {
+		t.Fatal("после снятия резерв и ракеты должны вернуться")
+	}
+	// «Готово» только при пустом резерве.
+	if e := w.Apply(Command{Kind: CmdReady, Side: data.UA, Int: 1}); e == "" {
+		t.Fatal("готовность принята при непустом резерве")
+	}
+	// Остальное расставляем одинаково: по подсказкам, иначе у Киева.
+	for s, sd := range w.Sides {
+		for typ, n := range sd.Reserve {
+			for ; n > 0; n-- {
+				x, y := w.m.Project(30.5, 50.4)
+				if s == data.RU {
+					x, y = w.m.Project(39.1, 51.6)
+				}
+				for k := 0; k < 200; k++ {
+					if w.Apply(Command{Kind: CmdPlace, Side: s, Item: typ, X: x + float64(k%20)*3, Y: y + float64(k/20)*3}) == "" {
+						break
+					}
+				}
+			}
+		}
+	}
+	_ = ru
+	if w.PlacementLeft(data.UA) != 0 || w.PlacementLeft(data.RU) != 0 {
+		t.Fatalf("осталось: UA %d RU %d", w.PlacementLeft(data.UA), w.PlacementLeft(data.RU))
+	}
+	w.Apply(Command{Kind: CmdReady, Side: data.UA, Int: 1})
+	if !w.Placement {
+		t.Fatal("расстановка закончилась, хотя РФ не готова")
+	}
+	w.Apply(Command{Kind: CmdReady, Side: data.RU, Int: 1})
+	if w.Placement || w.Paused() {
+		t.Fatal("после готовности обеих сторон игра должна идти")
+	}
+	// Повторно расстановка не начинается.
+	w.StartPlacement()
+	if w.Placement {
+		t.Fatal("расстановка не должна начинаться повторно")
+	}
+	_ = adBefore
+}

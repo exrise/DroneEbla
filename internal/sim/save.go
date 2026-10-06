@@ -107,6 +107,9 @@ func (sd *Side) ensure(n int) {
 	if sd.MoraleHist == nil {
 		sd.MoraleHist = map[string][]float64{}
 	}
+	if sd.Reserve == nil {
+		sd.Reserve = map[string]int{}
+	}
 	if sd.MissionSeen == nil {
 		sd.MissionSeen = map[string][]uint32{}
 	}

@@ -72,8 +72,9 @@
    "desc": "Мост на пути снабжения направления."},
 
   {"id": "airfield", "repair_hours": 24, "name": "Аэродром", "short": "АЭР", "hp": 200,
-   "aircraft": {"tactical": 20}, "launch": ["tactical", "dronesite"], "launch_rate": 10,
-   "desc": "Тактическая авиация: бонус фронту в радиусе 250 км. Площадка для разведывательных БПЛА."},
+   "aircraft": {"tactical": 20, "fighter": 4}, "intercept": {"km": 120, "channels": 4, "pk_low": 0.35, "engage_sec": 120},
+   "launch": ["tactical", "dronesite"], "launch_rate": 10,
+   "desc": "Тактическая авиация: бонус фронту в радиусе 250 км. Истребители автоматически перехватывают дроны и крылатые ракеты в радиусе 120 км, пока аэродром не под огнём вражеской ПВО. Площадка для разведывательных БПЛА."},
 
   {"id": "airbase_strat", "key": true, "repair_hours": 36, "name": "Авиабаза дальней авиации", "short": "ДА", "hp": 250,
    "aircraft": {"strategic": 12}, "launch": ["strategic"], "launch_rate": 30,

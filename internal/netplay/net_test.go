@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/exrise/droneebla/internal/ai"
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
 	"github.com/exrise/droneebla/internal/world"
@@ -58,8 +59,20 @@ func TestHostClient(t *testing.T) {
 	if w.Sides[data.UA].Research != "ua_fpv" {
 		t.Fatal("приказ клиента не дошёл")
 	}
+	// Сначала расстановка: время стоит, у клиента есть свой резерв и нет резерва хоста.
+	if w.Time != 0 || !v.Placement {
+		t.Fatalf("до готовности обеих сторон время должно стоять (t=%.1f, placement=%v)", w.Time, v.Placement)
+	}
+	if len(v.Reserve) == 0 || v.Reserve["s400"] > 0 {
+		t.Fatalf("резерв клиента: %v", v.Reserve)
+	}
+	h.Advance(0, func(w *sim.World) {
+		ai.New(w.Catalog(), data.RU).Place(w)
+		ai.New(w.Catalog(), data.UA).Place(w)
+	})
+	time.Sleep(800 * time.Millisecond)
 	if w.Time <= 0 {
-		t.Fatal("время не идёт")
+		t.Fatal("время не идёт после готовности обеих сторон")
 	}
 }
 
@@ -79,6 +92,19 @@ func TestSolo(t *testing.T) {
 	if h.Side() != data.RU {
 		t.Fatal("в одиночной игре сторону менять нельзя")
 	}
+	time.Sleep(300 * time.Millisecond)
+	// Сначала расстановка: время стоит, ИИ расставил резерв и готов.
+	var placing, aiReady bool
+	h.Advance(0, func(w *sim.World) { placing, aiReady = w.Placement, w.Sides[data.UA].Ready })
+	if !placing || !aiReady {
+		t.Fatalf("ожидалась расстановка и готовность ИИ: placement=%v ready=%v", placing, aiReady)
+	}
+	if v := h.View(); v == nil || !v.Placement || len(v.Reserve) == 0 {
+		t.Fatal("игрок должен получить резерв для расстановки")
+	}
+	h.Advance(0, func(w *sim.World) {
+		ai.New(w.Catalog(), data.RU).Place(w) // человек расставляет (здесь — автоматически)
+	})
 	time.Sleep(700 * time.Millisecond)
 	var research string
 	var solo bool

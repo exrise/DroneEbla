@@ -80,6 +80,12 @@ func Load(override string) (*Catalog, error) {
 	if r.MoraleGainRef <= 0 {
 		r.MoraleGainRef, r.MoraleGainFloor, r.MoraleFatigue, r.MoraleFatigueH, r.MoraleCityRepeat = 50, 0.15, 0.35, 6, 0.25
 	}
+	if len(r.PlacementKinds) == 0 {
+		r.PlacementKinds = []string{"ad", "radar", "reb", "rtr", "launcher"}
+	}
+	if r.AircraftLoss <= 0 {
+		r.AircraftLoss = 0.03
+	}
 	if r.StrikeDroneVisionKm <= 0 {
 		r.StrikeDroneVisionKm = 5
 	}

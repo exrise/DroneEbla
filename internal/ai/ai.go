@@ -65,6 +65,10 @@ func (a *AI) Tick(w *sim.World) {
 	if w.Winner >= 0 || len(a.cat.AI.Sides) == 0 {
 		return
 	}
+	if w.Placement {
+		a.place(w)
+		return
+	}
 	now := w.Time
 	if now < a.next["think"] {
 		return

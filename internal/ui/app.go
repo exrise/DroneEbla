@@ -37,6 +37,7 @@ const (
 	modeFort
 	modeStrike
 	modeMain
+	modePlace // расстановка резерва перед стартом
 )
 
 // Selection — выбранный объект.
@@ -70,6 +71,7 @@ type Game struct {
 	sel            Selection
 	mode           int
 	buildType      string
+	placeType      string
 	strike         strikePlan
 	layers         map[string]bool
 	toasts         []toast
