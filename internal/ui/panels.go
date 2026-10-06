@@ -600,7 +600,22 @@ func (g *Game) tabBuild(x, y, w int) int {
 
 // ---------------------------------------------------------------------
 
-var branchNames = map[string]string{"drones": "Дроны", "strike": "Удар", "ad": "ПВО и РЭБ", "industry": "Промышленность"}
+var branchNames = map[string]string{"drones": "Дроны", "strike": "Удар", "ad": "ПВО и РЭБ", "intel": "Разведка и РЭБ-сети", "forces": "Войска и фронт", "industry": "Промышленность"}
+
+// techBranches — порядок веток в списке исследований.
+var techBranches = []string{"drones", "strike", "ad", "intel", "forces", "industry"}
+
+// techDepth — уровень исследования: длина цепочки требований.
+func (g *Game) techDepth(side int, id string) int {
+	t := g.cat.TechByID[side][id]
+	d := 0
+	for _, r := range t.Requires {
+		if x := g.techDepth(side, r); x+1 > d {
+			d = x + 1
+		}
+	}
+	return d
+}
 
 func (g *Game) tabScience(x, y, w int) int {
 	u := &g.ui
@@ -626,34 +641,41 @@ func (g *Game) tabScience(x, y, w int) int {
 	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %.0f денег/ч", g.cat.Rules.ResearchFundCost))
 	y += 30
 	y = g.para("Трофеи (сбитые над своей территорией боеприпасы) и боевой опыт дают бонусные очки своей ветке:", x, y, w, colDim)
-	for _, b := range []string{"drones", "strike", "ad", "industry"} {
+	for _, b := range techBranches {
 		y = g.kv("  "+branchNames[b], fmt.Sprintf("%.0f", v.Bonus[b]), x, y, w, colText)
 	}
 	y += 6
-	for _, b := range []string{"drones", "strike", "ad", "industry"} {
+	for _, b := range techBranches {
 		y = g.header(branchNames[b], x, y)
 		for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
 			if t.Branch != b {
 				continue
 			}
-			done := v.Researched[t.ID]
-			avail := !done
-			for _, r := range t.Requires {
-				if !v.Researched[r] {
-					avail = false
-				}
-			}
+			st, by := sim.TechStatus(v.Researched, g.cat, v.Side, t.ID)
 			c := colText
 			status := fmt.Sprintf("%.0f", t.Cost)
-			switch {
-			case done:
+			switch st {
+			case sim.TechDone:
 				c, status = colGood, "изучено"
-			case !avail:
+			case sim.TechNeeds:
 				c = colDim
+			case sim.TechBlocked:
+				c, status = colBad, "закрыто"
 			}
-			drawText(u.screen, fitText(t.Name, 13, float64(w-110)), float64(x), float64(y), 13, c, 0)
+			indent := g.techDepth(v.Side, t.ID)
+			if indent > 3 {
+				indent = 3
+			}
+			ix := indent * 10
+			if indent > 0 {
+				line(u.screen, float64(x+ix-6), float64(y+8), float64(x+ix-2), float64(y+8), colDim, 1)
+			}
+			drawText(u.screen, fitText(t.Name, 13, float64(w-110-ix)), float64(x+ix), float64(y), 13, c, 0)
 			drawText(u.screen, status, float64(x+w-100), float64(y), 12, c, 2)
 			tip := t.Name + "\n" + t.Desc
+			if st == sim.TechBlocked {
+				tip += "\nЗакрыто: выбрано «" + g.cat.TechByID[v.Side][by].Name + "»"
+			}
 			if len(t.Requires) > 0 {
 				tip += "\nТребует: "
 				for i, r := range t.Requires {
@@ -673,7 +695,7 @@ func (g *Game) tabScience(x, y, w int) int {
 				}
 			}
 			u.Tooltip(x, y, w-96, 20, tip)
-			if avail {
+			if st == sim.TechOpen {
 				if u.ButtonState(x+w-92, y-2, 92, 20, "Изучать", v.Research == t.ID, true) {
 					g.sess.Send(sim.Command{Kind: sim.CmdResearch, Item: t.ID})
 				}

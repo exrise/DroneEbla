@@ -58,18 +58,51 @@ func (w *World) completeTech(s int, t *data.Tech) {
 	w.Log(s, 1, "Исследование завершено: "+t.Name)
 }
 
-// TechAvailable — можно ли начать исследование.
-func (w *World) TechAvailable(s int, id string) bool {
-	t := w.cat.TechByID[s][id]
-	if t == nil || w.Sides[s].Researched[id] {
-		return false
+// Состояния исследования.
+const (
+	TechOpen    = iota // можно изучать
+	TechDone           // изучено
+	TechNeeds          // не хватает предыдущих исследований
+	TechBlocked        // закрыто выбором взаимоисключающего исследования
+)
+
+// TechStatus — состояние исследования id у стороны side при множестве изученного
+// researched. Если закрыто выбором, возвращает также исследование, из-за которого.
+func TechStatus(researched map[string]bool, cat *data.Catalog, side int, id string) (int, string) {
+	t := cat.TechByID[side][id]
+	if t == nil {
+		return TechNeeds, ""
+	}
+	if researched[id] {
+		return TechDone, ""
 	}
 	for _, r := range t.Requires {
-		if !w.Sides[s].Researched[r] {
-			return false
+		if !researched[r] {
+			return TechNeeds, r
 		}
 	}
-	return true
+	for _, o := range t.Exclusive {
+		if researched[o] {
+			return TechBlocked, o
+		}
+	}
+	for _, other := range cat.Tech[data.SideKeys[side]] {
+		if !researched[other.ID] {
+			continue
+		}
+		for _, e := range other.Exclusive {
+			if e == id {
+				return TechBlocked, other.ID
+			}
+		}
+	}
+	return TechOpen, ""
+}
+
+// TechAvailable — можно ли начать исследование.
+func (w *World) TechAvailable(s int, id string) bool {
+	st, _ := TechStatus(w.Sides[s].Researched, w.cat, s, id)
+	return st == TechOpen
 }
 
 // addBonus — очки трофеев/опыта в ветку.

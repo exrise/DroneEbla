@@ -46,7 +46,7 @@ func (w *World) dirPower(s, d int) float64 {
 		armor *= 0.3
 	}
 	fpv := f.FPV * 0.003 * (1 + sd.eff("fpv_power"))
-	return f.Men + armor + art + fpv
+	return (f.Men + armor + art + fpv) * (1 + sd.eff("front_power"))
 }
 
 // supply — снабжение направления: доля целых логистических узлов.
@@ -237,6 +237,7 @@ func (w *World) front(dtMin float64) {
 				ratio = clamp(ep/f.Power, 0.2, 5)
 			}
 			k := r.FrontLoss * ratio * step / r.FrontStepMin * MoraleLosses(r, sd.Morale)
+			k *= math.Max(0.3, 1-sd.eff("front_loss"))
 			if sd.PostureDir[d] == PostureOffense {
 				k *= 1.6
 			} else if sd.PostureDir[d] == PostureDefense {
@@ -296,6 +297,7 @@ func (w *World) captureTile(i, s int) {
 	w.Owner[i] = uint8(s + 1)
 	d := w.TileDir(i)
 	w.Sides[s].Front[d].Gained++
+	w.addBonus(s, "forces", w.cat.Rules.ForcesPoints)
 	if old >= 0 {
 		w.Sides[old].Front[d].Lost++
 	}

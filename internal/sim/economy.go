@@ -311,7 +311,7 @@ func (w *World) economy(dtH float64) {
 
 		// Людской поток на фронт.
 		if w.War() && sd.People > 0 {
-			men := math.Min(def.MenStream*dtH, sd.People)
+			men := math.Min(def.MenStream*(1+sd.eff("men_stream"))*dtH, sd.People)
 			sd.People -= men
 			// При низкой морали часть призванных не доходит до фронта.
 			w.distributeFront(s, "men", men*MoraleLevy(r, sd.Morale))

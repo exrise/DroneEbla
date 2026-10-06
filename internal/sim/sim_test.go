@@ -3,6 +3,7 @@ package sim
 import (
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -1061,4 +1062,149 @@ func TestPlacement(t *testing.T) {
 		t.Fatal("расстановка не должна начинаться повторно")
 	}
 	_ = adBefore
+}
+
+func TestSocialConfirmation(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	r := w.cat.Rules
+	nearCity := func(b *Building) bool {
+		for _, c := range w.m.Cities {
+			if c.Pop >= r.SocialMinPop && dist(c.X, c.Y, b.X, b.Y) <= r.SocialCityKm {
+				return true
+			}
+		}
+		return false
+	}
+	var ids []uint32
+	for id, b := range w.Buildings {
+		if b.Side == data.UA && !w.cat.BuildingByID[b.Type].Untargetable {
+			ids = append(ids, id)
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	var urban, rural []*Building
+	for _, id := range ids {
+		b := w.Buildings[id]
+		if nearCity(b) {
+			urban = append(urban, b)
+		} else {
+			rural = append(rural, b)
+		}
+	}
+	if len(urban) < 2 || len(rural) < 1 {
+		t.Fatalf("городских объектов %d, сельских %d", len(urban), len(rural))
+	}
+	hit := func(b *Building) {
+		m := *w.cat.MunitionByID["kalibr"]
+		m.Accuracy, m.Damage, m.BlastKm = 1, b.MaxHP*0.3, 0
+		w.impact(&Projectile{Side: data.RU, X: b.X, Y: b.Y}, &m)
+	}
+	ru := w.Sides[data.RU]
+	hit(rural[0])
+	if len(ru.Posts) != 0 {
+		t.Fatal("удар вне города не должен давать подтверждения в соцсетях")
+	}
+	tgt := urban[0]
+	delete(ru.Known, tgt.ID)
+	hit(tgt)
+	if len(ru.Posts) != 1 {
+		t.Fatalf("подтверждение не запланировано: %d", len(ru.Posts))
+	}
+	hit(tgt) // повторный удар до выхода подтверждения не плодит записи
+	if len(ru.Posts) != 1 {
+		t.Fatalf("дубль подтверждения: %d", len(ru.Posts))
+	}
+	if c := ru.Known[tgt.ID]; c != nil && c.Source == "соцсети" {
+		t.Fatal("подтверждение пришло мгновенно")
+	}
+	run(w, r.SocialDelayMax+5)
+	c := ru.Known[tgt.ID]
+	if c == nil || c.Source != "соцсети" || c.Type != tgt.Type || c.HP < 0 {
+		t.Fatalf("метка после подтверждения: %+v", c)
+	}
+	found := false
+	for _, e := range ru.Events {
+		if strings.HasPrefix(e.Text, "Соцсети:") {
+			found = true
+		}
+	}
+	if !found || len(ru.Posts) != 0 {
+		t.Fatal("событие журнала не появилось")
+	}
+	// Исследование против утечек гасит подтверждения.
+	w.Sides[data.UA].Effects["leak_block"] = 1
+	hit(urban[1])
+	if len(ru.Posts) != 0 {
+		t.Fatal("при полной блокировке утечек подтверждение не должно появиться")
+	}
+}
+
+func TestTechExclusiveChoices(t *testing.T) {
+	w := newTestWorld(t)
+	ru := w.Sides[data.RU]
+	// Ветки и размер дерева.
+	for s, min := range map[int]int{data.RU: 40, data.UA: 40} {
+		branches := map[string]int{}
+		for _, tc := range w.cat.Tech[data.SideKeys[s]] {
+			branches[tc.Branch]++
+		}
+		if len(branches) < 6 || len(w.cat.Tech[data.SideKeys[s]]) < min {
+			t.Fatalf("%s: дерево слишком маленькое: %d узлов, ветки %v", data.SideNames[s], len(w.cat.Tech[data.SideKeys[s]]), branches)
+		}
+	}
+	// Развилка РФ: массовая Герань-2 или Герань-3.
+	ru.Researched["ru_geran2"] = true
+	if !w.TechAvailable(data.RU, "ru_geran2_mass") || !w.TechAvailable(data.RU, "ru_geran3") {
+		t.Fatal("обе ветки развилки должны быть доступны до выбора")
+	}
+	ru.Research = "ru_geran2_mass"
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_geran2_mass"])
+	st, by := TechStatus(ru.Researched, w.cat, data.RU, "ru_geran3")
+	if st != TechBlocked || by != "ru_geran2_mass" {
+		t.Fatalf("Герань-3 должна быть закрыта выбором: %d %s", st, by)
+	}
+	if w.TechAvailable(data.RU, "ru_geran3") || w.Apply(Command{Kind: CmdResearch, Side: data.RU, Item: "ru_geran3"}) == "" {
+		t.Fatal("закрытое исследование начать нельзя")
+	}
+	// Симметрия: у пары, где исключение записано с обеих сторон.
+	ua := w.Sides[data.UA]
+	ua.Researched["ua_uj22"] = true
+	w.completeTech(data.UA, w.cat.TechByID[data.UA]["ua_precise_drones"])
+	if st, _ := TechStatus(ua.Researched, w.cat, data.UA, "ua_cheap_drones"); st != TechBlocked {
+		t.Fatal("после выбора точных дронов дешёвые должны закрыться")
+	}
+	// Новые эффекты применяются.
+	before := w.dirPower(data.UA, 0)
+	ua.Effects["front_power"] = 0.1
+	if w.dirPower(data.UA, 0) < before*1.09 {
+		t.Fatal("front_power не влияет на боевую мощь")
+	}
+}
+
+func TestTechExclusiveDataValid(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for s := 0; s < 2; s++ {
+		for _, tc := range cat.Tech[data.SideKeys[s]] {
+			for _, e := range tc.Exclusive {
+				partner := cat.TechByID[s][e]
+				back := false
+				for _, x := range partner.Exclusive {
+					back = back || x == tc.ID
+				}
+				if !back {
+					t.Errorf("%s исключает %s, но не наоборот", tc.ID, e)
+				}
+				// Нельзя исключать то, что нужно для своего изучения.
+				for _, r := range tc.Requires {
+					if r == e {
+						t.Errorf("%s требует исследование %s и одновременно исключает его", tc.ID, e)
+					}
+				}
+			}
+		}
+	}
 }

@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/exrise/droneebla/internal/data"
@@ -65,6 +66,7 @@ func (w *World) intel(dtMin float64) {
 		w.rtr(s)
 		w.flashes(s)
 		w.agents(s, dtMin)
+		w.socials(s)
 	}
 }
 
@@ -79,6 +81,7 @@ func (w *World) observe(s int, id uint32, sensor, source string) {
 		if c == nil {
 			c = &Contact{ID: id, Kind: 0, HP: -1}
 			sd.Known[id] = c
+			w.addBonus(s, "intel", w.cat.Rules.IntelPoints)
 		}
 		c.X, c.Y = b.X, b.Y
 		switch sensor {
@@ -104,6 +107,7 @@ func (w *World) observe(s int, id uint32, sensor, source string) {
 		if c == nil {
 			c = &Contact{ID: id, Kind: 1, HP: -1}
 			sd.Known[id] = c
+			w.addBonus(s, "intel", w.cat.Rules.IntelPoints)
 		}
 		c.Kind = 1
 		c.X, c.Y = u.X, u.Y
@@ -274,6 +278,7 @@ func (w *World) reconDrones(s int) {
 		default:
 			continue
 		}
+		v *= 1 + sd.eff("recon_range")
 		for id, b := range w.Buildings {
 			if b.Side != s && !b.Masked && dist(b.X, b.Y, p.X, p.Y) <= v {
 				w.observe(s, id, SensorOptical, m.Name)
@@ -317,7 +322,7 @@ func (w *World) rtr(s int) {
 				continue
 			}
 			d := dist(u.X, u.Y, e.X, e.Y)
-			if d > ut.RtrKm {
+			if d > ut.RtrKm*(1+w.Sides[s].eff("rtr_range")) {
 				continue
 			}
 			// Свежие данные (любые) не перебиваем: иначе отметка прыгает
@@ -352,7 +357,7 @@ func (w *World) agents(s int, dtMin float64) {
 	if sd.AgentFund {
 		k = 2.5
 	}
-	sd.AgentTimer += dtMin * k
+	sd.AgentTimer += dtMin * k * (1 + sd.eff("agent_speed"))
 	if sd.AgentTimer < r.AgentEveryH*60 {
 		return
 	}
@@ -382,4 +387,56 @@ func (w *World) agents(s int, dtMin float64) {
 		}
 		w.LogAt(s, 0, "Донесение агентуры: замечен объект «"+name+"»", c.X, c.Y)
 	}
+}
+
+// socialPost планирует подтверждение прилёта по зданию b в соцсетях: если оно
+// у населённого пункта, через какое-то время атаковавшая сторона узнает его
+// тип и состояние. Владелец гасит это исследованиями против утечек.
+func (w *World) socialPost(attacker int, b *Building) {
+	r := w.cat.Rules
+	near := false
+	for _, c := range w.m.Cities {
+		if c.Pop >= r.SocialMinPop && dist(c.X, c.Y, b.X, b.Y) <= r.SocialCityKm {
+			near = true
+			break
+		}
+	}
+	if !near {
+		return
+	}
+	owner := w.Sides[b.Side]
+	if w.rng.Float64() < clamp(owner.eff("leak_block"), 0, 1) {
+		return
+	}
+	sd := w.Sides[attacker]
+	for _, p := range sd.Posts {
+		if p.Bld == b.ID && p.At > w.Time {
+			return // подтверждение уже ожидается
+		}
+	}
+	delay := r.SocialDelayMin + w.rng.Float64()*(r.SocialDelayMax-r.SocialDelayMin)
+	delay *= (1 + owner.eff("leak_delay")) * (1 - clamp(sd.eff("social_speed"), 0, 0.8))
+	sd.Posts = append(sd.Posts, Post{At: w.Time + delay, Bld: b.ID})
+}
+
+// socials — выход подтверждений: метка получает тип и текущее состояние объекта.
+func (w *World) socials(s int) {
+	sd := w.Sides[s]
+	if len(sd.Posts) == 0 {
+		return
+	}
+	keep := sd.Posts[:0]
+	for _, p := range sd.Posts {
+		if w.Time < p.At {
+			keep = append(keep, p)
+			continue
+		}
+		b, ok := w.Buildings[p.Bld]
+		if !ok || b.Side == s {
+			continue
+		}
+		w.observe(s, b.ID, SensorOptical, "соцсети")
+		w.LogAt(s, 1, fmt.Sprintf("Соцсети: подтверждён прилёт по объекту «%s», состояние %.0f%%", b.Name, b.frac()*100), b.X, b.Y)
+	}
+	sd.Posts = keep
 }

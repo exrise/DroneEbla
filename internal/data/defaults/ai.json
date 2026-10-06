@@ -6,7 +6,10 @@
         "ua_fpv", "ua_uj22", "ua_frankensam", "ua_lyutyi", "ua_drone_recon", "ua_idrone",
         "ua_s300_revive", "ua_repair", "ua_neptune", "ua_ad_net", "ua_acoustic", "ua_palianytsia",
         "ua_fort", "ua_reb_net", "ua_neptune_long", "ua_drone_line", "ua_dispersed", "ua_sapsan",
-        "ua_flamingo"
+        "ua_flamingo", "ua_intel_base", "ua_osint", "ua_territorial", "ua_medic", "ua_fpv_mass",
+        "ua_nasams_prog", "ua_nato_training", "ua_fighters", "ua_energy_def", "ua_cheap_drones", "ua_missile_prod",
+        "ua_research_cent", "ua_engineers", "ua_decoys", "ua_mobile_def", "ua_rtr_range", "ua_recon_range",
+        "ua_artillery", "ua_human_intel", "ua_aid_coord", "ua_drone_swarm", "ua_western_ad"
       ],
       "fund_levels": [700, 1400, 2400],
       "orders": [

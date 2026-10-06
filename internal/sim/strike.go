@@ -333,6 +333,7 @@ func (w *World) impact(p *Projectile, m *data.MunitionType) {
 		before := b.HP
 		b.HP = math.Max(0, b.HP-m.Damage)
 		w.missionBuildingHit(p.Side, b, before)
+		w.socialPost(p.Side, b)
 		// Вывод из строя ключевого объекта поднимает мораль атакующего и
 		// бьёт по морали владельца.
 		if bt.Key && before > b.MaxHP*0.1 && b.HP <= b.MaxHP*0.1 && !b.KeyHit {

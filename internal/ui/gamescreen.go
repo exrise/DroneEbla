@@ -916,16 +916,7 @@ func (g *Game) noResearch() bool {
 		return false
 	}
 	for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
-		if v.Researched[t.ID] {
-			continue
-		}
-		ok := true
-		for _, r := range t.Requires {
-			if !v.Researched[r] {
-				ok = false
-			}
-		}
-		if ok {
+		if st, _ := sim.TechStatus(v.Researched, g.cat, v.Side, t.ID); st == sim.TechOpen {
 			return true
 		}
 	}

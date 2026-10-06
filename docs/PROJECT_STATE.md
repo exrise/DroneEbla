@@ -161,3 +161,8 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 ## Обновления блока B (ПВО)
 - Перехват самолётами: `BuildingType.Intercept`, `Aircraft["fighter"]`, `Building.Busy`, `Engagement.Bld`, `sim/airdefense.go fighterIntercepts` и `underEnemyAD`; запасы `m_aam_ru/m_aam_ua`.
 - Расстановка: `sim/placement.go` (`StartPlacement`, `CanPlace`, `CmdPlace/CmdUnplace/CmdReady`), `World.Placement/PlacementDone`, `Side.Reserve/Hints/Ready`, `View.Placement/Reserve/Hints/Ready/EnemyReady`; `netplay.NewHost` и `NewSolo` вызывают `StartPlacement`; `ai/place.go`; панель `ui.drawPlacementPanel` и режим `modePlace`.
+
+## Обновления блока C (разведка и дерево)
+- Соцсети: `sim/intel.go socialPost/socials`, `Side.Posts`, правила `social_*`; эффекты `leak_block`, `leak_delay`, `social_speed`.
+- Дерево: `tech.json` (РФ 54, Украина 49 узлов, 6 веток), `data.Tech.Exclusive`, `sim.TechStatus` (единая проверка для команд, UI и ИИ); новые эффекты `front_power`, `front_loss`, `men_stream`, `recon_range`, `rtr_range`, `agent_speed`, `intercept_pk`; очки веток `intel` и `forces` (`intel_points`, `forces_points`).
+- UI: `techBranches`, отступы по уровням, пометка «закрыто» с причиной; приоритеты исследований ИИ — в `ai.json`.

@@ -83,6 +83,10 @@ func Load(override string) (*Catalog, error) {
 	if len(r.PlacementKinds) == 0 {
 		r.PlacementKinds = []string{"ad", "radar", "reb", "rtr", "launcher"}
 	}
+	if r.SocialMinPop <= 0 {
+		r.SocialMinPop, r.SocialCityKm, r.SocialDelayMin, r.SocialDelayMax = 20000, 8, 15, 60
+		r.IntelPoints, r.ForcesPoints = 0.3, 0.5
+	}
 	if r.AircraftLoss <= 0 {
 		r.AircraftLoss = 0.03
 	}
@@ -215,6 +219,14 @@ func (c *Catalog) validate() error {
 			for _, r := range t.Requires {
 				if c.TechByID[s][r] == nil {
 					return fmt.Errorf("технология %s: неизвестное требование %s", t.ID, r)
+				}
+			}
+			for _, r := range t.Exclusive {
+				if c.TechByID[s][r] == nil {
+					return fmt.Errorf("технология %s: неизвестный взаимоисключающий выбор %s", t.ID, r)
+				}
+				if r == t.ID {
+					return fmt.Errorf("технология %s исключает сама себя", t.ID)
 				}
 			}
 		}

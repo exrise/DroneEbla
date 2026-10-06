@@ -183,14 +183,17 @@ type FrontType struct {
 
 // Tech — узел дерева технологий.
 type Tech struct {
-	ID       string             `json:"id"`
-	Name     string             `json:"name"`
-	Branch   string             `json:"branch"` // drones, strike, ad, industry
-	Cost     float64            `json:"cost"`
-	Requires []string           `json:"requires"`
-	Unlocks  []string           `json:"unlocks"`
-	Effects  map[string]float64 `json:"effects"`
-	Desc     string             `json:"desc"`
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Branch   string   `json:"branch"` // drones, strike, ad, industry
+	Cost     float64  `json:"cost"`
+	Requires []string `json:"requires"`
+	// Exclusive — взаимоисключающий выбор: если изучено любое из этих исследований
+	// (или оно само перечисляет это), данное закрыто.
+	Exclusive []string           `json:"exclusive"`
+	Unlocks   []string           `json:"unlocks"`
+	Effects   map[string]float64 `json:"effects"`
+	Desc      string             `json:"desc"`
 }
 
 // ImportOffer — закупка за рубежом.
@@ -367,16 +370,22 @@ type Rules struct {
 	MoraleRepelMin      int                `json:"morale_repel_min"`       // минимальный размер такого удара
 	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
 	PlacementKinds      []string           `json:"placement_kinds"`        // виды юнитов, которые игрок сам расставляет перед стартом
-	AircraftLoss        float64            `json:"aircraft_loss"`          // вероятность потерять истребитель за перехват
-	MoraleGainRef       float64            `json:"morale_gain_ref"`        // при этой морали успехи дают полный прирост; выше — меньше
-	MoraleGainFloor     float64            `json:"morale_gain_floor"`      // минимальная доля прироста
-	MoraleFatigue       float64            `json:"morale_fatigue"`         // спад прироста за каждый недавний успех того же вида
-	MoraleFatigueH      float64            `json:"morale_fatigue_h"`       // за сколько игровых часов считаются недавние успехи
-	MoraleCityRepeat    float64            `json:"morale_city_repeat"`     // доля награды за повторный захват города
-	RepairPerType       int                `json:"repair_per_type"`        // зданий одного типа, которые чинятся одновременно
-	RepairRuinMult      float64            `json:"repair_ruin_mult"`       // скорость ремонта почти разрушенного здания
-	DamageFloor         float64            `json:"damage_floor"`           // ниже этой доли HP здание не производит
-	DamageCurve         float64            `json:"damage_curve"`           // выпуск = ((hp−порог)/(1−порог))^кривая
+	SocialMinPop        int                `json:"social_min_pop"`         // соцсети: минимальное население рядом
+	SocialCityKm        float64            `json:"social_city_km"`         // соцсети: радиус от города
+	SocialDelayMin      float64            `json:"social_delay_min"`       // соцсети: задержка подтверждения, мин
+	SocialDelayMax      float64            `json:"social_delay_max"`
+	IntelPoints         float64            `json:"intel_points"`       // очки ветки «Разведка» за новую метку
+	ForcesPoints        float64            `json:"forces_points"`      // очки ветки «Войска» за захват тайла
+	AircraftLoss        float64            `json:"aircraft_loss"`      // вероятность потерять истребитель за перехват
+	MoraleGainRef       float64            `json:"morale_gain_ref"`    // при этой морали успехи дают полный прирост; выше — меньше
+	MoraleGainFloor     float64            `json:"morale_gain_floor"`  // минимальная доля прироста
+	MoraleFatigue       float64            `json:"morale_fatigue"`     // спад прироста за каждый недавний успех того же вида
+	MoraleFatigueH      float64            `json:"morale_fatigue_h"`   // за сколько игровых часов считаются недавние успехи
+	MoraleCityRepeat    float64            `json:"morale_city_repeat"` // доля награды за повторный захват города
+	RepairPerType       int                `json:"repair_per_type"`    // зданий одного типа, которые чинятся одновременно
+	RepairRuinMult      float64            `json:"repair_ruin_mult"`   // скорость ремонта почти разрушенного здания
+	DamageFloor         float64            `json:"damage_floor"`       // ниже этой доли HP здание не производит
+	DamageCurve         float64            `json:"damage_curve"`       // выпуск = ((hp−порог)/(1−порог))^кривая
 	MaskCost            map[string]float64 `json:"mask_cost"`
 	ResearchBase        float64            `json:"research_base"`
 	ResearchFundCost    float64            `json:"research_fund_cost"`

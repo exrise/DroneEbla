@@ -117,6 +117,12 @@ type Engagement struct {
 	Side int
 }
 
+// Post — отложенное подтверждение прилёта в соцсетях (появится у атаковавшей стороны).
+type Post struct {
+	At  float64
+	Bld uint32
+}
+
 // PlaceHint — стартовая позиция юнита из данных стороны.
 type PlaceHint struct {
 	Type string
@@ -219,6 +225,7 @@ type Side struct {
 	CitySeen    map[int]int          // сколько раз сторона брала город
 	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
 	MissionFail map[string]bool      // задания, которые уже не выполнить
+	Posts       []Post               // отложенные подтверждения прилётов в соцсетях
 	Reserve     map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
 	Hints       []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
 	Ready       bool                 // расстановка завершена
