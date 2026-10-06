@@ -64,6 +64,10 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 
 // ensure восстанавливает пустые карты после декодирования gob.
 func (sd *Side) ensure(n int) {
+	if !sd.PostureSet { // старое сохранение: одна позиция на весь фронт
+		sd.PostureDir = [3]int{sd.Posture, sd.Posture, sd.Posture}
+		sd.PostureSet = true
+	}
 	if sd.Stocks == nil {
 		sd.Stocks = map[string]float64{}
 	}

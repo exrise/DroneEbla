@@ -172,25 +172,26 @@ func (w *World) front(dtMin float64) {
 	best := map[int]float64{}
 	for s := 0; s < 2; s++ {
 		sd := w.Sides[s]
-		attK := []float64{0, 0.5, 1.0}[sd.Posture]
-		if attK == 0 {
-			continue
-		}
+		attKs := []float64{0, 0.5, 1.0}
+		defKs := []float64{1.3, 1.0, 0.85}
 		e := 1 - s
 		ed := w.Sides[e]
-		defK := []float64{1.3, 1.0, 0.85}[ed.Posture]
 		for k := range best {
 			delete(best, k)
 		}
 		for _, i := range w.frontT[s] {
 			d := w.TileDir(i)
+			attK := attKs[sd.PostureDir[d]]
+			if attK == 0 {
+				continue
+			}
 			att := dens[s][d] * attK * w.mainEffort(s, i) * (0.75 + 0.5*w.rng.Float64())
 			w.neighbors4(i, func(j int) {
 				if !w.groundTile(j) || w.OwnerSide(j) != e {
 					return
 				}
 				dj := w.TileDir(j)
-				def := dens[e][dj] * defK * w.mainEffort(e, j) * w.terrain(j)
+				def := dens[e][dj] * defKs[ed.PostureDir[dj]] * w.mainEffort(e, j) * w.terrain(j)
 				if def <= 0 {
 					def = 0.01
 				}
@@ -236,12 +237,12 @@ func (w *World) front(dtMin float64) {
 				ratio = clamp(ep/f.Power, 0.2, 5)
 			}
 			k := r.FrontLoss * ratio * step / r.FrontStepMin * MoraleLosses(r, sd.Morale)
-			if sd.Posture == PostureOffense {
+			if sd.PostureDir[d] == PostureOffense {
 				k *= 1.6
-			} else if sd.Posture == PostureDefense {
+			} else if sd.PostureDir[d] == PostureDefense {
 				k *= 0.7
 			}
-			if w.Sides[e].Posture == PostureOffense {
+			if w.Sides[e].PostureDir[d] == PostureOffense {
 				k *= 1.3
 			}
 			men := f.Men * k

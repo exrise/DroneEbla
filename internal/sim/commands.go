@@ -178,7 +178,13 @@ func (w *World) Apply(c Command) string {
 			}
 		}
 	case CmdPosture:
-		sd.Posture = int(clamp(float64(c.Int), 0, 2))
+		// Count: 0 — все направления, 1–3 — одно направление.
+		p := int(clamp(float64(c.Int), 0, 2))
+		for d := 0; d < 3; d++ {
+			if c.Count == 0 || c.Count == d+1 {
+				sd.PostureDir[d] = p
+			}
+		}
 	case CmdMainEffort:
 		if c.Int == 0 {
 			sd.HasMain = false

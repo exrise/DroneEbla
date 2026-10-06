@@ -91,6 +91,7 @@ type Game struct {
 	notices      []string
 	cycleSeen    map[string]map[uint32]bool
 	labels       []image.Rectangle
+	groups       [9][]Selection // контрольные группы (клавиши 1…9)
 }
 
 type strikePlan struct {
@@ -149,6 +150,10 @@ func (g *Game) Update() error {
 	_, wy := ebiten.Wheel()
 	in.wheel += wy
 	in.collectTextInput()
+	if inpututil.IsKeyJustPressed(ebiten.KeyF11) ||
+		(inpututil.IsKeyJustPressed(ebiten.KeyEnter) && ebiten.IsKeyPressed(ebiten.KeyAlt)) {
+		ebiten.SetFullscreen(!ebiten.IsFullscreen())
+	}
 	if g.scene == sceneGame {
 		g.gameKeys()
 	}

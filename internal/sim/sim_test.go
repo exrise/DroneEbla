@@ -212,7 +212,7 @@ func TestFrontMoves(t *testing.T) {
 			b.HP = 0
 		}
 	}
-	w.Sides[data.RU].Posture = PostureOffense
+	w.Sides[data.RU].PostureDir = [3]int{PostureOffense, PostureOffense, PostureOffense}
 	w.Sides[data.UA].Front[1].Men = 5
 	ownedBefore := 0
 	for _, o := range w.Owner {
@@ -404,8 +404,8 @@ func TestDamageEfficiency(t *testing.T) {
 
 func TestRepairTimeAndCrews(t *testing.T) {
 	w := newTestWorld(t)
-	w.Sides[data.RU].Posture = PostureDefense // фронт не должен менять владельцев объектов
-	w.Sides[data.UA].Posture = PostureDefense
+	w.Sides[data.RU].PostureDir = [3]int{} // оборона: фронт не должен менять владельцев объектов
+	w.Sides[data.UA].PostureDir = [3]int{}
 	run(w, 5)
 	ref := findBuilding(w, "Кременчугский НПЗ")
 	ref.HP = 0
@@ -842,5 +842,45 @@ func TestMissionHoldFailed(t *testing.T) {
 	run(w, 72*60+5)
 	if !w.Sides[data.UA].MissionFail["mis_hold_kyiv"] || w.Sides[data.UA].AidDone["mis_hold_kyiv"] {
 		t.Fatal("задание на удержание потерянного Киева должно быть провалено")
+	}
+}
+
+// Позиция задаётся отдельно по направлениям; старые сохранения мигрируют.
+func TestPosturePerDirection(t *testing.T) {
+	w := newTestWorld(t)
+	ru := w.Sides[data.RU]
+	w.Apply(Command{Kind: CmdPosture, Side: data.RU, Int: PostureOffense, Count: 2}) // Донбасс
+	if ru.PostureDir != [3]int{PostureActive, PostureOffense, PostureActive} {
+		t.Fatalf("позиции по направлениям: %v", ru.PostureDir)
+	}
+	w.Apply(Command{Kind: CmdPosture, Side: data.RU, Int: PostureDefense}) // все
+	if ru.PostureDir != [3]int{} {
+		t.Fatalf("команда для всех направлений: %v", ru.PostureDir)
+	}
+	if v := w.BuildView(data.RU, 0); v.Posture != ru.PostureDir {
+		t.Fatal("позиции не попали в представление")
+	}
+	// Старое сохранение без PostureDir: берём единую позицию.
+	old := &Side{Posture: PostureOffense}
+	old.ensure(10)
+	if old.PostureDir != [3]int{PostureOffense, PostureOffense, PostureOffense} {
+		t.Fatalf("миграция позиции: %v", old.PostureDir)
+	}
+	// Наступление на одном направлении не включает давление на других.
+	w2 := newTestWorld(t)
+	run(w2, w2.PrepEnd+1)
+	for s := 0; s < 2; s++ {
+		w2.Sides[s].PostureDir = [3]int{}
+	}
+	w2.Sides[data.RU].PostureDir[1] = PostureOffense
+	run(w2, 6*60)
+	north := 0.0
+	for i := range w2.Pressure {
+		if w2.TileDir(i) != 1 && w2.Pressure[i] > 0 {
+			north += float64(w2.Pressure[i])
+		}
+	}
+	if north != 0 {
+		t.Fatalf("давление появилось на направлениях в обороне: %.2f", north)
 	}
 }

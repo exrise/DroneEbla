@@ -284,15 +284,16 @@ func (w *World) economy(dtH float64) {
 		}
 
 		// Расход фронта: топливо и боеприпасы.
-		post := []float64{0.6, 1.0, 1.6}[sd.Posture]
+		postK := []float64{0.6, 1.0, 1.6}
 		armor, art := 0.0, 0.0
 		for d := 0; d < 3; d++ {
-			armor += sd.Front[d].Armor
-			art += sd.Front[d].Artillery
+			k := postK[sd.PostureDir[d]]
+			armor += sd.Front[d].Armor * k
+			art += sd.Front[d].Artillery * k
 		}
 		if w.War() {
-			delta[data.ResFuel] -= armor * r.FrontFuelUse * post * dtH
-			delta[data.ResAmmo] -= art * r.FrontAmmoUse * post * dtH
+			delta[data.ResFuel] -= armor * r.FrontFuelUse * dtH
+			delta[data.ResAmmo] -= art * r.FrontAmmoUse * dtH
 		}
 
 		sd.Res.Add(delta, 1)

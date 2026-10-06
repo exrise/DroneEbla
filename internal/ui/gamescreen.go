@@ -19,7 +19,7 @@ const (
 	topH  = 56
 	leftW = 420
 	infoW = 390
-	infoH = 330
+	infoH = 410
 )
 
 // hoverItem — объект под курсором.
@@ -61,10 +61,10 @@ func (g *Game) gameKeys() {
 		}
 		g.sess.Send(sim.Command{Kind: sim.CmdPause, Int: p})
 	}
-	for k := 1; k <= 5; k++ {
-		if inpututil.IsKeyJustPressed(ebiten.Key0 + ebiten.Key(k)) {
-			g.sess.Send(sim.Command{Kind: sim.CmdSpeed, Int: k})
-		}
+	g.speedKeys()
+	g.groupKeys()
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		g.strikeHotkey()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		if g.mode != modeNone {
@@ -364,7 +364,11 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 				label = g.bShort(c.Type)
 			}
 			s := math.Max(6, math.Min(13, z*4))
-			strokeRect(dst, sx-s/2, sy-s/2, s, s, col, 2)
+			if bt := g.cat.BuildingByID[c.Type]; bt != nil {
+				drawBuildingIcon(dst, bt, sx, sy, s, col, false)
+			} else {
+				strokeRect(dst, sx-s/2, sy-s/2, s, s, col, 2)
+			}
 			if c.HP >= 0 && c.HP < 0.99 {
 				fillRect(dst, sx-s/2, sy+s/2+1, s*c.HP, 2, colBad)
 			}
@@ -378,6 +382,9 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			sx, sy = math.Round(sx), math.Round(sy)
 			diamond(dst, sx, sy, s, col)
 			diamond(dst, sx, sy, s-2.5, color.RGBA{245, 240, 225, a})
+			if ut := g.cat.UnitByID[c.Type]; ut != nil {
+				unitGlyph(dst, ut, sx, sy, (s-2.5)*0.55, col)
+			}
 		}
 		if z > 0.7 || (hov != nil && hov.id == c.ID) {
 			g.mapLabel(dst, label, sx, sy-20, col, hov != nil && hov.id == c.ID)
@@ -401,7 +408,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			if b.HP <= b.MaxHP*0.1 {
 				c = color.RGBA{60, 60, 60, 255}
 			}
-			fillRect(dst, sx-s/2, sy-s/2, s, s, c)
+			drawBuildingIcon(dst, bt, sx, sy, s, c, true)
 			if b.Masked {
 				strokeRect(dst, sx-s/2-2, sy-s/2-2, s+4, s+4, color.RGBA{60, 120, 50, 255}, 1.5)
 			}
@@ -429,6 +436,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		w, h := math.Max(10, math.Min(22, z*6)), math.Max(7, math.Min(14, z*4))
 		fillRect(dst, sx-w/2, sy-h/2, w, h, color.RGBA{245, 240, 225, 255})
 		strokeRect(dst, sx-w/2, sy-h/2, w, h, col, 2)
+		unitGlyph(dst, ut, sx, sy, h*0.32, col)
 		if un.State != sim.UnitDeployed {
 			line(dst, sx-w/2, sy+h/2, sx+w/2, sy-h/2, col, 1.5)
 		}
@@ -828,7 +836,7 @@ func (g *Game) drawTopBar() {
 		if u.ButtonState(int(rx)-30, 30, 30, 20, lbl, v.MySpeed == k, true) {
 			g.sess.Send(sim.Command{Kind: sim.CmdSpeed, Int: k})
 		}
-		u.Tooltip(int(rx)-30, 30, 30, 20, fmt.Sprintf("Скорость %d (×%.0f). Действует меньшая из выбранных игроками. Клавиши 1–5.", k, sim.SpeedMult[k]))
+		u.Tooltip(int(rx)-30, 30, 30, 20, fmt.Sprintf("Скорость %d (×%.0f). Действует меньшая из выбранных игроками. Клавиши [ и ] (или цифры numpad 1–5).", k, sim.SpeedMult[k]))
 		rx -= 32
 	}
 	pl := "Пауза"

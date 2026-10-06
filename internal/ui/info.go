@@ -98,7 +98,9 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 	drawBold(u.screen, fitText(b.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideColor(v.Side), 0)
 	y += 22
 	drawText(u.screen, bt.Name, float64(x), float64(y), 13, colDim, 0)
-	y += 22
+	y += 20
+	y = g.para(bt.Desc, x, y, w, colDim)
+	y += 4
 	if b.Built < 1 {
 		y = g.kv("Строительство", fmt.Sprintf("%.0f%%", b.Built*100), x, y, w, colWarn)
 	}
@@ -202,7 +204,9 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 	v := g.view
 	ut := g.cat.UnitByID[un.Type]
 	drawBold(u.screen, fitText(ut.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideColor(v.Side), 0)
-	y += 26
+	y += 24
+	y = g.para(ut.Desc, x, y, w, colDim)
+	y += 4
 	y = g.kv("Состояние", sim.UnitStateNames[un.State], x, y, w, colText)
 	if un.State == sim.UnitPacking || un.State == sim.UnitDeploying {
 		y = g.kv("Осталось", fmtMin(un.Timer), x, y, w, colText)
@@ -455,19 +459,33 @@ func (g *Game) drawStrikePanel() {
 		return
 	}
 	can := len(g.strike.Pts) > 0 && l <= rng
-	if u.ButtonState(px+pw/2+4, py, pw/2-4, 30, "Пуск!", false, can) {
-		pts := g.strike.Pts
-		target := pts[len(pts)-1]
-		var wps []sim.Pt
-		if m.Kind == "recon" {
-			wps = append([]sim.Pt{}, pts...)
-		} else {
-			wps = append([]sim.Pt{}, pts[:len(pts)-1]...)
-		}
-		g.sess.Send(sim.Command{Kind: sim.CmdStrike, ID: g.strike.Source, Item: g.strike.Munition, Count: g.strike.Count, Pts: wps, X: target.X, Y: target.Y, Delay: g.strike.Delay})
-		g.mode = modeNone
-		g.strike = strikePlan{}
+	if u.ButtonState(px+pw/2+4, py, pw/2-4, 30, "Пуск! (F)", false, can) {
+		g.confirmStrike()
 	}
+}
+
+// confirmStrike отправляет запланированный удар (кнопка «Пуск!» и клавиша F).
+func (g *Game) confirmStrike() {
+	m := g.cat.MunitionByID[g.strike.Munition]
+	pts := g.strike.Pts
+	if m == nil || len(pts) == 0 {
+		return
+	}
+	l, rng := g.strikeLength()
+	if l > rng {
+		g.toast("Цель вне досягаемости")
+		return
+	}
+	target := pts[len(pts)-1]
+	var wps []sim.Pt
+	if m.Kind == "recon" {
+		wps = append([]sim.Pt{}, pts...)
+	} else {
+		wps = append([]sim.Pt{}, pts[:len(pts)-1]...)
+	}
+	g.sess.Send(sim.Command{Kind: sim.CmdStrike, ID: g.strike.Source, Item: g.strike.Munition, Count: g.strike.Count, Pts: wps, X: target.X, Y: target.Y, Delay: g.strike.Delay})
+	g.mode = modeNone
+	g.strike = strikePlan{}
 }
 
 func (g *Game) drawHelp() {
@@ -476,8 +494,9 @@ func (g *Game) drawHelp() {
 	lines := []string{
 		"ЛКМ — выбрать объект, перетаскивание — сдвиг карты",
 		"Колесо — масштаб, WASD/стрелки — прокрутка",
-		"ПКМ — марш выбранного юнита",
-		"Пробел — пауза, 1–5 — скорость, F5 — сохранить",
+		"ПКМ — марш выбранного юнита, F — пуск (выбрана пусковая)",
+		"Ctrl+1…9 — запомнить выбранное в группу, 1…9 — выбрать",
+		"Пробел — пауза, [ ] — скорость, F5 — сохранить, F11 — экран",
 	}
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)

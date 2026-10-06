@@ -27,6 +27,7 @@
       "prep_posture": 0,
       "war_posture": 1,
       "fort_tiles": 4,
+      "defense_pressure": 0.8,
       "strike_every_min": 20,
       "strike_munitions": [
         "gmlrs", "smerch_ua", "tochka_u", "uj22", "palianytsia", "lyutyi",

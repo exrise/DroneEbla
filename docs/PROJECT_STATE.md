@@ -153,3 +153,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 - Мораль: `World.moraleGain` (убывающая отдача, усталость по видам успехов), `Building.KeyHit` (ключевой объект — мораль один раз до ремонта), `Side.CitySeen`.
 - Задания: `data.MissionDef`, `sim/missions.go` (`missionBuildingHit` из `impact`, `missionTick` для удержания), `View.Missions`, вкладка «Задания» (`ui.tabMissions`).
 - Сталь/тыл: `Object.Scale` → `Building.Scale`, тип `rail_station`, ~13 комбинатов и ~24 узла и станции; руда для комбинатов в радиусе 800 км.
+
+## Обновления блока D (интерфейс)
+- `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 2`.
+- `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), F11/Alt+Enter в `Game.Update`, `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).

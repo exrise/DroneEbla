@@ -101,17 +101,20 @@ func (g *Game) centerOn(x, y float64) {
 
 // ---------------------------------------------------------------------
 
+const postureTip = "Оборона: меньше потерь и расход снарядов, фронт не продвигается. Активная оборона: локальные атаки. Наступление: больше потерь и расход, давление по всей линии направления."
+
 func (g *Game) tabFront(x, y, w int) int {
 	u := &g.ui
 	v := g.view
-	y = g.header("Позиция фронта", x, y)
+	y = g.header("Позиция: все направления", x, y)
 	bw := (w - 8) / 3
+	same := v.Posture[0] == v.Posture[1] && v.Posture[1] == v.Posture[2]
 	for p := 0; p < 3; p++ {
-		if u.ButtonState(x+p*(bw+4), y, bw, 26, sim.PostureNames[p], v.Posture == p, true) {
+		if u.ButtonState(x+p*(bw+4), y, bw, 26, sim.PostureNames[p], same && v.Posture[0] == p, true) {
 			g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p})
 		}
 	}
-	u.Tooltip(x, y, w, 26, "Оборона: меньше потерь и расход снарядов, фронт не продвигается. Активная оборона: локальные атаки. Наступление: больше потерь и расход, давление по всей линии.")
+	u.Tooltip(x, y, w, 26, postureTip)
 	y += 34
 	y = g.header("Главный удар", x, y)
 	if v.HasMain {
@@ -130,7 +133,7 @@ func (g *Game) tabFront(x, y, w int) int {
 	y = g.header("Направления", x, y)
 	for d := 0; d < 3; d++ {
 		f := v.Front[d]
-		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 195, color.RGBA{30, 35, 42, 255})
+		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 225, color.RGBA{30, 35, 42, 255})
 		drawBold(u.screen, sim.DirNames[d], float64(x), float64(y), 15, colText, 0)
 		drawText(u.screen, fmt.Sprintf("доля пополнений %.0f%%", v.Alloc[d]*100), float64(x+w-70), float64(y+1), 13, colDim, 2)
 		if u.Button(x+w-60, y-2, 28, 20, "−") {
@@ -140,6 +143,13 @@ func (g *Game) tabFront(x, y, w int) int {
 			g.alloc(d, 0.1)
 		}
 		y += 24
+		for p := 0; p < 3; p++ {
+			if u.ButtonState(x+p*(bw+4), y, bw, 22, sim.PostureNames[p], v.Posture[d] == p, true) {
+				g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p, Count: d + 1})
+			}
+		}
+		u.Tooltip(x, y, w, 22, "Позиция только на этом направлении. "+postureTip)
+		y += 28
 		y = g.kv("Личный состав, тыс.", fmt.Sprintf("%.1f", f.Men), x, y, w, colText)
 		y = g.kv("Бронетехника", fmt.Sprintf("%.0f", f.Armor), x, y, w, colText)
 		y = g.kv("Артиллерия", fmt.Sprintf("%.0f", f.Artillery), x, y, w, colText)

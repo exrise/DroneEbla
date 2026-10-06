@@ -35,12 +35,19 @@ func (a *AI) front(w *sim.World, v *sim.View) {
 	}
 	a.cmd(w, sim.Command{Kind: sim.CmdAlloc, Vals: vals})
 
-	posture := a.cfg.WarPosture
+	base := a.cfg.WarPosture
 	if !v.War {
-		posture = a.cfg.PrepPosture
+		base = a.cfg.PrepPosture
 	}
-	if v.Posture != posture {
-		a.cmd(w, sim.Command{Kind: sim.CmdPosture, Int: posture})
+	for d := 0; d < 3; d++ {
+		posture := base
+		// Под сильным давлением направление уходит в глухую оборону.
+		if v.War && a.cfg.DefensePressure > 0 && press[d] > a.cfg.DefensePressure {
+			posture = 0
+		}
+		if v.Posture[d] != posture {
+			a.cmd(w, sim.Command{Kind: sim.CmdPosture, Int: posture, Count: d + 1})
+		}
 	}
 
 	// Укрепляем самые давимые тайлы, пока хватает ресурсов.

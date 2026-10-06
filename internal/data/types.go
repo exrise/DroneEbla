@@ -445,6 +445,8 @@ type AISide struct {
 	PrepPosture int `json:"prep_posture"` // 0 оборона, 1 активная, 2 наступление
 	WarPosture  int `json:"war_posture"`
 	FortTiles   int `json:"fort_tiles"` // тайлов укреплять за раз
+	// DefensePressure — суммарное давление противника на направлении, выше которого оно уходит в оборону.
+	DefensePressure float64 `json:"defense_pressure"`
 	// Удары.
 	StrikeEveryMin    float64            `json:"strike_every_min"`
 	StrikeWeights     map[string]float64 `json:"strike_weights"`    // ценность целей по типу зданий

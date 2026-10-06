@@ -55,7 +55,7 @@ type View struct {
 	Front       [3]Direction
 	EnemyFront  [3]int // число фронтовых тайлов противника (видно по линии)
 	Alloc       [3]float64
-	Posture     int
+	Posture     [3]int
 	HasMain     bool
 	MainX       float64
 	MainY       float64
@@ -105,7 +105,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		Res: sd.Res, Rates: sd.Rates, Income: sd.Income, Morale: sd.Morale, People: sd.People,
 		LaborLoss: sd.LaborLoss, Blackout: sd.Blackout, Power: sd.Power,
 		Stocks: copyMap(sd.Stocks), Storage: sd.Storage, Front: sd.Front, Alloc: sd.Alloc,
-		Posture: sd.Posture, HasMain: sd.HasMain, MainX: sd.MainX, MainY: sd.MainY,
+		Posture: sd.PostureDir, HasMain: sd.HasMain, MainX: sd.MainX, MainY: sd.MainY,
 		Orders: append([]Order{}, sd.Orders...), Capacity: copyMap(sd.Capacity),
 		Unlocked: copyBool(sd.Unlocked), Researched: copyBool(sd.Researched),
 		Research: sd.Research, Progress: copyMap(sd.Progress), Bonus: copyMap(sd.Bonus),

@@ -181,7 +181,9 @@ type Side struct {
 	Storage     data.FrontPool
 	Front       [3]Direction
 	Alloc       [3]float64
-	Posture     int
+	Posture     int    // устарело: позиция всего фронта (старые сохранения)
+	PostureDir  [3]int // позиция по направлениям
+	PostureSet  bool   // PostureDir заполнена (иначе мигрируем из Posture)
 	HasMain     bool
 	MainX       float64
 	MainY       float64

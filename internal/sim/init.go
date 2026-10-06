@@ -37,6 +37,8 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 			Storage:     def.Storage,
 			Alloc:       [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3},
 			Posture:     PostureActive,
+			PostureDir:  [3]int{PostureActive, PostureActive, PostureActive},
+			PostureSet:  true,
 			Capacity:    map[string]float64{},
 			Unlocked:    map[string]bool{},
 			Researched:  map[string]bool{},
