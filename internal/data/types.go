@@ -314,7 +314,6 @@ type Rules struct {
 	BuildingVisionKm    float64            `json:"building_vision_km"`
 	AirWatchKm          float64            `json:"air_watch_km"` // визуальное наблюдение за воздухом вокруг своих объектов
 	AgentEveryH         float64            `json:"agent_every_h"`
-	AgentErrorKm        float64            `json:"agent_error_km"`
 	AgentFundCost       float64            `json:"agent_fund_cost"`
 	FlashMin            float64            `json:"flash_min"`       // засветка пусковой после залпа
 	RepairPerHour       float64            `json:"repair_per_hour"` // доля HP в час

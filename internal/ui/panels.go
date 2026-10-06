@@ -733,7 +733,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 	u := &g.ui
 	v := g.view
 	y = g.header("Агентура и OSINT", x, y)
-	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с погрешностью ±%.0f км. Финансирование ускоряет их в 2.5 раза за %.0f денег/ч.", g.cat.Rules.AgentErrorKm, g.cat.Rules.AgentFundCost), x, y, w, colDim)
+	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с точными координатами (данные стареют). Финансирование ускоряет их в 2.5 раза за %.0f денег/ч.", g.cat.Rules.AgentFundCost), x, y, w, colDim)
 	lbl := "Финансировать"
 	if v.AgentFund {
 		lbl = "Финансирование включено"

@@ -69,7 +69,7 @@ func (w *World) intel(dtMin float64) {
 }
 
 // observe обновляет контакт по данным сенсора.
-func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) {
+func (w *World) observe(s int, id uint32, sensor, source string) {
 	sd := w.Sides[s]
 	c := sd.Known[id]
 	if b, ok := w.Buildings[id]; ok {
@@ -95,11 +95,6 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 			c.Type = b.Type
 		}
 		c.Seen, c.Source = w.Time, source
-		if errKm > 0 {
-			ox, oy := w.errOffset(id, sensor)
-			c.X += ox * errKm
-			c.Y += oy * errKm
-		}
 		return
 	}
 	if u, ok := w.Units[id]; ok {
@@ -125,35 +120,7 @@ func (w *World) observe(s int, id uint32, sensor, source string, errKm float64) 
 			c.HP = u.HP / w.cat.UnitByID[u.Type].HP
 		}
 		c.Seen, c.Source = w.Time, source
-		if errKm > 0 {
-			ox, oy := w.errOffset(id, sensor)
-			c.X += ox * errKm
-			c.Y += oy * errKm
-		}
 	}
-}
-
-// errOffset — ошибка пеленга в [-1, 1]. Для РТР она постоянна в течение часа,
-// чтобы отметка не дрожала; для агентуры — случайная.
-func (w *World) errOffset(id uint32, sensor string) (float64, float64) {
-	if sensor != "rtr" && sensor != "flash" {
-		return w.rng.Float64()*2 - 1, w.rng.Float64()*2 - 1
-	}
-	h := uint64(id)*0x9E3779B97F4A7C15 ^ uint64(w.Time/60)*0xBF58476D1CE4E5B9
-	h ^= h >> 31
-	h *= 0x94D049BB133111EB
-	h ^= h >> 29
-	return float64(h&0xFFFF)/32767.5 - 1, float64((h>>16)&0xFFFF)/32767.5 - 1
-}
-
-// imprecise — данные с погрешностью (их не опровергает отсутствие объекта
-// в точке отметки).
-func imprecise(c *Contact) bool {
-	switch c.Source {
-	case "РТР", "агентура/OSINT", "засветка пуска":
-		return true
-	}
-	return false
 }
 
 // forget удаляет контакты в области, где объекта больше нет.
@@ -162,13 +129,6 @@ func (w *World) forget(s int, covered func(x, y float64) bool) {
 	for id, c := range sd.Known {
 		if !covered(c.X, c.Y) {
 			continue
-		}
-		if imprecise(c) {
-			_, isB := w.Buildings[id]
-			_, isU := w.Units[id]
-			if isB || isU {
-				continue
-			}
 		}
 		if b, ok := w.Buildings[id]; ok && b.Side != s && dist(b.X, b.Y, c.X, c.Y) < 3 {
 			continue
@@ -226,20 +186,20 @@ func (w *World) groundVision(s int) {
 	for id, b := range w.Buildings {
 		if b.Side != s && !b.Masked {
 			if i := w.tileOf(b.X, b.Y); i >= 0 && vis[i] {
-				w.observe(s, id, SensorOptical, "наблюдение", 0)
+				w.observe(s, id, SensorOptical, "наблюдение")
 			}
 		}
 	}
 	for id, u := range w.Units {
 		if u.Side != s {
 			if i := w.tileOf(u.X, u.Y); i >= 0 && vis[i] {
-				w.observe(s, id, SensorOptical, "наблюдение", 0)
+				w.observe(s, id, SensorOptical, "наблюдение")
 			}
 		}
 	}
 	w.forget(s, func(x, y float64) bool {
 		i := w.tileOf(x, y)
-		return i >= 0 && vis[i] && w.OwnerSide(i) != s
+		return i >= 0 && vis[i]
 	})
 }
 
@@ -276,11 +236,11 @@ func (w *World) sweep(s int, p SatPass, f0, f1 float64, sensor, name string) {
 		if sensor == SensorOptical && b.Masked {
 			continue
 		}
-		w.observe(s, id, sensor, src, 0)
+		w.observe(s, id, sensor, src)
 	}
 	for id, u := range w.Units {
 		if u.Side != s && in(u.X, u.Y) {
-			w.observe(s, id, sensor, src, 0)
+			w.observe(s, id, sensor, src)
 		}
 	}
 	w.forget(s, in)
@@ -316,12 +276,12 @@ func (w *World) reconDrones(s int) {
 		}
 		for id, b := range w.Buildings {
 			if b.Side != s && !b.Masked && dist(b.X, b.Y, p.X, p.Y) <= v {
-				w.observe(s, id, SensorOptical, m.Name, 0)
+				w.observe(s, id, SensorOptical, m.Name)
 			}
 		}
 		for id, u := range w.Units {
 			if u.Side != s && dist(u.X, u.Y, p.X, p.Y) <= v {
-				w.observe(s, id, SensorOptical, m.Name, 0)
+				w.observe(s, id, SensorOptical, m.Name)
 			}
 		}
 		px, py := p.X, p.Y
@@ -365,7 +325,7 @@ func (w *World) rtr(s int) {
 			if c := w.Sides[s].Known[id]; c != nil && w.Time-c.Seen < 10 {
 				continue
 			}
-			w.observe(s, id, "rtr", "РТР", math.Min(15, d*0.04))
+			w.observe(s, id, "rtr", "РТР")
 		}
 	}
 }
@@ -375,7 +335,7 @@ func (w *World) flashes(s int) {
 	for id, u := range w.Units {
 		if u.Side != s && u.FlashTill > w.Time && w.Time > u.FlashTill-w.cat.Rules.FlashMin {
 			if c := w.Sides[s].Known[id]; c == nil || w.Time-c.Seen > 5 {
-				w.observe(s, id, "flash", "засветка пуска", 1)
+				w.observe(s, id, "flash", "засветка пуска")
 			}
 		}
 	}
@@ -412,7 +372,7 @@ func (w *World) agents(s int, dtMin float64) {
 		return
 	}
 	id := ids[w.rng.Intn(len(ids))]
-	w.observe(s, id, "agent", "агентура/OSINT", r.AgentErrorKm)
+	w.observe(s, id, "agent", "агентура/OSINT")
 	if c := sd.Known[id]; c != nil {
 		name := c.Type
 		if b := w.cat.BuildingByID[c.Type]; b != nil {
@@ -420,6 +380,6 @@ func (w *World) agents(s int, dtMin float64) {
 		} else if u := w.cat.UnitByID[c.Type]; u != nil {
 			name = u.Name
 		}
-		w.LogAt(s, 0, "Донесение агентуры: замечен объект «"+name+"» (точность ±8 км)", c.X, c.Y)
+		w.LogAt(s, 0, "Донесение агентуры: замечен объект «"+name+"»", c.X, c.Y)
 	}
 }

@@ -605,3 +605,75 @@ func TestTrainingCenterSpawn(t *testing.T) {
 		}
 	}
 }
+
+// Данные разведки точные: у всех источников координаты равны реальным.
+func TestIntelExact(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	var enemy *Unit
+	for _, u := range w.Units {
+		if u.Side == data.UA && w.cat.UnitByID[u.Type].Emitter() {
+			enemy = u
+			break
+		}
+	}
+	if enemy == nil {
+		t.Fatal("нет излучающего юнита Украины")
+	}
+	for _, sensor := range []string{"rtr", "flash", "agent", SensorOptical} {
+		delete(w.Sides[data.RU].Known, enemy.ID)
+		w.observe(data.RU, enemy.ID, sensor, sensor)
+		c := w.Sides[data.RU].Known[enemy.ID]
+		if c == nil || c.X != enemy.X || c.Y != enemy.Y {
+			t.Fatalf("%s: координаты метки не совпали с реальными", sensor)
+		}
+	}
+}
+
+// Старые метки мобильных объектов не живут на захваченной территории.
+func TestStaleContactsOnCaptured(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	var enemy *Unit
+	for _, u := range w.Units {
+		if u.Side == data.UA {
+			enemy = u
+			break
+		}
+	}
+	w.observe(data.RU, enemy.ID, SensorOptical, "наблюдение")
+	if ru.Known[enemy.ID] == nil {
+		t.Fatal("метка не создана")
+	}
+	i := w.tileOf(enemy.X, enemy.Y)
+	w.captureTile(i, data.RU)
+	if ru.Known[enemy.ID] != nil {
+		t.Fatal("метка уничтоженного при захвате юнита осталась")
+	}
+	// Метка без реального объекта на своей территории исчезает на следующем шаге.
+	var x, y float64
+	for k, o := range w.Owner {
+		if int(o)-1 == data.RU && w.m.Terrain[k] == world.TerrainLand {
+			x, y = w.m.TileCenter(k%w.m.W, k/w.m.W)
+			break
+		}
+	}
+	ru.Known[4000000] = &Contact{ID: 4000000, Kind: 1, Type: "buk_ua", X: x, Y: y, Seen: w.Time, HP: -1, Source: "РТР"}
+	run(w, 1)
+	if ru.Known[4000000] != nil {
+		t.Fatal("метка на своей территории не удалилась")
+	}
+	// А метка на реальном здании противника остаётся.
+	var bid uint32
+	for id, b := range w.Buildings {
+		if b.Side == data.UA {
+			bid = id
+			break
+		}
+	}
+	run(w, 5)
+	if ru.Known[bid] == nil {
+		t.Fatal("метка на реальном здании противника пропала")
+	}
+}

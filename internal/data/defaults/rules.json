@@ -24,7 +24,6 @@
   "building_vision_km": 6,
   "air_watch_km": 15,
   "agent_every_h": 6,
-  "agent_error_km": 8,
   "agent_fund_cost": 40,
   "flash_min": 40,
   "repair_cost_k": 0.6,

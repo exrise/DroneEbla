@@ -49,7 +49,7 @@
   {"id": "rtr_ru", "name": "Комплекс РТР «Москва-1»", "short": "РТР", "side": "ru", "kind": "rtr", "hp": 15,
    "speed_road": 55, "speed_off": 25, "pack_min": 15, "deploy_min": 15, "vision": 2, "rtr_km": 300,
    "cost": {"money": 25, "electronics": 12}, "cap": "ground", "cap_points": 10,
-   "desc": "Пеленгует излучающие РЛС, ПВО и РЭБ противника (с погрешностью)."},
+   "desc": "Определяет точные координаты излучающих РЛС, ПВО и РЭБ противника."},
   {"id": "iskander", "name": "ОТРК «Искандер-М»", "short": "ИСК", "side": "ru", "kind": "launcher", "hp": 20,
    "speed_road": 60, "speed_off": 25, "pack_min": 10, "deploy_min": 15, "vision": 2,
    "munitions": ["iskander_m", "iskander_k", "kn23"], "salvo": 2, "reload_min": 90,

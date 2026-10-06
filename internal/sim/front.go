@@ -319,6 +319,7 @@ func (w *World) captureTile(i, s int) {
 		if u.Side != s && w.tileOf(u.X, u.Y) == i {
 			w.LogAt(u.Side, 2, "Юнит уничтожен при отступлении: "+w.cat.UnitByID[u.Type].Name, u.X, u.Y)
 			delete(w.Units, id)
+			delete(w.Sides[s].Known, id) // старая метка на захваченной территории не нужна
 		}
 	}
 	if ci, ok := w.cityAt[i]; ok {
