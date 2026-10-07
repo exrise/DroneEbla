@@ -47,48 +47,12 @@ func (w *World) updatePower() {
 			use[reg] += p * r.PowerPerCity
 			pop[reg] += p
 		}
-		// Перетоки: излишки регионов в общий котёл, ограничены подстанциями.
-		pool := 0.0
-		regions := map[int]bool{}
-		for k := range gen {
-			regions[k] = true
-		}
-		for k := range use {
-			regions[k] = true
-		}
-		for k := range regions {
-			bal := gen[k] - use[k]
-			if bal > 0 {
-				pool += math.Min(bal, capT[k]+baseTransfer)
-			}
-		}
-		// Дефицитные области получают излишки пропорционально нехватке.
-		demand := 0.0
-		for k := range regions {
-			if bal := gen[k] - use[k]; bal < 0 {
-				demand += math.Min(-bal, capT[k]+baseTransfer)
-			}
-		}
-		share := 1.0
-		if demand > pool && demand > 0 {
-			share = pool / demand
-		}
+		fr := regionFractions(gen, use, capT)
 		totalGen, totalUse := 0.0, 0.0
 		blackPop, allPop := 0.0, 0.0
-		for k := range regions {
+		for k, f := range fr {
 			totalGen += gen[k]
 			totalUse += use[k]
-			f := 1.0
-			if use[k] > 0 {
-				bal := gen[k] - use[k]
-				got := gen[k]
-				if bal < 0 {
-					got += math.Min(-bal, capT[k]+baseTransfer) * share
-				} else {
-					got = use[k]
-				}
-				f = clamp(got/use[k], 0, 1)
-			}
 			sd.RegionPower[k] = f
 			allPop += pop[k]
 			if f < 0.7 {
@@ -102,6 +66,48 @@ func (w *World) updatePower() {
 			sd.Blackout = 0
 		}
 	}
+}
+
+// regionFractions — обеспеченность энергией по областям (0..1) при генерации gen, потреблении use
+// и пропускной способности подстанций capT. Излишки областей идут в общий котёл, дефицитные
+// области получают их пропорционально нехватке.
+func regionFractions(gen, use, capT map[int]float64) map[int]float64 {
+	regions := map[int]bool{}
+	for k := range gen {
+		regions[k] = true
+	}
+	for k := range use {
+		regions[k] = true
+	}
+	pool, demand := 0.0, 0.0
+	for k := range regions {
+		bal := gen[k] - use[k]
+		if bal > 0 {
+			pool += math.Min(bal, capT[k]+baseTransfer)
+		} else if bal < 0 {
+			demand += math.Min(-bal, capT[k]+baseTransfer)
+		}
+	}
+	share := 1.0
+	if demand > pool && demand > 0 {
+		share = pool / demand
+	}
+	out := map[int]float64{}
+	for k := range regions {
+		f := 1.0
+		if use[k] > 0 {
+			bal := gen[k] - use[k]
+			got := gen[k]
+			if bal < 0 {
+				got += math.Min(-bal, capT[k]+baseTransfer) * share
+			} else {
+				got = use[k]
+			}
+			f = clamp(got/use[k], 0, 1)
+		}
+		out[k] = f
+	}
+	return out
 }
 
 // powerFactor — обеспеченность энергией области здания.

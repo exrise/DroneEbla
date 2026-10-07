@@ -1299,3 +1299,40 @@ func TestMigrateOldTech(t *testing.T) {
 		t.Fatalf("эффекты или предметы пересчитаны неверно: %v", ru.Effects)
 	}
 }
+
+func TestEnemyPowerEstimate(t *testing.T) {
+	w := newTestWorld(t)
+	w.updatePower()
+	// Без разведданных о станциях оценка строится только по городам: генерации нет.
+	for s := 0; s < 2; s++ {
+		w.Sides[s].Known = map[uint32]*Contact{}
+	}
+	regs, gen, _ := w.estimateEnemyPower(data.RU)
+	if gen != 0 {
+		t.Fatalf("без меток станций генерация должна быть 0, а не %.0f", gen)
+	}
+	// Известные метки станций добавляют генерацию в их области.
+	n := 0
+	for id, b := range w.Buildings {
+		if b.Side != data.UA || w.cat.BuildingByID[b.Type].Power <= 0 {
+			continue
+		}
+		w.Sides[data.RU].Known[id] = &Contact{ID: id, Kind: 0, Type: b.Type, X: b.X, Y: b.Y, Seen: 10, HP: 1}
+		n++
+	}
+	if n == 0 {
+		t.Skip("нет станций у Украины")
+	}
+	regs2, gen2, _ := w.estimateEnemyPower(data.RU)
+	if gen2 <= 0 || len(regs2) < len(regs) {
+		t.Fatalf("известные станции должны дать генерацию: %.0f", gen2)
+	}
+	v := w.BuildView(data.RU, 0)
+	if v.EnemyGen != gen2 {
+		t.Fatal("оценка должна попасть в представление")
+	}
+	// Противник не видит оценку по неизвестному: у стороны без меток своих станций нет.
+	if _, g3, _ := w.estimateEnemyPower(data.UA); g3 != 0 {
+		t.Fatalf("у Украины нет меток российских станций: %.0f", g3)
+	}
+}

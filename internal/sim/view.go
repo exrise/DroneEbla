@@ -77,12 +77,15 @@ type View struct {
 	MobReady    map[string]float64
 	PropReady   float64
 	RegionPower map[int]float64
-	Missions    []MissionView
-	Placement   bool           // идёт расстановка перед стартом
-	Reserve     map[string]int // что осталось расставить
-	Hints       []PlaceHint
-	Ready       bool
-	EnemyReady  bool
+	// Оценка энергии противника по разведданным (только известные объекты).
+	EnemyPower         []EnemyRegionPower
+	EnemyGen, EnemyUse float64
+	Missions           []MissionView
+	Placement          bool           // идёт расстановка перед стартом
+	Reserve            map[string]int // что осталось расставить
+	Hints              []PlaceHint
+	Ready              bool
+	EnemyReady         bool
 
 	Buildings []Building
 	Units     []Unit
@@ -123,6 +126,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 	for k, x := range sd.RegionPower {
 		v.RegionPower[k] = x
 	}
+	v.EnemyPower, v.EnemyGen, v.EnemyUse = w.estimateEnemyPower(s)
 	v.Missions = w.missionViews(s)
 	v.Placement, v.Ready, v.EnemyReady = w.Placement, sd.Ready, w.Sides[1-s].Ready
 	v.Reserve = map[string]int{}

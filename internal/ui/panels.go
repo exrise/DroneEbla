@@ -748,6 +748,27 @@ func (g *Game) tabIntel(x, y, w int) int {
 		y += 22
 	}
 	y += 8
+	y = g.header("Энергия противника (оценка)", x, y)
+	if len(v.EnemyPower) == 0 {
+		y = g.para("Данных нет: нужны известные электростанции и города противника.", x, y, w, colDim)
+	} else {
+		y = g.para("Считается только по известным объектам и их известному состоянию; неизвестные станции и потребители в оценку не входят, данные могут устареть.", x, y, w, colDim)
+		y = g.kv("Всего ≈ генерация / потребление", fmt.Sprintf("%.0f / %.0f МВт", v.EnemyGen, v.EnemyUse), x, y, w, colText)
+		for _, e := range v.EnemyPower {
+			c := colGood
+			switch {
+			case e.Frac < 0.7:
+				c = colBad
+			case e.Frac < 0.99:
+				c = colWarn
+			}
+			drawText(u.screen, fitText(e.Name, 13, float64(w-150)), float64(x), float64(y), 13, colText, 0)
+			drawText(u.screen, fmt.Sprintf("≈%.0f/%.0f  %.0f%%", e.Gen, e.Use, e.Frac*100), float64(x+w), float64(y), 12, c, 2)
+			u.Tooltip(x, y-2, w, 20, fmt.Sprintf("%s: по %d известным объектам, самая старая метка — %s", e.Name, e.Sources, ageText(v.Time, e.Seen)))
+			y += 20
+		}
+	}
+	y += 8
 	y = g.header("Разведданные", x, y)
 	cs := append([]sim.Contact{}, v.Contacts...)
 	sort.Slice(cs, func(a, b int) bool { return cs[a].Seen > cs[b].Seen })

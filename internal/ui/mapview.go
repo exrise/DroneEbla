@@ -239,11 +239,23 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 func (r *MapRenderer) drawEnergy(v *sim.View) {
 	pix := make([]byte, r.m.W*r.m.H*4)
 	my := uint8(v.Side + 1)
+	est := map[int]float64{}
+	for _, e := range v.EnemyPower {
+		est[e.Region] = e.Frac
+	}
 	for i, reg := range r.m.Region {
-		if reg < 0 || v.Owner[i] != my {
+		if reg < 0 {
 			continue
 		}
-		f, ok := v.RegionPower[int(reg)]
+		var f float64
+		var ok, enemy bool
+		switch v.Owner[i] {
+		case my:
+			f, ok = v.RegionPower[int(reg)]
+		case 3 - my:
+			f, ok = est[int(reg)]
+			enemy = true
+		}
 		if !ok {
 			continue
 		}
@@ -255,6 +267,11 @@ func (r *MapRenderer) drawEnergy(v *sim.View) {
 			c = color.RGBA{240, 180, 30, 90}
 		default:
 			c = color.RGBA{60, 180, 80, 50}
+		}
+		if enemy { // оценка по разведданным — бледнее и с фиолетовым оттенком
+			c.R = uint8((int(c.R) + 120) / 2)
+			c.B = 150
+			c.A = c.A * 3 / 4
 		}
 		a := float64(c.A) / 255
 		pix[i*4] = uint8(float64(c.R) * a)
