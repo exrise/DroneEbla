@@ -1,6 +1,8 @@
 package sim
 
 import (
+	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1334,5 +1336,43 @@ func TestEnemyPowerEstimate(t *testing.T) {
 	// Противник не видит оценку по неизвестному: у стороны без меток своих станций нет.
 	if _, g3, _ := w.estimateEnemyPower(data.UA); g3 != 0 {
 		t.Fatalf("у Украины нет меток российских станций: %.0f", g3)
+	}
+}
+
+type nopCloser struct{ *bytes.Buffer }
+
+func (nopCloser) Close() error { return nil }
+
+func TestRecorder(t *testing.T) {
+	w := newTestWorld(t)
+	buf := &bytes.Buffer{}
+	w.SetRecorder(nopCloser{buf}, "test", map[string]any{"x": 1})
+	w.Apply(Command{Kind: CmdOrderAdd, Side: data.RU, Item: "kalibr", Count: 3})
+	w.Apply(Command{Kind: CmdOrderAdd, Side: data.UA, Item: "geran5"}) // отказ: не изучено
+	run(w, 130)
+	w.CloseRecorder()
+	kinds := map[string]int{}
+	sides := map[int]bool{}
+	var failed bool
+	for _, line := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		var rec struct {
+			K string
+			T float64
+			D map[string]any
+		}
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("строка журнала не JSON: %v: %s", err, line)
+		}
+		kinds[rec.K]++
+		if rec.K == "cmd" {
+			sides[int(rec.D["side"].(float64))] = true
+			failed = failed || rec.D["err"] != nil
+		}
+	}
+	if kinds["meta"] != 1 || kinds["cmd"] != 2 || kinds["snap"] < 2 {
+		t.Fatalf("неполный журнал: %v", kinds)
+	}
+	if !sides[0] || !sides[1] || !failed {
+		t.Fatal("в журнале должны быть приказы обеих сторон и отказы")
 	}
 }

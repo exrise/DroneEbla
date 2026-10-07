@@ -108,6 +108,7 @@ type strikePlan struct {
 
 // New создаёт игру.
 func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
+	netplay.LogDir = filepath.Join(filepath.Dir(dataDir), "logs")
 	g := &Game{
 		cat: cat, m: m, dataDir: dataDir, saveDir: saveDir,
 		dataHash: netplay.DataHash(dataDir),

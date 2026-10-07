@@ -63,6 +63,11 @@ func (w *World) Update(realSec float64) {
 
 // Step — один шаг симуляции длиной dtMin игровых минут.
 func (w *World) Step(dtMin float64) {
+	w.step(dtMin)
+	w.recTick()
+}
+
+func (w *World) step(dtMin float64) {
 	wasWar := w.War()
 	w.Time += dtMin
 	if !wasWar && w.War() {

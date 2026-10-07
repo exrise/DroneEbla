@@ -53,6 +53,12 @@ const (
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
 func (w *World) Apply(c Command) string {
+	e := w.apply(c)
+	w.recCommand(c, e)
+	return e
+}
+
+func (w *World) apply(c Command) string {
 	if c.Side < 0 || c.Side > 1 {
 		return "неверная сторона"
 	}

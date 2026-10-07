@@ -245,7 +245,8 @@ type Side struct {
 
 // World — всё состояние партии.
 type World struct {
-	Time          float64 // игровые минуты с начала партии
+	rec           *Recorder // журнал партии (не сохраняется)
+	Time          float64   // игровые минуты с начала партии
 	PrepEnd       float64
 	Owner         []uint8 // 0 никто, 1 РФ, 2 Украина
 	Fort          []uint8
@@ -319,6 +320,7 @@ func (w *World) LogAt(side, level int, text string, x, y float64) {
 
 func (w *World) logAt(side, level int, text string, x, y float64, has bool) {
 	w.NextEvent++
+	w.recEvent(side, level, text)
 	s := w.Sides[side]
 	s.Events = append(s.Events, Event{ID: w.NextEvent, Time: w.Time, Text: text, Level: level, X: x, Y: y, HasPos: has})
 	if len(s.Events) > 300 {

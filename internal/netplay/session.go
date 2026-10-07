@@ -146,8 +146,32 @@ type Host struct {
 	ai       *ai.AI // компьютерный противник (одиночная игра)
 }
 
+// LogDir — папка журналов партий; пусто — журнал не ведётся (например, в тестах).
+var LogDir string
+
+// startLog открывает журнал партии: <LogDir>/<время>_<режим>.jsonl.
+func startLog(w *sim.World, mode string, extra map[string]any) {
+	if LogDir == "" {
+		return
+	}
+	if err := os.MkdirAll(LogDir, 0o755); err != nil {
+		return
+	}
+	name := time.Now().Format("2006-01-02_15-04-05") + "_" + mode + ".jsonl"
+	f, err := os.Create(filepath.Join(LogDir, name))
+	if err != nil {
+		return
+	}
+	if extra == nil {
+		extra = map[string]any{}
+	}
+	extra["protocol"] = Version
+	w.SetRecorder(f, mode, extra)
+}
+
 // NewSandbox — одиночная игра без сети.
 func NewSandbox(w *sim.World, side int) *Host {
+	startLog(w, "sandbox", map[string]any{"side": side})
 	h := &Host{w: w, side: side, sandbox: true, stop: make(chan struct{})}
 	go h.loop()
 	return h
@@ -158,6 +182,7 @@ func NewSandbox(w *sim.World, side int) *Host {
 func NewSolo(w *sim.World, human int) *Host {
 	w.Sandbox, w.Solo = true, true
 	w.StartPlacement()
+	startLog(w, "solo", map[string]any{"human": human})
 	h := &Host{w: w, side: human, sandbox: true, ai: ai.New(w.Catalog(), 1-human), stop: make(chan struct{})}
 	go h.loop()
 	return h
@@ -170,6 +195,7 @@ func NewHost(w *sim.World, side int, port int, dataHash string) (*Host, error) {
 		return nil, err
 	}
 	w.StartPlacement()
+	startLog(w, "network", map[string]any{"host_side": side, "data_hash": dataHash})
 	h := &Host{w: w, side: side, ln: ln, stop: make(chan struct{}), dataHash: dataHash,
 		status: fmt.Sprintf("Ожидание второго игрока на порту %d…", port)}
 	go h.accept()
@@ -368,6 +394,7 @@ func (h *Host) Close() {
 		close(h.stop)
 	}
 	h.mu.Lock()
+	h.w.CloseRecorder()
 	if h.ln != nil {
 		h.ln.Close()
 	}
