@@ -206,9 +206,27 @@ func (g *Game) autoSolo(screen *ebiten.Image) {
 		g.tab = 8
 	case 12:
 		g.save(screen, "s4_missions")
-		g.sess.SetSide(1)
-		g.tab = 8
+		g.sess.SetSide(0)
+		g.view = nil
+		h := g.sess.(*netplay.Host)
+		h.Advance(0, func(w *sim.World) {
+			w.Apply(sim.Command{Kind: sim.CmdResFund, Side: 0, Int: 3})
+			w.Apply(sim.Command{Kind: sim.CmdResearch, Side: 0, Item: "ru_geran2"})
+		})
+		h.Advance(1500, nil)
+		g.tab, g.techOpen = 4, true
 	case 15:
+		g.save(screen, "s5_tech")
+		g.scroll["tech"] = 520
+	case 17:
+		g.save(screen, "s6_tech_scroll")
+		g.scroll["tech"] = 1500
+	case 19:
+		g.save(screen, "s7_tech_scroll2")
+		g.sess.SetSide(1)
+		g.view = nil
+	case 21:
+		g.save(screen, "s8_tech_ua")
 		os.Exit(0)
 	}
 	a.step++

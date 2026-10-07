@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 //go:embed defaults/*.json
 var defaults embed.FS
 
 // Files — имена файлов каталога.
-var Files = []string{"rules.json", "buildings.json", "units.json", "munitions.json", "front.json", "tech.json", "sides.json", "objects.json", "ai.json"}
+var Files = []string{"rules.json", "buildings.json", "units.json", "munitions.json", "front.json", "tech.json", "lines.json", "sides.json", "objects.json", "ai.json"}
 
 // readFile берёт файл из папки override (если есть), иначе встроенный.
 func readFile(override, name string) ([]byte, error) {
@@ -39,6 +41,7 @@ func Load(override string) (*Catalog, error) {
 		"munitions.json": &c.Munitions,
 		"front.json":     &c.Front,
 		"tech.json":      &c.Tech,
+		"lines.json":     &c.Lines,
 		"sides.json":     &sides,
 		"objects.json":   &c.Objects,
 		"ai.json":        &c.AI,
@@ -134,9 +137,36 @@ func (c *Catalog) index() {
 	}
 	for s := 0; s < 2; s++ {
 		c.TechByID[s] = map[string]*Tech{}
+		c.LineByID[s] = map[string]*TechLine{}
+		c.LineSteps[s] = map[string][]*Tech{}
 		list := c.Tech[SideKeys[s]]
 		for i := range list {
 			c.TechByID[s][list[i].ID] = &list[i]
+		}
+		lines := c.Lines[SideKeys[s]]
+		for i := range lines {
+			c.LineByID[s][lines[i].ID] = &lines[i]
+		}
+		for i := range list {
+			t := &list[i]
+			if t.Line != "" {
+				c.LineSteps[s][t.Line] = append(c.LineSteps[s][t.Line], t)
+			}
+		}
+		for id, steps := range c.LineSteps[s] {
+			sort.SliceStable(steps, func(a, b int) bool { return steps[a].Step < steps[b].Step })
+			// Следующая ступень требует предыдущую.
+			for k := 1; k < len(steps); k++ {
+				prev := steps[k-1].ID
+				have := false
+				for _, r := range steps[k].Requires {
+					have = have || r == prev
+				}
+				if !have {
+					steps[k].Requires = append(steps[k].Requires, prev)
+				}
+			}
+			c.LineSteps[s][id] = steps
 		}
 	}
 }
@@ -177,6 +207,16 @@ func (c *Catalog) ItemCost(id string) (Res, string, float64, bool) {
 	return Res{}, "", 0, false
 }
 
+// satTech — есть ли у стороны s спутник name, включаемый исследованием tech.
+func (c *Catalog) satTech(s int, name, tech string) bool {
+	for _, sat := range c.Sides[s].Satellites {
+		if sat.Name == name && sat.Tech == tech {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Catalog) known(id string) bool {
 	if _, ok := c.MunitionByID[id]; ok {
 		return true
@@ -212,22 +252,43 @@ func (c *Catalog) validate() error {
 	for s := 0; s < 2; s++ {
 		for _, t := range c.Tech[SideKeys[s]] {
 			for _, u := range t.Unlocks {
-				if !c.known(u) {
+				if strings.HasPrefix(u, "sat:") {
+					if !c.satTech(s, u[4:], t.ID) {
+						return fmt.Errorf("технология %s: нет спутника %s с tech=%s", t.ID, u[4:], t.ID)
+					}
+				} else if !c.known(u) {
 					return fmt.Errorf("технология %s: неизвестный предмет %s", t.ID, u)
 				}
+			}
+			if t.Line != "" && c.LineByID[s][t.Line] == nil {
+				return fmt.Errorf("технология %s: неизвестная линейка %s", t.ID, t.Line)
 			}
 			for _, r := range t.Requires {
 				if c.TechByID[s][r] == nil {
 					return fmt.Errorf("технология %s: неизвестное требование %s", t.ID, r)
 				}
 			}
-			for _, r := range t.Exclusive {
-				if c.TechByID[s][r] == nil {
-					return fmt.Errorf("технология %s: неизвестный взаимоисключающий выбор %s", t.ID, r)
+		}
+		for _, l := range c.Lines[SideKeys[s]] {
+			for _, id := range l.Start {
+				if !c.known(id) {
+					return fmt.Errorf("линейка %s: неизвестная стартовая версия %s", l.ID, id)
 				}
-				if r == t.ID {
-					return fmt.Errorf("технология %s исключает сама себя", t.ID)
+			}
+			prev := 0.0
+			for k, t := range c.LineSteps[s][l.ID] {
+				if t.Step != k+1 {
+					return fmt.Errorf("линейка %s: ступени должны идти подряд с 1 (у %s — %d)", l.ID, t.ID, t.Step)
 				}
+				if t.Cost <= prev {
+					return fmt.Errorf("линейка %s: ступень %s должна быть дороже предыдущей", l.ID, t.ID)
+				}
+				prev = t.Cost
+			}
+		}
+		for _, sat := range c.Sides[s].Satellites {
+			if sat.Tech != "" && c.TechByID[s][sat.Tech] == nil {
+				return fmt.Errorf("спутник %s: неизвестное исследование %s", sat.Name, sat.Tech)
 			}
 		}
 		sd := c.Sides[s]

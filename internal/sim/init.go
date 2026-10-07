@@ -68,7 +68,7 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 		}
 		for d := 0; d < 3; d++ {
 			f := def.Front[d]
-			sd.Front[d] = Direction{Men: f.Men, Armor: f.Armor, Artillery: f.Artillery, FPV: f.FPV, Supply: 1}
+			sd.Front[d] = Direction{Men: f.Men, Armor: f.Armor, Artillery: f.Artillery, FPV: f.FPV, FPVPow: f.FPV, Supply: 1}
 		}
 		for _, id := range def.Unlocked {
 			sd.Unlocked[id] = true

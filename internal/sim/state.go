@@ -170,6 +170,7 @@ type Event struct {
 // Direction — силы направления.
 type Direction struct {
 	Men, Armor, Artillery, FPV float64
+	FPVPow                     float64 // FPV с учётом версий: сумма (штук × сила версии)
 	Supply                     float64
 	Power                      float64
 	Air                        float64

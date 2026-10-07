@@ -1,7 +1,9 @@
 [
   {"id": "armor", "name": "Бронетехника (×10)", "cost": {"money": 15, "steel": 10, "fuel": 2, "electronics": 1}, "cap": "ground", "cap_points": 10, "batch": 10},
   {"id": "artillery", "name": "Артиллерия (×10)", "cost": {"money": 10, "steel": 8, "ammo": 2}, "cap": "ground", "cap_points": 8, "batch": 10},
-  {"id": "fpv", "name": "FPV-дроны (×200)", "cost": {"money": 4, "electronics": 3, "ammo": 1}, "cap": "drone", "cap_points": 2, "batch": 200},
+  {"id": "fpv", "name": "FPV-дроны (×200)", "cost": {"money": 4, "electronics": 3, "ammo": 1}, "cap": "drone", "cap_points": 2, "batch": 200, "power": 1},
   {"id": "armor_storage", "name": "Расконсервация бронетехники (×10)", "cost": {"money": 4, "steel": 1, "fuel": 1}, "cap": "ground", "cap_points": 3, "batch": 10},
-  {"id": "artillery_storage", "name": "Расконсервация артиллерии (×10)", "cost": {"money": 3, "steel": 1}, "cap": "ground", "cap_points": 2, "batch": 10}
+  {"id": "artillery_storage", "name": "Расконсервация артиллерии (×10)", "cost": {"money": 3, "steel": 1}, "cap": "ground", "cap_points": 2, "batch": 10},
+  {"id": "fpv_fiber", "name": "FPV на оптоволокне (×200)", "cost": {"money": 6, "electronics": 4, "ammo": 1.2}, "cap": "drone", "cap_points": 3, "batch": 200, "power": 1.4},
+  {"id": "fpv_ai", "name": "FPV с ИИ-наведением (×200)", "cost": {"money": 9, "electronics": 7, "ammo": 1.2}, "cap": "drone", "cap_points": 4, "batch": 200, "power": 1.9}
 ]

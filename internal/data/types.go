@@ -161,6 +161,7 @@ type MunitionType struct {
 	Damage     float64            `json:"damage"`
 	BlastKm    float64            `json:"blast_km"`
 	Accuracy   float64            `json:"accuracy"`
+	Evasion    float64            `json:"evasion"` // доля, на которую снижается вероятность перехвата (манёвр, гиперзвук)
 	GPS        bool               `json:"gps"`
 	Stealth    float64            `json:"stealth"` // 0..1, уменьшает дальность обнаружения
 	Vision     float64            `json:"vision"`  // для разведывательных БПЛА
@@ -179,21 +180,33 @@ type FrontType struct {
 	Cap       string             `json:"cap"`
 	CapPoints float64            `json:"cap_points"`
 	Batch     float64            `json:"batch"` // единиц за один заказ
+	Power     float64            `json:"power"` // вес единицы на фронте (для FPV: версия дрона); 0 — обычный
 }
 
 // Tech — узел дерева технологий.
 type Tech struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Branch   string   `json:"branch"` // drones, strike, ad, industry
-	Cost     float64  `json:"cost"`
-	Requires []string `json:"requires"`
-	// Exclusive — взаимоисключающий выбор: если изучено любое из этих исследований
-	// (или оно само перечисляет это), данное закрыто.
-	Exclusive []string           `json:"exclusive"`
-	Unlocks   []string           `json:"unlocks"`
-	Effects   map[string]float64 `json:"effects"`
-	Desc      string             `json:"desc"`
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	Branch string  `json:"branch"` // drones, strike, ad, intel — откуда берутся очки трофеев и опыта
+	Cost   float64 `json:"cost"`
+	// Line и Step — линейка версий (см. TechLine) и номер ступени в ней (с 1).
+	// Предыдущая ступень той же линейки требуется автоматически.
+	Line     string             `json:"line"`
+	Step     int                `json:"step"`
+	Requires []string           `json:"requires"`
+	Unlocks  []string           `json:"unlocks"`
+	Effects  map[string]float64 `json:"effects"`
+	Desc     string             `json:"desc"`
+}
+
+// TechLine — линейка версий одного образца: «Герань-2 → 3 → 4 → 5».
+// Start — версии, доступные с начала игры (показываются первыми карточками);
+// дальше идут исследования, у которых Line совпадает с ID линейки, по Step.
+type TechLine struct {
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	Group string   `json:"group"` // strike, ad, intel, front, caps
+	Start []string `json:"start"`
 }
 
 // ImportOffer — закупка за рубежом.
@@ -256,6 +269,7 @@ type Satellite struct {
 	SwathKm float64   `json:"swath_km"`
 	Tracks  []float64 `json:"tracks"` // смещения трасс по долготе (градусы), по кругу
 	Angle   float64   `json:"angle"`  // наклон трассы, градусы от меридиана
+	Tech    string    `json:"tech"`   // исследование, после которого спутник работает ("" — с начала)
 }
 
 // StartUnit — юнит на старте.
@@ -410,6 +424,7 @@ type Catalog struct {
 	Munitions []MunitionType
 	Front     []FrontType
 	Tech      map[string][]Tech // по сторонам
+	Lines     map[string][]TechLine
 	Sides     [2]SideDef
 	Objects   []Object
 	AI        AIConfig
@@ -419,6 +434,8 @@ type Catalog struct {
 	MunitionByID map[string]*MunitionType
 	FrontByID    map[string]*FrontType
 	TechByID     [2]map[string]*Tech
+	LineByID     [2]map[string]*TechLine
+	LineSteps    [2]map[string][]*Tech // ступени линейки по порядку
 }
 
 // ToRes переводит map в Res.

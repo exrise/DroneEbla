@@ -174,6 +174,9 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 	}
 	for side := 0; side < 2; side++ {
 		for _, sat := range w.cat.Sides[side].Satellites {
+			if !w.satOn(side, sat) {
+				continue
+			}
 			v.Sats = append(v.Sats, SatView{Name: sat.Name, Side: side, Sensor: sat.Sensor, Pass: w.SatAt(sat, w.Time)})
 		}
 	}

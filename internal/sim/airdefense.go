@@ -167,9 +167,7 @@ func (w *World) airDefense(dtMin float64) {
 				pk = ut.PkLow + sd.eff("ad_pk_low")
 			}
 			pk += sd.eff("ad_pk")
-			if m.Kind == "ballistic" {
-				pk *= 1 - w.Sides[p.Side].eff("ballistic_evasion")
-			}
+			pk *= 1 - m.Evasion
 			u.Busy++
 			p.Engaged++
 			w.Engs = append(w.Engs, Engagement{AD: u.ID, Proj: p.ID, T: ut.EngageSec / 60, Pk: clamp(pk, 0, 0.98), Side: u.Side})

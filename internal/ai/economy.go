@@ -3,6 +3,7 @@ package ai
 import (
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
@@ -30,18 +31,41 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 		a.cmd(w, sim.Command{Kind: sim.CmdResFund, Int: lvl})
 	}
 
-	// Госзаказ.
-	have := map[string]bool{}
-	for _, o := range v.Orders {
-		have[o.Item] = true
-	}
+	// Госзаказ. Запись вида "новая|старая|самая старая[:N]" — семейство версий:
+	// заказывается лучшая из открытых, заказы худших версий снимаются.
+	orders := append([]sim.Order(nil), v.Orders...)
 	for _, e := range c.Orders {
-		id, n := split(e)
-		if !v.Unlocked[id] || have[id] || (n > 0 && a.ordersDone[id]) {
+		spec, n := split(e)
+		alts := strings.Split(spec, "|")
+		best := -1
+		for i, id := range alts {
+			if v.Unlocked[id] {
+				best = i
+				break
+			}
+		}
+		if best < 0 {
+			continue
+		}
+		for i := len(orders) - 1; i >= 0; i-- {
+			for _, old := range alts[best+1:] {
+				if orders[i].Item == old && a.cmd(w, sim.Command{Kind: sim.CmdOrderDel, Int: i}) == "" {
+					orders = append(orders[:i], orders[i+1:]...)
+					break
+				}
+			}
+		}
+		id := alts[best]
+		have := false
+		for _, o := range orders {
+			have = have || o.Item == id
+		}
+		if have || (n > 0 && a.ordersDone[id]) {
 			continue
 		}
 		if a.cmd(w, sim.Command{Kind: sim.CmdOrderAdd, Item: id, Count: n}) == "" {
 			a.ordersDone[id] = true
+			orders = append(orders, sim.Order{Item: id})
 		}
 	}
 

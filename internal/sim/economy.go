@@ -445,8 +445,12 @@ func (w *World) deliver(s int, item string, amount float64, via string) {
 			w.distributeFront(s, "armor", n)
 		case "artillery":
 			w.distributeFront(s, "artillery", n)
-		case "fpv":
-			w.distributeFront(s, "fpv", n)
+		case "fpv", "fpv_fiber", "fpv_ai":
+			pw := f.Power
+			if pw <= 0 {
+				pw = 1
+			}
+			w.distributeFPV(s, n, pw)
 		case "armor_storage":
 			sd.Storage.Armor -= n
 			w.distributeFront(s, "armor", n)
@@ -475,9 +479,22 @@ func (w *World) distributeFront(s int, what string, n float64) {
 			f.Armor += k
 		case "artillery":
 			f.Artillery += k
-		case "fpv":
-			f.FPV += k
 		}
+	}
+}
+
+// distributeFPV раздаёт FPV-дроны по направлениям; power — сила версии (радио 1, оптоволокно, ИИ…).
+func (w *World) distributeFPV(s int, n, power float64) {
+	sd := w.Sides[s]
+	sum := sd.Alloc[0] + sd.Alloc[1] + sd.Alloc[2]
+	if sum <= 0 {
+		sum = 1
+		sd.Alloc = [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3}
+	}
+	for d := 0; d < 3; d++ {
+		k := n * sd.Alloc[d] / sum
+		sd.Front[d].FPV += k
+		sd.Front[d].FPVPow += k * power
 	}
 }
 

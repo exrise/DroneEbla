@@ -1140,71 +1140,123 @@ func TestSocialConfirmation(t *testing.T) {
 	}
 }
 
-func TestTechExclusiveChoices(t *testing.T) {
+func TestTechLines(t *testing.T) {
 	w := newTestWorld(t)
-	ru := w.Sides[data.RU]
-	// Ветки и размер дерева.
-	for s, min := range map[int]int{data.RU: 40, data.UA: 40} {
-		branches := map[string]int{}
-		for _, tc := range w.cat.Tech[data.SideKeys[s]] {
-			branches[tc.Branch]++
-		}
-		if len(branches) < 6 || len(w.cat.Tech[data.SideKeys[s]]) < min {
-			t.Fatalf("%s: дерево слишком маленькое: %d узлов, ветки %v", data.SideNames[s], len(w.cat.Tech[data.SideKeys[s]]), branches)
-		}
+	ru, ua := w.Sides[data.RU], w.Sides[data.UA]
+	// Линейка Герани: четыре ступени, каждая дороже и требует предыдущую.
+	steps := w.cat.LineSteps[data.RU]["geran"]
+	if len(steps) != 4 {
+		t.Fatalf("в линейке Герани %d ступеней, нужно 4", len(steps))
 	}
-	// Развилка РФ: массовая Герань-2 или Герань-3.
-	ru.Researched["ru_geran2"] = true
-	if !w.TechAvailable(data.RU, "ru_geran2_mass") || !w.TechAvailable(data.RU, "ru_geran3") {
-		t.Fatal("обе ветки развилки должны быть доступны до выбора")
+	if w.TechAvailable(data.RU, "ru_geran3") {
+		t.Fatal("Герань-3 не должна быть доступна без Герани-2")
 	}
-	ru.Research = "ru_geran2_mass"
-	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_geran2_mass"])
-	st, by := TechStatus(ru.Researched, w.cat, data.RU, "ru_geran3")
-	if st != TechBlocked || by != "ru_geran2_mass" {
-		t.Fatalf("Герань-3 должна быть закрыта выбором: %d %s", st, by)
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_geran2"])
+	ru.Stocks["geran2"] = 100
+	if !w.TechAvailable(data.RU, "ru_geran3") {
+		t.Fatal("Герань-3 должна открыться после Герани-2")
 	}
-	if w.TechAvailable(data.RU, "ru_geran3") || w.Apply(Command{Kind: CmdResearch, Side: data.RU, Item: "ru_geran3"}) == "" {
-		t.Fatal("закрытое исследование начать нельзя")
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_geran3"])
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_geran4"])
+	// Старые версии остаются, запас старой версии не меняется.
+	if !ru.Unlocked["geran2"] || !ru.Unlocked["geran3"] || !ru.Unlocked["geran4"] || ru.Unlocked["geran5"] {
+		t.Fatalf("версии открыты неверно: %v", ru.Unlocked)
 	}
-	// Симметрия: у пары, где исключение записано с обеих сторон.
-	ua := w.Sides[data.UA]
-	ua.Researched["ua_uj22"] = true
-	w.completeTech(data.UA, w.cat.TechByID[data.UA]["ua_precise_drones"])
-	if st, _ := TechStatus(ua.Researched, w.cat, data.UA, "ua_cheap_drones"); st != TechBlocked {
-		t.Fatal("после выбора точных дронов дешёвые должны закрыться")
+	if ru.Stocks["geran2"] != 100 || ru.Stocks["geran4"] != 0 {
+		t.Fatal("запас не должен переоснащаться")
 	}
-	// Новые эффекты применяются.
-	before := w.dirPower(data.UA, 0)
-	ua.Effects["front_power"] = 0.1
-	if w.dirPower(data.UA, 0) < before*1.09 {
-		t.Fatal("front_power не влияет на боевую мощь")
+	if w.Apply(Command{Kind: CmdOrderAdd, Side: data.RU, Item: "geran2", Count: 5}) != "" ||
+		w.Apply(Command{Kind: CmdOrderAdd, Side: data.RU, Item: "geran4", Count: 5}) != "" {
+		t.Fatal("заказывать можно и старую, и новую версию")
+	}
+	g2, g4 := w.cat.MunitionByID["geran2"], w.cat.MunitionByID["geran4"]
+	if g4.Damage <= g2.Damage || g4.SpeedKmh <= g2.SpeedKmh {
+		t.Fatal("новая версия должна быть сильнее")
+	}
+	// ПВО-юнит новой версии появляется отдельным типом, старые юниты остаются.
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_s350"])
+	if !ru.Unlocked["s350"] || !ru.Unlocked["m_9m100"] {
+		t.Fatal("С-350 и его ракеты должны открыться")
+	}
+	if ua.Unlocked["s350"] {
+		t.Fatal("чужая версия не должна открываться")
 	}
 }
 
-func TestTechExclusiveDataValid(t *testing.T) {
+func TestTechLinesDataValid(t *testing.T) {
 	cat, err := data.Load("")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for s := 0; s < 2; s++ {
-		for _, tc := range cat.Tech[data.SideKeys[s]] {
-			for _, e := range tc.Exclusive {
-				partner := cat.TechByID[s][e]
-				back := false
-				for _, x := range partner.Exclusive {
-					back = back || x == tc.ID
-				}
-				if !back {
-					t.Errorf("%s исключает %s, но не наоборот", tc.ID, e)
-				}
-				// Нельзя исключать то, что нужно для своего изучения.
-				for _, r := range tc.Requires {
-					if r == e {
-						t.Errorf("%s требует исследование %s и одновременно исключает его", tc.ID, e)
-					}
+		used := map[string]bool{}
+		for _, l := range cat.Lines[data.SideKeys[s]] {
+			for _, st := range cat.LineSteps[s][l.ID] {
+				used[st.ID] = true
+				if st.Cost <= 0 || len(st.Unlocks) == 0 {
+					t.Errorf("%s: ступень без цены или без предметов", st.ID)
 				}
 			}
 		}
+		if len(cat.Tech[data.SideKeys[s]]) < 30 {
+			t.Errorf("%s: слишком мало исследований", data.SideNames[s])
+		}
+		for _, tc := range cat.Tech[data.SideKeys[s]] {
+			if tc.Line == "" && len(tc.Effects) == 0 && len(tc.Unlocks) == 0 {
+				// «Возможность» без линейки должна на что-то влиять: эффект или импорт.
+				imp := false
+				for _, im := range cat.Sides[s].Imports {
+					imp = imp || im.Requires == tc.ID
+				}
+				if !imp {
+					t.Errorf("%s: исследование ничего не даёт", tc.ID)
+				}
+			}
+		}
+	}
+}
+
+func TestFPVVersions(t *testing.T) {
+	w := newTestWorld(t)
+	sd := w.Sides[data.UA]
+	sd.Alloc = [3]float64{1, 0, 0}
+	f := &sd.Front[0]
+	f.FPV, f.FPVPow = 0, 0
+	p0 := w.dirPower(data.UA, 0)
+	w.deliver(data.UA, "fpv", 1, "")
+	p1 := w.dirPower(data.UA, 0)
+	pw := f.FPVPow
+	w.deliver(data.UA, "fpv_ai", 1, "")
+	if f.FPV != 400 || f.FPVPow <= pw*2.5 {
+		t.Fatalf("версии FPV учитываются неверно: %.0f шт, сила %.0f", f.FPV, f.FPVPow)
+	}
+	if p2 := w.dirPower(data.UA, 0); p2-p1 <= 1.5*(p1-p0) {
+		t.Fatalf("FPV с ИИ должны усиливать сильнее обычных: +%.3f против +%.3f", p2-p1, p1-p0)
+	}
+	// Старое сохранение: без FPVPow все дроны считаются базовой версии.
+	f.FPVPow = 0
+	sd.ensure(len(w.Owner))
+	if f.FPVPow != f.FPV {
+		t.Fatal("миграция FPVPow не сработала")
+	}
+}
+
+func TestSatelliteByTech(t *testing.T) {
+	w := newTestWorld(t)
+	count := func() int {
+		n := 0
+		for _, s := range w.BuildView(data.UA, 0).Sats {
+			if s.Name == "ICEYE-3" {
+				n++
+			}
+		}
+		return n
+	}
+	if count() != 0 {
+		t.Fatal("ICEYE-3 не должен летать до исследования")
+	}
+	w.completeTech(data.UA, w.cat.TechByID[data.UA]["ua_sat2"])
+	if count() != 1 {
+		t.Fatal("ICEYE-3 должен появиться после исследования")
 	}
 }

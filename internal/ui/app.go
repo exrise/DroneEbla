@@ -67,6 +67,7 @@ type Game struct {
 	rend           *MapRenderer
 	cam            Camera
 	tab            int
+	techOpen       bool // открыто окно исследований
 	scroll         map[string]float64
 	sel            Selection
 	mode           int

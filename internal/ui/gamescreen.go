@@ -66,7 +66,12 @@ func (g *Game) gameKeys() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
 		g.strikeHotkey()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyT) && g.view != nil {
+		g.techOpen = !g.techOpen
+		g.tab = 4
+		return
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && !g.techOpen {
 		if g.mode != modeNone {
 			g.mode = modeNone
 			g.strike = strikePlan{}
@@ -137,6 +142,7 @@ func (g *Game) drawGame() {
 	g.drawLayerButtons()
 	g.drawToasts()
 	g.drawResearchNotice()
+	g.drawTechTree()
 	if st := g.sess.Status(); st != "" {
 		w := textWidth(st, 16) + 30
 		fillRect(u.screen, float64(g.cam.X)+float64(g.cam.W)/2-w/2, float64(topH+10), w, 32, color.RGBA{120, 30, 20, 230})
@@ -925,7 +931,7 @@ func (g *Game) noResearch() bool {
 
 // drawResearchNotice — висящее уведомление, пока не выбрано исследование.
 func (g *Game) drawResearchNotice() {
-	if !g.noResearch() {
+	if g.techOpen || !g.noResearch() {
 		return
 	}
 	u := &g.ui
@@ -943,7 +949,7 @@ func (g *Game) drawResearchNotice() {
 	drawText(u.screen, txt, x+w/2, y+6, 15, colText, 1)
 	u.blockUI(int(x), int(y), int(w), 28)
 	if u.clicked(int(x), int(y), int(w), 28) {
-		g.tab = 4
+		g.tab, g.techOpen = 4, true
 	}
 }
 

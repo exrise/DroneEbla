@@ -207,9 +207,17 @@ func (w *World) groundVision(s int) {
 	})
 }
 
+// satOn — работает ли спутник стороны s (запущен ли исследованием).
+func (w *World) satOn(s int, sat data.Satellite) bool {
+	return sat.Tech == "" || w.Sides[s].Researched[sat.Tech]
+}
+
 // satellites — пролёты спутников.
 func (w *World) satellites(s int, dtMin float64) {
 	for _, sat := range w.cat.Sides[s].Satellites {
+		if !w.satOn(s, sat) {
+			continue
+		}
 		p := w.SatAt(sat, w.Time)
 		if !p.Active {
 			continue

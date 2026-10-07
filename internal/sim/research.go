@@ -60,14 +60,13 @@ func (w *World) completeTech(s int, t *data.Tech) {
 
 // Состояния исследования.
 const (
-	TechOpen    = iota // можно изучать
-	TechDone           // изучено
-	TechNeeds          // не хватает предыдущих исследований
-	TechBlocked        // закрыто выбором взаимоисключающего исследования
+	TechOpen  = iota // можно изучать
+	TechDone         // изучено
+	TechNeeds        // не хватает предыдущих исследований
 )
 
 // TechStatus — состояние исследования id у стороны side при множестве изученного
-// researched. Если закрыто выбором, возвращает также исследование, из-за которого.
+// researched. Если не хватает предыдущего, возвращает его id.
 func TechStatus(researched map[string]bool, cat *data.Catalog, side int, id string) (int, string) {
 	t := cat.TechByID[side][id]
 	if t == nil {
@@ -79,21 +78,6 @@ func TechStatus(researched map[string]bool, cat *data.Catalog, side int, id stri
 	for _, r := range t.Requires {
 		if !researched[r] {
 			return TechNeeds, r
-		}
-	}
-	for _, o := range t.Exclusive {
-		if researched[o] {
-			return TechBlocked, o
-		}
-	}
-	for _, other := range cat.Tech[data.SideKeys[side]] {
-		if !researched[other.ID] {
-			continue
-		}
-		for _, e := range other.Exclusive {
-			if e == id {
-				return TechBlocked, other.ID
-			}
 		}
 	}
 	return TechOpen, ""

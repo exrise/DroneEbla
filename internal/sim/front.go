@@ -45,7 +45,7 @@ func (w *World) dirPower(s, d int) float64 {
 	if sd.Res[data.ResFuel] < 1 {
 		armor *= 0.3
 	}
-	fpv := f.FPV * 0.003 * (1 + sd.eff("fpv_power"))
+	fpv := f.FPVPow * 0.003
 	return (f.Men + armor + art + fpv) * (1 + sd.eff("front_power"))
 }
 
@@ -252,7 +252,9 @@ func (w *World) front(dtMin float64) {
 			sd.LossAcc += men
 			f.Armor -= f.Armor * k * 0.8
 			f.Artillery -= f.Artillery * k * 0.5
-			f.FPV -= f.FPV * math.Min(0.5, k*8)
+			lost := math.Min(0.5, k*8)
+			f.FPV -= f.FPV * lost
+			f.FPVPow -= f.FPVPow * lost
 		}
 	}
 }
@@ -297,7 +299,6 @@ func (w *World) captureTile(i, s int) {
 	w.Owner[i] = uint8(s + 1)
 	d := w.TileDir(i)
 	w.Sides[s].Front[d].Gained++
-	w.addBonus(s, "forces", w.cat.Rules.ForcesPoints)
 	if old >= 0 {
 		w.Sides[old].Front[d].Lost++
 	}

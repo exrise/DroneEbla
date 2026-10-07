@@ -68,6 +68,12 @@ func (sd *Side) ensure(n int) {
 		sd.PostureDir = [3]int{sd.Posture, sd.Posture, sd.Posture}
 		sd.PostureSet = true
 	}
+	for d := range sd.Front {
+		// Старое сохранение: все FPV считались базовой версии.
+		if sd.Front[d].FPVPow == 0 && sd.Front[d].FPV > 0 {
+			sd.Front[d].FPVPow = sd.Front[d].FPV
+		}
+	}
 	if sd.Stocks == nil {
 		sd.Stocks = map[string]float64{}
 	}

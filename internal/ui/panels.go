@@ -600,22 +600,10 @@ func (g *Game) tabBuild(x, y, w int) int {
 
 // ---------------------------------------------------------------------
 
-var branchNames = map[string]string{"drones": "Дроны", "strike": "Удар", "ad": "ПВО и РЭБ", "intel": "Разведка и РЭБ-сети", "forces": "Войска и фронт", "industry": "Промышленность"}
+var branchNames = map[string]string{"drones": "Дроны", "strike": "Удар", "ad": "ПВО", "intel": "Разведка и РЭБ"}
 
-// techBranches — порядок веток в списке исследований.
-var techBranches = []string{"drones", "strike", "ad", "intel", "forces", "industry"}
-
-// techDepth — уровень исследования: длина цепочки требований.
-func (g *Game) techDepth(side int, id string) int {
-	t := g.cat.TechByID[side][id]
-	d := 0
-	for _, r := range t.Requires {
-		if x := g.techDepth(side, r); x+1 > d {
-			d = x + 1
-		}
-	}
-	return d
-}
+// techBranches — ветки, дающие бонусные очки трофеев и опыта.
+var techBranches = []string{"drones", "strike", "ad", "intel"}
 
 func (g *Game) tabScience(x, y, w int) int {
 	u := &g.ui
@@ -645,64 +633,22 @@ func (g *Game) tabScience(x, y, w int) int {
 		y = g.kv("  "+branchNames[b], fmt.Sprintf("%.0f", v.Bonus[b]), x, y, w, colText)
 	}
 	y += 6
-	for _, b := range techBranches {
-		y = g.header(branchNames[b], x, y)
-		for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
-			if t.Branch != b {
-				continue
-			}
-			st, by := sim.TechStatus(v.Researched, g.cat, v.Side, t.ID)
-			c := colText
-			status := fmt.Sprintf("%.0f", t.Cost)
-			switch st {
-			case sim.TechDone:
-				c, status = colGood, "изучено"
-			case sim.TechNeeds:
-				c = colDim
-			case sim.TechBlocked:
-				c, status = colBad, "закрыто"
-			}
-			indent := g.techDepth(v.Side, t.ID)
-			if indent > 3 {
-				indent = 3
-			}
-			ix := indent * 10
-			if indent > 0 {
-				line(u.screen, float64(x+ix-6), float64(y+8), float64(x+ix-2), float64(y+8), colDim, 1)
-			}
-			drawText(u.screen, fitText(t.Name, 13, float64(w-110-ix)), float64(x+ix), float64(y), 13, c, 0)
-			drawText(u.screen, status, float64(x+w-100), float64(y), 12, c, 2)
-			tip := t.Name + "\n" + t.Desc
-			if st == sim.TechBlocked {
-				tip += "\nЗакрыто: выбрано «" + g.cat.TechByID[v.Side][by].Name + "»"
-			}
-			if len(t.Requires) > 0 {
-				tip += "\nТребует: "
-				for i, r := range t.Requires {
-					if i > 0 {
-						tip += ", "
-					}
-					tip += g.cat.TechByID[v.Side][r].Name
-				}
-			}
-			if len(t.Unlocks) > 0 {
-				tip += "\nОткрывает: "
-				for i, r := range t.Unlocks {
-					if i > 0 {
-						tip += ", "
-					}
-					tip += g.cat.ItemName(r)
-				}
-			}
-			u.Tooltip(x, y, w-96, 20, tip)
-			if st == sim.TechOpen {
-				if u.ButtonState(x+w-92, y-2, 92, 20, "Изучать", v.Research == t.ID, true) {
-					g.sess.Send(sim.Command{Kind: sim.CmdResearch, Item: t.ID})
-				}
-			}
-			y += 23
+	if u.ButtonState(x, y, w, 30, "Открыть окно исследований (T)", g.techOpen, true) {
+		g.techOpen = !g.techOpen
+	}
+	y += 40
+	y = g.para("В окне — линейки версий образцов: Герань-2 → 3 → 4 → 5, С-300 → С-400 → С-500 и т. д. У каждой версии свои цифры; старые версии остаются доступны, новые юниты и ракеты производятся уже новой версии. Каждая следующая ступень дороже и дольше.", x, y, w, colDim)
+	// Изученное за эту партию.
+	var done []string
+	for _, t := range g.cat.Tech[data.SideKeys[v.Side]] {
+		if v.Researched[t.ID] {
+			done = append(done, t.Name)
 		}
-		y += 6
+	}
+	y += 4
+	y = g.header(fmt.Sprintf("Изучено: %d из %d", len(done), len(g.cat.Tech[data.SideKeys[v.Side]])), x, y)
+	for _, n := range done {
+		y = g.label("• "+n, x, y, colGood)
 	}
 	return y
 }
@@ -754,7 +700,7 @@ func (g *Game) tabImport(x, y, w int) int {
 		y = g.para("Пакеты помощи приходят со временем; их размер и сроки зависят от морали и удержания Киева.", x, y, w, colDim)
 		for _, a := range g.cat.Sides[v.Side].Aid {
 			if v.AidDone[a.ID] {
-				y = g.label("✓ "+a.Name, x, y, colGood)
+				y = g.label("• "+a.Name, x, y, colGood)
 			}
 		}
 	}
