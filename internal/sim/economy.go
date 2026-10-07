@@ -369,7 +369,12 @@ func (w *World) production(s int, dtH float64) {
 		if !ok || pts <= 0 {
 			continue
 		}
-		o.Progress += sd.Capacity[cat] * dtH / float64(count[cat])
+		if w.Cheat {
+			cost = data.Res{}
+			o.Progress = pts * cheatBatch
+		} else {
+			o.Progress += sd.Capacity[cat] * dtH / float64(count[cat])
+		}
 		o.Stalled = false
 		for o.Progress >= pts && o.Remaining != 0 {
 			if !w.storageOK(s, o.Item) {

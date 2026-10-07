@@ -254,7 +254,7 @@ func (w *World) CanBuild(s int, typ string, x, y float64) string {
 		}
 	}
 	cost := data.ToRes(bt.Cost)
-	if !w.Sides[s].Res.Covers(cost, 1) {
+	if !w.Cheat && !w.Sides[s].Res.Covers(cost, 1) {
 		return "Не хватает ресурсов: " + fmtRes(cost)
 	}
 	return ""
@@ -265,8 +265,13 @@ func (w *World) build(s int, typ string, x, y float64) string {
 		return e
 	}
 	bt := w.cat.BuildingByID[typ]
-	w.Sides[s].Res.Add(data.ToRes(bt.Cost), -1)
-	b := w.addBuilding(typ, s, x, y, 0)
+	built := 0.0
+	if w.Cheat {
+		built = 1
+	} else {
+		w.Sides[s].Res.Add(data.ToRes(bt.Cost), -1)
+	}
+	b := w.addBuilding(typ, s, x, y, built)
 	if bt.Supply > 0 {
 		b.Dir = w.PointDir(x, y)
 	}
@@ -302,6 +307,10 @@ func (w *World) buyImport(s int, id string) string {
 		}
 		if !w.ImportAvailable(s, im) {
 			return "Закупка недоступна"
+		}
+		if w.Cheat {
+			w.deliver(s, im.Item, im.Amount, "")
+			return ""
 		}
 		price := w.ImportPrice(s, im)
 		if sd.Res[data.ResMoney] < price {

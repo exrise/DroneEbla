@@ -267,6 +267,7 @@ type World struct {
 	Winner        int
 	WinReason     string
 	Sandbox       bool
+	Cheat         bool // песочница «всё открыто»: всё изучено, производство и стройка мгновенно и бесплатно
 	Placement     bool // идёт расстановка перед стартом: время стоит
 	PlacementDone bool // расстановка уже была (повторно не начинается)
 	Solo          bool // одиночная игра против ИИ (человек — сторона 0)

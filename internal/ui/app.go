@@ -67,6 +67,7 @@ type Game struct {
 	rend           *MapRenderer
 	cam            Camera
 	tab            int
+	menuCheat      bool // галочка «всё открыто» в настройке песочницы
 	techOpen       bool // открыто окно исследований
 	scroll         map[string]float64
 	sel            Selection
@@ -331,12 +332,22 @@ func (g *Game) drawSandboxSetup() {
 	cx, y := g.menuFrame("Песочница")
 	g.sidePicker(cx, y)
 	drawText(u.screen, "Противник не управляется. Сторону можно переключать во время игры кнопкой в верхней панели.", float64(cx), float64(y+64), 14, colDim, 1)
-	by := y + 120
+	mark := "[ ]"
+	if g.menuCheat {
+		mark = "[x]"
+	}
+	if u.ButtonState(cx-250, y+92, 500, 30, mark+" Всё открыто: всё изучено, производство и стройка мгновенно и бесплатно", g.menuCheat, true) {
+		g.menuCheat = !g.menuCheat
+	}
+	by := y + 150
 	if u.Button(cx-180, by, 170, 40, "Назад") {
 		g.scene = sceneMenu
 	}
 	if u.Button(cx+10, by, 170, 40, "Начать") {
 		w := sim.New(g.cat, g.m, true)
+		if g.menuCheat {
+			w.EnableCheat()
+		}
 		g.startGame(netplay.NewSandbox(w, g.menuSide))
 	}
 }

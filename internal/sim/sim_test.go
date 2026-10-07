@@ -1260,3 +1260,23 @@ func TestSatelliteByTech(t *testing.T) {
 		t.Fatal("Кондор-ФКА №2 должен появиться после исследования")
 	}
 }
+
+func TestCheatSandbox(t *testing.T) {
+	w := newTestWorld(t)
+	w.EnableCheat()
+	ru := w.Sides[data.RU]
+	if !ru.Unlocked["geran5"] || !ru.Unlocked["oreshnik"] || !ru.Researched["ru_s350"] {
+		t.Fatal("в режиме «всё открыто» должно быть изучено всё")
+	}
+	if w.Sides[data.UA].Unlocked["geran5"] {
+		t.Fatal("чужие предметы не должны открываться")
+	}
+	if e := w.Apply(Command{Kind: CmdOrderAdd, Side: data.RU, Item: "geran5", Count: 20}); e != "" {
+		t.Fatal(e)
+	}
+	ru.Res = data.Res{} // без ресурсов: бесплатное производство всё равно идёт
+	run(w, 2)
+	if ru.Stocks["geran5"] < 20 {
+		t.Fatalf("производство должно быть мгновенным: %.0f", ru.Stocks["geran5"])
+	}
+}
