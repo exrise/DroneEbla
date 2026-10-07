@@ -44,6 +44,9 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 	for _, sd := range w.Sides {
 		sd.ensure(len(m.Initial))
 	}
+	for s := 0; s < 2; s++ {
+		w.Sides[s].migrateTech(cat, s)
+	}
 	for id, b := range w.Buildings {
 		if cat.BuildingByID[b.Type] == nil {
 			delete(w.Buildings, id) // например, макеты из старых версий
@@ -133,5 +136,56 @@ func (sd *Side) ensure(n int) {
 		for i := range sd.SeenAt {
 			sd.SeenAt[i] = -1e9
 		}
+	}
+}
+
+// oldTechIDs — исследования старого дерева, переехавшие в линейки версий.
+var oldTechIDs = map[string]string{
+	"ru_fiber": "ru_fpv_fiber", "ua_fiber": "ua_fpv_fiber", "ru_pantsir_smd": "ru_pantsir_s2",
+}
+
+// migrateTech приводит исследования старого сохранения к текущему дереву: переименованные
+// переносятся, исчезнувшие отбрасываются, эффекты пересчитываются, а предметы изученного
+// открываются (уже открытое не закрывается).
+func (sd *Side) migrateTech(cat *data.Catalog, s int) {
+	known := cat.TechByID[s]
+	done := map[string]bool{}
+	for id := range sd.Researched {
+		if n, ok := oldTechIDs[id]; ok {
+			id = n
+		}
+		if known[id] != nil {
+			done[id] = true
+		}
+	}
+	prog := map[string]float64{}
+	for id, v := range sd.Progress {
+		if n, ok := oldTechIDs[id]; ok {
+			id = n
+		}
+		if known[id] != nil && !done[id] {
+			prog[id] = v
+		}
+	}
+	if n, ok := oldTechIDs[sd.Research]; ok {
+		sd.Research = n
+	}
+	if known[sd.Research] == nil || done[sd.Research] {
+		sd.Research = ""
+	}
+	sd.Researched, sd.Progress = done, prog
+	sd.Effects = map[string]float64{}
+	for id := range done {
+		t := known[id]
+		for _, u := range t.Unlocks {
+			sd.Unlocked[u] = true
+		}
+		for k, v := range t.Effects {
+			sd.Effects[k] += v
+		}
+	}
+	// Стартовые предметы стороны открыты всегда.
+	for _, id := range cat.Sides[s].Unlocked {
+		sd.Unlocked[id] = true
 	}
 }

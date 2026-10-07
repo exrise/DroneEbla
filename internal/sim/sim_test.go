@@ -1280,3 +1280,22 @@ func TestCheatSandbox(t *testing.T) {
 		t.Fatalf("производство должно быть мгновенным: %.0f", ru.Stocks["geran5"])
 	}
 }
+
+func TestMigrateOldTech(t *testing.T) {
+	w := newTestWorld(t)
+	ru := w.Sides[data.RU]
+	ru.Researched = map[string]bool{"ru_fpv": true, "ru_fiber": true, "ru_lancet": true, "ru_leaks": true}
+	ru.Progress = map[string]float64{"ru_kab": 50, "ru_geran2": 30}
+	ru.Research = "ru_kab"
+	ru.Effects = map[string]float64{"fpv_power": 0.5}
+	ru.migrateTech(w.cat, data.RU)
+	if !ru.Researched["ru_fpv_fiber"] || ru.Researched["ru_fiber"] || ru.Researched["ru_lancet"] {
+		t.Fatalf("исследования перенесены неверно: %v", ru.Researched)
+	}
+	if ru.Research != "" || ru.Progress["ru_kab"] != 0 || ru.Progress["ru_geran2"] != 30 {
+		t.Fatal("прогресс и текущее исследование мигрированы неверно")
+	}
+	if ru.Effects["fpv_power"] != 0 || ru.Effects["leak_block"] == 0 || !ru.Unlocked["fpv_fiber"] {
+		t.Fatalf("эффекты или предметы пересчитаны неверно: %v", ru.Effects)
+	}
+}
