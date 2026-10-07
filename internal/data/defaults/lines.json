@@ -17,13 +17,9 @@
     {"id": "missdrone", "name": "Ракеты-дроны", "group": "strike", "start": []},
     {"id": "cruise", "name": "Крылатые ракеты", "group": "strike", "start": []},
     {"id": "ballistic", "name": "Баллистика", "group": "strike", "start": ["tochka_u"]},
-    {"id": "ad_buk", "name": "«Бук»", "group": "ad", "start": ["buk_ua"]},
-    {"id": "ad_s300", "name": "С-300", "group": "ad", "start": ["s300ps"]},
     {"id": "idrone", "name": "Дроны-перехватчики", "group": "ad", "start": []},
-    {"id": "radar", "name": "РЛС обнаружения", "group": "intel", "start": ["radar_ua"]},
     {"id": "reb", "name": "РЭБ", "group": "intel", "start": ["reb_ua"]},
     {"id": "recon", "name": "Разведывательные БПЛА", "group": "intel", "start": ["tb2"]},
-    {"id": "sat", "name": "Спутниковая группировка", "group": "intel", "start": []},
     {"id": "fpv", "name": "FPV-дроны на фронте", "group": "front", "start": []}
   ]
 }

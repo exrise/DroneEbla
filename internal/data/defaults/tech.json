@@ -36,23 +36,16 @@
     {"id": "ua_neptune_long", "name": "Длинный Нептун", "branch": "strike", "cost": 200, "line": "cruise", "step": 2, "unlocks": ["neptune_long"], "desc": "«Длинный Нептун»: боевое применение с 2025 г., до 1000 км."},
     {"id": "ua_flamingo", "name": "Фламинго FP-5", "branch": "strike", "cost": 380, "line": "cruise", "step": 3, "unlocks": ["flamingo"], "desc": "FP-5 «Фламинго»: боевое применение с 2025 г., до 3000 км."},
     {"id": "ua_sapsan", "name": "Сапсан", "branch": "strike", "cost": 280, "line": "ballistic", "step": 1, "unlocks": ["sapsan_launcher", "sapsan"], "desc": "«Сапсан»: в боях с декабря 2025 г."},
-    {"id": "ua_frankensam", "name": "Ракеты 9М38", "branch": "ad", "cost": 120, "line": "ad_buk", "step": 1, "unlocks": ["m_9m38"], "desc": "Производство ракет для Бук-М1."},
-    {"id": "ua_frankensam2", "name": "FrankenSAM", "branch": "ad", "cost": 240, "line": "ad_buk", "step": 2, "unlocks": ["buk_frankensam", "m_aspide"], "desc": "Бук с западными ракетами Aspide."},
-    {"id": "ua_s300_revive", "name": "Ракеты 5В55", "branch": "ad", "cost": 220, "line": "ad_s300", "step": 1, "unlocks": ["m_5v55"], "desc": "Производство ракет для С-300."},
     {"id": "ua_idrone", "name": "Sting", "branch": "ad", "cost": 160, "line": "idrone", "step": 1, "unlocks": ["idrone_ua", "m_idrone_ua"], "desc": "Расчёты дронов-перехватчиков Sting (Wild Hornets, 2025) против Шахедов."},
     {"id": "ua_idrone2", "name": "Skyfall P1-SUN", "branch": "ad", "cost": 300, "line": "idrone", "step": 2, "unlocks": ["idrone_ua2", "m_idrone_ua2"], "desc": "Быстрый перехватчик (~350 км/ч), достаёт и реактивные Герани."},
-    {"id": "ua_radar2", "name": "РЛС Ground Master 200", "branch": "intel", "cost": 150, "line": "radar", "step": 1, "unlocks": ["radar_ua2"], "desc": "Передан Францией в 2023 г."},
-    {"id": "ua_radar3", "name": "РЛС Hensoldt TRML-4D", "branch": "intel", "cost": 300, "line": "radar", "step": 2, "unlocks": ["radar_ua3"], "desc": "Радар батарей IRIS-T SLM, поставки с 2022 г., до 250 км."},
     {"id": "ua_reb2", "name": "РЭБ «Нота»", "branch": "intel", "cost": 160, "line": "reb", "step": 1, "unlocks": ["reb_ua2"], "desc": "«Нота» (Tritel): РЭБ против дронов, на вооружении."},
     {"id": "ua_shark", "name": "Shark", "branch": "intel", "cost": 70, "line": "recon", "step": 1, "unlocks": ["shark"], "desc": ""},
     {"id": "ua_furia", "name": "Фурия", "branch": "intel", "cost": 140, "line": "recon", "step": 2, "unlocks": ["furia"], "desc": ""},
     {"id": "ua_leleka", "name": "Лелека-100", "branch": "intel", "cost": 280, "line": "recon", "step": 3, "unlocks": ["leleka"], "desc": ""},
-    {"id": "ua_sat2", "name": "ICEYE (Rheinmetall)", "branch": "intel", "cost": 180, "line": "sat", "step": 1, "unlocks": ["sat:ICEYE (Rheinmetall)"], "desc": "Радиолокационный спутник ICEYE для Украины (2024)."},
     {"id": "ua_fpv", "name": "FPV (радио)", "branch": "drones", "cost": 50, "line": "fpv", "step": 1, "unlocks": ["fpv"], "desc": "Массовые FPV на фронте."},
     {"id": "ua_fpv_fiber", "name": "FPV на оптоволокне", "branch": "drones", "cost": 160, "line": "fpv", "step": 2, "unlocks": ["fpv_fiber"], "desc": "Не глушатся РЭБ: сила 1.4."},
     {"id": "ua_fpv_ai", "name": "FPV с ИИ-наведением", "branch": "drones", "cost": 340, "line": "fpv", "step": 3, "unlocks": ["fpv_ai"], "desc": "Сами доводят цель: сила 1.9."},
     {"id": "ua_osint", "name": "OSINT: подтверждение в соцсетях", "branch": "intel", "cost": 100, "desc": "Прилёты подтверждаются публикациями быстрее.", "effects": {"social_speed": 0.4}},
-    {"id": "ua_drone_recon", "name": "Разведка ударными дронами", "branch": "intel", "cost": 120, "desc": "Ударные дроны ведут съёмку по пути к цели.", "effects": {"drone_recon": 1}},
-    {"id": "ua_china_parts", "name": "Китайские комплектующие", "branch": "strike", "cost": 60, "desc": "Открывает закупку электроники."}
+    {"id": "ua_drone_recon", "name": "Разведка ударными дронами", "branch": "intel", "cost": 120, "desc": "Ударные дроны ведут съёмку по пути к цели.", "effects": {"drone_recon": 1}}
   ]
 }

@@ -1198,7 +1198,7 @@ func TestTechLinesDataValid(t *testing.T) {
 				}
 			}
 		}
-		if len(cat.Tech[data.SideKeys[s]]) < 20 {
+		if len(cat.Tech[data.SideKeys[s]]) < 15 {
 			t.Errorf("%s: слишком мало исследований", data.SideNames[s])
 		}
 		for _, tc := range cat.Tech[data.SideKeys[s]] {
@@ -1245,18 +1245,18 @@ func TestSatelliteByTech(t *testing.T) {
 	w := newTestWorld(t)
 	count := func() int {
 		n := 0
-		for _, s := range w.BuildView(data.UA, 0).Sats {
-			if s.Name == "ICEYE (Rheinmetall)" {
+		for _, s := range w.BuildView(data.RU, 0).Sats {
+			if s.Name == "Кондор-ФКА №2" {
 				n++
 			}
 		}
 		return n
 	}
 	if count() != 0 {
-		t.Fatal("ICEYE-3 не должен летать до исследования")
+		t.Fatal("Кондор-ФКА №2 не должен летать до исследования")
 	}
-	w.completeTech(data.UA, w.cat.TechByID[data.UA]["ua_sat2"])
+	w.completeTech(data.RU, w.cat.TechByID[data.RU]["ru_sat2"])
 	if count() != 1 {
-		t.Fatal("ICEYE-3 должен появиться после исследования")
+		t.Fatal("Кондор-ФКА №2 должен появиться после исследования")
 	}
 }

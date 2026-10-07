@@ -144,7 +144,7 @@
       "mfg_ua", "radar_ua", "reb_ua", "rtr_ua", "smerch_ua", "osa", "m_9m33", "m_aam_ua"
     ],
     "imports": [
-      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8, "requires": "ua_china_parts"},
+      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8},
       {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24},
       {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6},
       {"id": "ua_imp_tb2", "name": "Bayraktar TB2 (×4)", "item": "tb2", "amount": 4, "money": 60, "delay_h": 24, "limit": 5}
@@ -195,8 +195,7 @@
       {"name": "Maxar WorldView-3", "sensor": "optical", "period_h": 4, "phase_h": 0.5, "swath_km": 30, "tracks": [36, 33, 39, 35, 38, 34, 44, 48], "angle": -12},
       {"name": "Maxar WorldView-2", "sensor": "optical", "period_h": 5, "phase_h": 2.5, "swath_km": 30, "tracks": [34, 37, 40, 36, 33, 51, 46], "angle": -12},
       {"name": "ICEYE-1", "sensor": "radar", "period_h": 5, "phase_h": 1.5, "swath_km": 25, "tracks": [35, 38, 34, 40, 37, 47, 53], "angle": 10},
-      {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38, 45, 50], "angle": 10},
-      {"name": "ICEYE (Rheinmetall)", "sensor": "radar", "period_h": 5.5, "phase_h": 3, "swath_km": 25, "tracks": [37, 34, 41, 36, 49, 43], "angle": 10, "tech": "ua_sat2"}
+      {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38, 45, 50], "angle": 10}
     ],
     "bomber_warning": true,
     "belarus_air": false

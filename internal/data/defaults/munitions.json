@@ -125,6 +125,5 @@
   {"id": "peklo", "name": "Пекло (ракета-дрон)", "short": "ПЕК", "side": "ua", "kind": "drone", "class": "low", "platform": "dronesite", "speed_kmh": 700, "range_km": 700, "damage": 22, "blast_km": 0.4, "accuracy": 0.85, "gps": true, "stealth": 0.3, "cost": {"money": 10, "electronics": 4, "ammo": 1.5}, "cap": "drone", "cap_points": 5},
   {"id": "furia", "name": "Фурия (разведка)", "short": "ФУР", "side": "ua", "kind": "recon", "class": "low", "platform": "dronesite", "speed_kmh": 120, "range_km": 600, "vision": 10, "gps": true, "cost": {"money": 3, "electronics": 1.5}, "cap": "drone", "cap_points": 1.2},
   {"id": "leleka", "name": "Лелека-100 (разведка)", "short": "ЛЛК", "side": "ua", "kind": "recon", "class": "low", "platform": "dronesite", "speed_kmh": 130, "range_km": 800, "vision": 12, "gps": true, "cost": {"money": 5, "electronics": 2.5}, "cap": "drone", "cap_points": 2},
-  {"id": "m_aspide", "name": "Ракеты Aspide (FrankenSAM)", "short": "ASP", "side": "ua", "kind": "interceptor", "cost": {"money": 4, "electronics": 1.5, "ammo": 0.5}, "cap": "air", "cap_points": 1.2},
   {"id": "m_idrone_ua2", "name": "Дроны-перехватчики Skyfall P1-SUN", "short": "ДП2", "side": "ua", "kind": "interceptor", "cost": {"money": 0.6, "electronics": 0.4}, "cap": "drone", "cap_points": 0.3}
 ]

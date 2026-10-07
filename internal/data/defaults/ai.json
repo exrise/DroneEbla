@@ -3,17 +3,17 @@
   "sides": {
     "ua": {
       "research": [
-        "ua_fpv", "ua_uj22", "ua_frankensam", "ua_idrone", "ua_s300_revive", "ua_bober", "ua_neptune",
-        "ua_fpv_fiber", "ua_osint", "ua_drone_recon", "ua_lyutyi", "ua_radar2", "ua_idrone2", "ua_frankensam2",
-        "ua_neptune_long", "ua_sat2", "ua_reb2", "ua_shark", "ua_fp1", "ua_palianytsia", "ua_sapsan",
-        "ua_flamingo", "ua_fpv_ai", "ua_furia", "ua_radar3", "ua_peklo",
-        "ua_leleka", "ua_china_parts"
+        "ua_fpv", "ua_uj22", "ua_idrone", "ua_bober", "ua_neptune",
+        "ua_fpv_fiber", "ua_osint", "ua_drone_recon", "ua_lyutyi", "ua_idrone2",
+        "ua_neptune_long", "ua_reb2", "ua_shark", "ua_fp1", "ua_palianytsia", "ua_sapsan",
+        "ua_flamingo", "ua_fpv_ai", "ua_furia", "ua_peklo",
+        "ua_leleka"
       ],
       "fund_levels": [700, 1400, 2400],
       "orders": [
-        "m_9m33", "m_9m38", "m_5v55", "m_aspide", "m_aam_ua", "m_idrone_ua", "m_idrone_ua2",
+        "m_9m33", "m_aam_ua", "m_idrone_ua", "m_idrone_ua2",
         "fp1|lyutyi|bober|uj22", "peklo|palianytsia", "neptune_long|neptune", "flamingo",
-        "idrone_ua2|idrone_ua:6", "buk_frankensam:3", "mfg_ua:6",
+        "idrone_ua2|idrone_ua:6", "mfg_ua:6",
         "fpv_ai|fpv_fiber|fpv", "armor", "artillery", "smerch_ua"
       ],
       "imports": ["ua_imp_ammo", "ua_imp_elec", "ua_imp_fuel", "ua_imp_tb2"],
