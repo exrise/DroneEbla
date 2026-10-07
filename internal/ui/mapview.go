@@ -268,11 +268,10 @@ func (r *MapRenderer) drawEnergy(v *sim.View) {
 		default:
 			c = color.RGBA{60, 180, 80, 50}
 		}
-		if enemy { // оценка по разведданным — бледнее и с фиолетовым оттенком
-			c.R = uint8((int(c.R) + 120) / 2)
-			c.B = 150
+		if enemy { // оценка по разведданным: те же цвета, но прозрачнее
 			c.A = c.A * 3 / 4
 		}
+
 		a := float64(c.A) / 255
 		pix[i*4] = uint8(float64(c.R) * a)
 		pix[i*4+1] = uint8(float64(c.G) * a)
