@@ -96,5 +96,13 @@
 
   {"id": "dronesite", "repair_hours": 6, "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
    "cost": {"money": 15, "steel": 5}, "build_hours": 8, "launch": ["dronesite"], "launch_rate": 20, "buildable": ["ru", "ua"],
-   "desc": "Пуск ударных и разведывательных БПЛА."}
+   "desc": "Пуск ударных и разведывательных БПЛА."},
+
+  {"id": "dronesite2", "repair_hours": 10, "name": "Площадка запуска БПЛА II", "short": "ПЗ2", "hp": 80,
+   "cost": {"money": 60, "steel": 15, "electronics": 5}, "build_hours": 16, "launch": ["dronesite"], "launch_rate": 45, "buildable": ["ru", "ua"],
+   "desc": "Второй уровень: пусковые рельсы, катапульты и укрытия. Накапливает и запускает больше дронов за раз (45 против 20)."},
+
+  {"id": "dronesite3", "repair_hours": 16, "name": "Площадка запуска БПЛА III", "short": "ПЗ3", "hp": 150,
+   "cost": {"money": 150, "steel": 35, "electronics": 15}, "build_hours": 30, "launch": ["dronesite"], "launch_rate": 90, "buildable": ["ru", "ua"],
+   "desc": "Третий уровень: крупный комплекс с автоматизированной подачей и укрытиями. Запускает до 90 дронов за раз."}
 ]
