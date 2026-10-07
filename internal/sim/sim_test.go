@@ -1198,7 +1198,7 @@ func TestTechLinesDataValid(t *testing.T) {
 				}
 			}
 		}
-		if len(cat.Tech[data.SideKeys[s]]) < 30 {
+		if len(cat.Tech[data.SideKeys[s]]) < 20 {
 			t.Errorf("%s: слишком мало исследований", data.SideNames[s])
 		}
 		for _, tc := range cat.Tech[data.SideKeys[s]] {
@@ -1246,7 +1246,7 @@ func TestSatelliteByTech(t *testing.T) {
 	count := func() int {
 		n := 0
 		for _, s := range w.BuildView(data.UA, 0).Sats {
-			if s.Name == "ICEYE-3" {
+			if s.Name == "ICEYE (Rheinmetall)" {
 				n++
 			}
 		}

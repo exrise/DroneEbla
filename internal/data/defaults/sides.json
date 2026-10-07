@@ -82,8 +82,7 @@
       {"name": "Персона", "sensor": "optical", "period_h": 7, "phase_h": 1, "swath_km": 40, "tracks": [26, 31, 35, 29, 33], "angle": -12},
       {"name": "Барс-М", "sensor": "optical", "period_h": 9, "phase_h": 4, "swath_km": 40, "tracks": [30, 34, 27, 37], "angle": -12},
       {"name": "Кондор-ФКА", "sensor": "radar", "period_h": 10, "phase_h": 6, "swath_km": 30, "tracks": [32, 28, 36, 25], "angle": 10},
-      {"name": "Кондор-ФКА №2", "sensor": "radar", "period_h": 11, "phase_h": 2.5, "swath_km": 30, "tracks": [29, 35, 31, 38, 27], "angle": 10, "tech": "ru_sat2"},
-      {"name": "Барс-М №2", "sensor": "optical", "period_h": 8, "phase_h": 6.5, "swath_km": 40, "tracks": [33, 28, 36, 31, 39], "angle": -12, "tech": "ru_sat3"}
+      {"name": "Кондор-ФКА №2", "sensor": "radar", "period_h": 11, "phase_h": 2.5, "swath_km": 30, "tracks": [29, 35, 31, 38, 27], "angle": 10, "tech": "ru_sat2"}
     ],
     "bomber_warning": false,
     "belarus_air": true
@@ -197,8 +196,7 @@
       {"name": "Maxar WorldView-2", "sensor": "optical", "period_h": 5, "phase_h": 2.5, "swath_km": 30, "tracks": [34, 37, 40, 36, 33, 51, 46], "angle": -12},
       {"name": "ICEYE-1", "sensor": "radar", "period_h": 5, "phase_h": 1.5, "swath_km": 25, "tracks": [35, 38, 34, 40, 37, 47, 53], "angle": 10},
       {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38, 45, 50], "angle": 10},
-      {"name": "ICEYE-3", "sensor": "radar", "period_h": 5.5, "phase_h": 3, "swath_km": 25, "tracks": [37, 34, 41, 36, 49, 43], "angle": 10, "tech": "ua_sat2"},
-      {"name": "Maxar Legion-1", "sensor": "optical", "period_h": 4.5, "phase_h": 3.2, "swath_km": 30, "tracks": [35, 38, 42, 34, 46, 40], "angle": -12, "tech": "ua_sat3"}
+      {"name": "ICEYE (Rheinmetall)", "sensor": "radar", "period_h": 5.5, "phase_h": 3, "swath_km": 25, "tracks": [37, 34, 41, 36, 49, 43], "angle": 10, "tech": "ua_sat2"}
     ],
     "bomber_warning": true,
     "belarus_air": false
