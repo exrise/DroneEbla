@@ -340,7 +340,7 @@ func (w *World) MobilizationReady(s int, mb data.Mobilization) string {
 	if t := sd.MobReady[mb.ID]; t > w.Time {
 		return "Будет доступно через " + fmtHours((t-w.Time)/60)
 	}
-	if sd.People < mb.Men {
+	if !mb.Foreign && sd.People < mb.Men {
 		return "Исчерпан мобилизационный резерв"
 	}
 	if sd.Res[data.ResMoney] < mb.Money {
@@ -359,7 +359,9 @@ func (w *World) mobilize(s int, id string) string {
 			return e
 		}
 		sd.Res[data.ResMoney] -= mb.Money
-		sd.People -= mb.Men
+		if !mb.Foreign {
+			sd.People -= mb.Men
+		}
 		sd.MobUsed[mb.ID]++
 		sd.MobReady[mb.ID] = w.Time + mb.CooldownH*60
 		r := w.cat.Rules
@@ -368,11 +370,20 @@ func (w *World) mobilize(s int, id string) string {
 		if pen < 0 {
 			pen *= lerp(r.MoraleMobPenalty, 1, sd.Morale/100)
 		}
-		men := mb.Men * MoraleLevy(r, sd.Morale)
+		men := mb.Men
+		if !mb.Foreign {
+			men *= MoraleLevy(r, sd.Morale)
+		}
 		sd.Morale = clamp(sd.Morale+pen, 0, 100)
-		sd.LaborLoss = math.Min(0.5, sd.LaborLoss+mb.Labor)
+		if !mb.Foreign {
+			sd.LaborLoss = math.Min(0.5, sd.LaborLoss+mb.Labor)
+		}
 		w.distributeFront(s, "men", men)
-		w.Log(s, 1, fmt.Sprintf("%s: +%.0f тыс. человек на фронт (призвано %.0f тыс.)", mb.Name, men, mb.Men))
+		if mb.Foreign {
+			w.Log(s, 1, fmt.Sprintf("%s: +%.0f тыс. бойцов на фронт", mb.Name, mb.Men))
+		} else {
+			w.Log(s, 1, fmt.Sprintf("%s: +%.0f тыс. человек на фронт (призвано %.0f тыс.)", mb.Name, men, mb.Men))
+		}
 		return ""
 	}
 	return "Нет такого варианта"

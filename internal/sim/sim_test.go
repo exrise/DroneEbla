@@ -1376,3 +1376,36 @@ func TestRecorder(t *testing.T) {
 		t.Fatal("в журнале должны быть приказы обеих сторон и отказы")
 	}
 }
+
+func TestMercenaries(t *testing.T) {
+	w := newTestWorld(t)
+	ua := w.Sides[data.UA]
+	ua.Res[data.ResMoney] = 1000
+	people, morale, labor := ua.People, ua.Morale, ua.LaborLoss
+	front := ua.Front[0].Men + ua.Front[1].Men + ua.Front[2].Men
+	if e := w.Apply(Command{Kind: CmdMobilize, Side: data.UA, Item: "ua_latam"}); e != "" {
+		t.Fatal(e)
+	}
+	got := ua.Front[0].Men + ua.Front[1].Men + ua.Front[2].Men - front
+	if got < 11.99 || got > 12.01 {
+		t.Fatalf("наёмники должны дать 12 тыс. на фронт, а не %.2f", got)
+	}
+	if ua.People != people || ua.Morale != morale || ua.LaborLoss != labor {
+		t.Fatal("наёмники не должны затрагивать резерв, мораль и выпуск")
+	}
+	if ua.Res[data.ResMoney] != 750 {
+		t.Fatalf("наёмники стоят 250: осталось %.0f", ua.Res[data.ResMoney])
+	}
+	if e := w.Apply(Command{Kind: CmdMobilize, Side: data.UA, Item: "ua_latam"}); e == "" {
+		t.Fatal("повторный найм сразу должен упираться в перерыв")
+	}
+	if w.Apply(Command{Kind: CmdMobilize, Side: data.RU, Item: "ua_latam"}) == "" {
+		t.Fatal("у России такого варианта нет")
+	}
+	// Резерв исчерпан — наёмники всё равно доступны.
+	ua.People = 0
+	ua.MobReady["ua_latam"] = 0
+	if e := w.Apply(Command{Kind: CmdMobilize, Side: data.UA, Item: "ua_latam"}); e != "" {
+		t.Fatal(e)
+	}
+}

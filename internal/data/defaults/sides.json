@@ -189,7 +189,8 @@
     ],
     "mobilization": [
       {"id": "ua_wave", "name": "Волна мобилизации", "men": 60, "morale": -5, "labor": 0.03, "cooldown_h": 24},
-      {"id": "ua_age", "name": "Снижение призывного возраста", "men": 120, "morale": -12, "labor": 0.05, "limit": 1}
+      {"id": "ua_age", "name": "Снижение призывного возраста", "men": 120, "morale": -12, "labor": 0.05, "limit": 1},
+      {"id": "ua_latam", "name": "Наёмники из Латинской Америки", "men": 12, "morale": 0, "labor": 0, "money": 250, "cooldown_h": 24, "limit": 8, "foreign": true}
     ],
     "satellites": [
       {"name": "Maxar WorldView-3", "sensor": "optical", "period_h": 4, "phase_h": 0.5, "swath_km": 30, "tracks": [36, 33, 39, 35, 38, 34, 44, 48], "angle": -12},

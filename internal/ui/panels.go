@@ -193,6 +193,9 @@ func (g *Game) tabFront(x, y, w int) int {
 			g.sess.Send(sim.Command{Kind: sim.CmdMobilize, Item: mb.ID})
 		}
 		tip := fmt.Sprintf("+%.0f тыс. человек на фронт. Мораль %+.0f, выпуск заводов −%.0f%%.", mb.Men, mb.Morale, mb.Labor*100)
+		if mb.Foreign {
+			tip = fmt.Sprintf("+%.0f тыс. наёмников на фронт (распределяются по направлениям). Мобилизационный резерв, мораль и выпуск заводов не затрагиваются; платите деньгами. Можно нанять до %d раз.", mb.Men, mb.Limit)
+		}
 		if mb.Money > 0 {
 			tip += fmt.Sprintf(" Стоимость %.0f.", mb.Money)
 		}
@@ -243,7 +246,7 @@ func (g *Game) mobReady(mb data.Mobilization) string {
 	if t := v.MobReady[mb.ID]; t > v.Time {
 		return "Будет доступно через " + fmtMin(t-v.Time)
 	}
-	if v.People < mb.Men {
+	if !mb.Foreign && v.People < mb.Men {
 		return "Исчерпан резерв"
 	}
 	if v.Res[data.ResMoney] < mb.Money {

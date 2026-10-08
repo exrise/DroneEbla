@@ -258,6 +258,7 @@ type Mobilization struct {
 	Money     float64 `json:"money"`
 	CooldownH float64 `json:"cooldown_h"`
 	Limit     int     `json:"limit"`
+	Foreign   bool    `json:"foreign"` // наёмники: не расходуют мобилизационный резерв и не снижают выпуск
 }
 
 // Satellite — спутник стороны.
