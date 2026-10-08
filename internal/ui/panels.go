@@ -15,7 +15,12 @@ var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "С�
 
 func (g *Game) drawLeftPanel() {
 	u := &g.ui
-	u.Panel(0, topH, leftW, u.H-topH)
+	if g.glassOn() {
+		g.glassRect(4, topH+2, leftW-6, float32(u.H-topH-6), 14)
+		u.blockUI(0, topH, leftW, u.H-topH)
+	} else {
+		u.Panel(0, topH, leftW, u.H-topH)
+	}
 	tw := (leftW - 12) / 5
 	for i, name := range tabNames {
 		x := 6 + (i%5)*tw

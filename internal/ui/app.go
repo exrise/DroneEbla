@@ -68,6 +68,9 @@ type Game struct {
 	rend           *MapRenderer
 	cam            Camera
 	tab            int
+	glass          bool // стиль «жидкое стекло»
+	fx             *glassFX
+	fxFailed       bool
 	menuCheat      bool // галочка «всё открыто» в настройке песочницы
 	techOpen       bool // открыто окно исследований
 	scroll         map[string]float64
@@ -111,7 +114,8 @@ type strikePlan struct {
 func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 	netplay.LogDir = filepath.Join(filepath.Dir(dataDir), "logs")
 	g := &Game{
-		cat: cat, m: m, dataDir: dataDir, saveDir: saveDir,
+		glass: true,
+		cat:   cat, m: m, dataDir: dataDir, saveDir: saveDir,
 		dataHash: netplay.DataHash(dataDir),
 		rend:     newMapRenderer(m),
 		scroll:   map[string]float64{},
@@ -160,6 +164,7 @@ func (g *Game) Update() error {
 		(inpututil.IsKeyJustPressed(ebiten.KeyEnter) && ebiten.IsKeyPressed(ebiten.KeyAlt)) {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
 	}
+	g.glassKey()
 	if g.scene == sceneGame {
 		g.gameKeys()
 	}
@@ -242,6 +247,13 @@ func (g *Game) drawMenu() {
 		g.scene, g.menuErr = sceneLoad, ""
 		g.saves = g.listSaves()
 	}
+	gl := "Стиль «жидкое стекло»: вкл (F9)"
+	if !g.glass {
+		gl = "Стиль «жидкое стекло»: выкл (F9)"
+	}
+	if u.ButtonState(cx-bw/2, y+336, bw, 34, gl, g.glass, !g.fxFailed) {
+		g.glass = !g.glass
+	}
 	if u.Button(cx-bw/2, y+280, bw, 44, "Выход") {
 		os.Exit(0)
 	}
@@ -250,9 +262,9 @@ func (g *Game) drawMenu() {
 		"Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у обоих игроков файлы должны совпадать).",
 	}
 	for i, l := range lines {
-		drawText(u.screen, l, float64(cx), float64(y+356+i*22), 14, colDim, 1)
+		drawText(u.screen, l, float64(cx), float64(y+386+i*22), 14, colDim, 1)
 	}
-	ny := float64(y + 416)
+	ny := float64(y + 446)
 	for _, n := range g.notices {
 		for _, l := range wrap(n, 14, float64(u.W)-200) {
 			drawText(u.screen, l, float64(cx), ny, 14, colWarn, 1)

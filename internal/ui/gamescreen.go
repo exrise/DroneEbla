@@ -110,6 +110,10 @@ func (g *Game) drawGame() {
 	}
 	g.cam.X, g.cam.Y = leftW, topH
 	g.cam.W, g.cam.H = u.W-leftW, u.H-topH
+	if g.glass && !g.fxFailed {
+		// Стекло: карта идёт под панели, чтобы их было чем размывать.
+		g.cam.X, g.cam.Y, g.cam.W, g.cam.H = 0, 0, u.W, u.H
+	}
 	if g.view == nil {
 		st := g.sess.Status()
 		if st == "" {
@@ -140,6 +144,7 @@ func (g *Game) drawGame() {
 	g.rend.drawBase(mapImg, &g.cam, g.layers, v)
 	hov := g.drawEntities(mapImg)
 
+	g.glassPrep(u.screen)
 	// Панели. Кнопка «Меню» может завершить игру посреди кадра.
 	g.drawTopBar()
 	if g.sess == nil {
@@ -801,8 +806,12 @@ func fmtRate(v float64) string {
 func (g *Game) drawTopBar() {
 	u := &g.ui
 	v := g.view
-	fillRect(u.screen, 0, 0, float64(u.W), topH, colPanel)
-	line(u.screen, 0, topH, float64(u.W), topH, colBorder, 1)
+	if g.glassOn() {
+		g.glassRect(4, 4, float32(u.W-8), topH-8, 14)
+	} else {
+		fillRect(u.screen, 0, 0, float64(u.W), topH, colPanel)
+		line(u.screen, 0, topH, float64(u.W), topH, colBorder, 1)
+	}
 	u.blockUI(0, 0, u.W, topH)
 	x := 10.0
 	drawBold(u.screen, data.SideNames[v.Side], x, 6, 16, sideColor(v.Side), 0)
