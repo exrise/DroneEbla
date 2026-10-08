@@ -338,6 +338,12 @@ func (g *Game) autoPerf() {
 			a.step = 2
 		}
 	case 2:
+		if n := a.frame - a.mark; n < 12 {
+			var ms runtime.MemStats
+			runtime.ReadMemStats(&ms)
+			fmt.Printf("  кадр партии %d: draw %.0f мс | прямоуг. %d+%d, линий %d, колец %d, кругов %d, треуг. %d, текст %d (%d симв.) | куча %d МБ\n",
+				n, g.perf.drawMs, callStats.rect, callStats.stroke, callStats.line, callStats.circle, callStats.disc, callStats.tri, callStats.text, callStats.glyphs, ms.HeapAlloc>>20)
+		}
 		if a.frame-a.mark == 20 {
 			report("партия, 20 кадров")
 			if h, err := os.Create(filepath.Join(a.dir, "heap_game20.pprof")); err == nil {
