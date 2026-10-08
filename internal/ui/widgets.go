@@ -156,6 +156,10 @@ func (u *UI) blockUI(x, y, w, h int) {
 // текст и линии остаются чёткими (а не растягиваются из маленького кадра).
 var rs = 1.0
 
+// vecAA — сглаживание векторных линий и кругов. Должно быть false: с antialias=true Ebiten 2.10
+// в партии раздувает кучу Go до гигабайт (замер: 5 ГБ против 50 МБ) и кадр уходит в сотни миллисекунд.
+const vecAA = false
+
 // callStats — сколько примитивов нарисовано за кадр (для оверлея F3 и замеров).
 var callStats struct{ rect, stroke, line, circle, disc, text, glyphs, tri int }
 
@@ -188,7 +192,7 @@ func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
 	if offscreen(dst, math.Min(x0, x1)*rs, math.Min(y0, y1)*rs, math.Max(x0, x1)*rs, math.Max(y0, y1)*rs, float64(t)*rs+2) {
 		return
 	}
-	vector.StrokeLine(dst, px(x0), px(y0), px(x1), px(y1), float32(math.Max(1, float64(t)*rs)), c, true)
+	vector.StrokeLine(dst, px(x0), px(y0), px(x1), px(y1), float32(math.Max(1, float64(t)*rs)), c, vecAA)
 }
 
 func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
@@ -206,12 +210,12 @@ func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
 	if far < pr-pt {
 		return
 	}
-	vector.StrokeCircle(dst, px(x), px(y), px(r), float32(math.Max(1, float64(t)*rs)), c, true)
+	vector.StrokeCircle(dst, px(x), px(y), px(r), float32(math.Max(1, float64(t)*rs)), c, vecAA)
 }
 
 func disc(dst *ebiten.Image, x, y, r float64, c color.Color) {
 	callStats.disc++
-	vector.FillCircle(dst, px(x), px(y), px(r), c, true)
+	vector.FillCircle(dst, px(x), px(y), px(r), c, vecAA)
 }
 
 // drawText рисует строку; align: 0 влево, 1 по центру, 2 вправо.
