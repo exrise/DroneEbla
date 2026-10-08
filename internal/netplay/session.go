@@ -180,7 +180,7 @@ func NewSandbox(w *sim.World, side int) *Host {
 // NewSolo — одиночная игра: человек играет за сторону human, другой стороной
 // управляет ИИ. Правила и туман войны те же, что в сетевой игре.
 func NewSolo(w *sim.World, human int) *Host {
-	w.Sandbox, w.Solo = true, true
+	w.Sandbox, w.Solo, w.Human = true, true, human
 	w.StartPlacement()
 	startLog(w, "solo", map[string]any{"human": human})
 	h := &Host{w: w, side: human, sandbox: true, ai: ai.New(w.Catalog(), 1-human), stop: make(chan struct{})}

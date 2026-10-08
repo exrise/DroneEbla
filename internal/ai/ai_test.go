@@ -80,3 +80,31 @@ func TestAIFogOfWar(t *testing.T) {
 		t.Error("ИИ не совершил ни одного удара")
 	}
 }
+
+// ИИ за Россию (одиночная игра за Украину): расставляет резерв, исследует, заказывает и бьёт.
+func TestAIPlaysRussia(t *testing.T) {
+	w := newWorld(t)
+	w.StartPlacement()
+	a := New(w.Catalog(), data.RU)
+	ok := map[string]int{}
+	a.OnCommand = func(c sim.Command, err string) {
+		if err == "" {
+			ok[c.Kind]++
+		}
+	}
+	a.Place(w)
+	if !w.Sides[data.RU].Ready {
+		t.Fatal("ИИ России не расставил резерв и не нажал «Готово»")
+	}
+	New(w.Catalog(), data.UA).Place(w)
+	for k := 0; k < 60*36 && w.Winner < 0; k++ {
+		w.Step(1)
+		a.Tick(w)
+	}
+	t.Logf("успешные приказы ИИ России: %v", ok)
+	for _, kind := range []string{sim.CmdResearch, sim.CmdOrderAdd, sim.CmdAlloc, sim.CmdPosture, sim.CmdStrike} {
+		if ok[kind] == 0 {
+			t.Errorf("ИИ России ни разу не отдал приказ %q", kind)
+		}
+	}
+}

@@ -119,3 +119,38 @@ func TestSolo(t *testing.T) {
 		t.Fatal("неверное представление игрока")
 	}
 }
+
+// Одиночная игра за Украину: ИИ ведёт Россию, сторона человека запоминается.
+func TestSoloUkraine(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := world.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewSolo(sim.New(cat, m, true), data.UA)
+	defer h.Close()
+	h.SetSide(data.RU)
+	if h.Side() != data.UA {
+		t.Fatal("в одиночной игре сторону менять нельзя")
+	}
+	time.Sleep(300 * time.Millisecond)
+	var human int
+	var aiReady bool
+	h.Advance(0, func(w *sim.World) { human, aiReady = w.Human, w.Sides[data.RU].Ready })
+	if human != data.UA || !aiReady {
+		t.Fatalf("human=%d, ИИ России готов=%v", human, aiReady)
+	}
+	h.Advance(0, func(w *sim.World) { ai.New(w.Catalog(), data.UA).Place(w) })
+	time.Sleep(700 * time.Millisecond)
+	var research string
+	h.Advance(0, func(w *sim.World) { research = w.Sides[data.RU].Research })
+	if research == "" {
+		t.Fatal("ИИ России не выбрал исследование")
+	}
+	if v := h.View(); v == nil || v.Side != data.UA || !v.Solo {
+		t.Fatal("неверное представление игрока")
+	}
+}

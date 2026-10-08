@@ -357,9 +357,13 @@ func (g *Game) drawSoloSetup() {
 	u := &g.ui
 	cx, y := g.menuFrame("Одиночная игра")
 	drawText(u.screen, "Ваша сторона:", float64(cx-180), float64(y+8), 16, colText, 0)
-	u.ButtonState(cx-40, y, 110, 34, "Россия", true, true)
-	u.ButtonState(cx+80, y, 110, 34, "Украина", false, false)
-	drawText(u.screen, "Пока доступна игра только за Россию. Украиной управляет компьютер.", float64(cx), float64(y+60), 14, colDim, 1)
+	if u.ButtonState(cx-40, y, 110, 34, "Россия", g.menuSide == data.RU, true) {
+		g.menuSide = data.RU
+	}
+	if u.ButtonState(cx+80, y, 110, 34, "Украина", g.menuSide == data.UA, true) {
+		g.menuSide = data.UA
+	}
+	drawText(u.screen, "Противоположной стороной управляет компьютер.", float64(cx), float64(y+60), 14, colDim, 1)
 	drawText(u.screen, "ИИ играет по тем же правилам: видит только то, что видит его разведка, и делает те же приказы.", float64(cx), float64(y+82), 14, colDim, 1)
 	drawText(u.screen, "Его настройки — файл ai.json в папке data рядом с игрой.", float64(cx), float64(y+104), 14, colDim, 1)
 	by := y + 150
@@ -367,9 +371,8 @@ func (g *Game) drawSoloSetup() {
 		g.scene = sceneMenu
 	}
 	if u.Button(cx+10, by, 170, 40, "Начать") {
-		g.menuSide = data.RU
 		w := sim.New(g.cat, g.m, true)
-		g.startGame(netplay.NewSolo(w, data.RU))
+		g.startGame(netplay.NewSolo(w, g.menuSide))
 	}
 }
 
@@ -425,7 +428,7 @@ func (g *Game) loadSave(path string, sandbox bool) {
 		return
 	}
 	if sandbox && w.Solo {
-		g.startGame(netplay.NewSolo(w, data.RU))
+		g.startGame(netplay.NewSolo(w, w.Human))
 		return
 	}
 	w.Sandbox, w.Solo = sandbox, false

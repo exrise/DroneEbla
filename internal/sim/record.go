@@ -34,7 +34,7 @@ func (w *World) SetRecorder(wc io.WriteCloser, mode string, extra map[string]any
 	r := &Recorder{bw: bufio.NewWriterSize(wc, 1<<16), c: wc, lastHour: int(w.Time / 60)}
 	w.rec = r
 	meta := map[string]any{
-		"mode": mode, "seed": w.Seed, "game_time": w.Time, "sandbox": w.Sandbox, "solo": w.Solo, "cheat": w.Cheat,
+		"mode": mode, "seed": w.Seed, "game_time": w.Time, "sandbox": w.Sandbox, "solo": w.Solo, "human": w.Human, "cheat": w.Cheat,
 		"started": time.Now().Format(time.RFC3339),
 	}
 	for k, v := range extra {
