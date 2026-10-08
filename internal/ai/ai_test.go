@@ -108,3 +108,117 @@ func TestAIPlaysRussia(t *testing.T) {
 		}
 	}
 }
+
+// Маршрут дронов огибает известную зону ПВО и не трогает зоны, накрывающие саму цель.
+func TestRouteAvoidsAD(t *testing.T) {
+	a := &AI{}
+	if r := a.route(0, 0, 100, 0); r != nil {
+		t.Fatalf("без известной ПВО маршрут прямой, а вышло %v", r)
+	}
+	a.zones = []zone{{x: 50, y: 0, r: 20}}
+	r := a.route(0, 0, 100, 0)
+	if len(r) == 0 {
+		t.Fatal("маршрут через зону ПВО не обойдён")
+	}
+	prev := sim.Pt{X: 0, Y: 0}
+	for _, p := range append(r, sim.Pt{X: 100, Y: 0}) {
+		// ни один отрезок не должен заходить в зону
+		for k := 0.0; k <= 1; k += 0.01 {
+			x, y := prev.X+(p.X-prev.X)*k, prev.Y+(p.Y-prev.Y)*k
+			if math.Hypot(x-50, y) < 20-0.001 {
+				t.Fatalf("маршрут %v заходит в зону ПВО в точке (%.1f, %.1f)", r, x, y)
+			}
+		}
+		prev = p
+	}
+	// Цель внутри зоны: обходить нечего.
+	a.zones = []zone{{x: 100, y: 0, r: 20}}
+	if r := a.route(0, 0, 100, 0); r != nil {
+		t.Fatalf("зона накрывает цель — маршрут должен быть прямым, а вышло %v", r)
+	}
+}
+
+// «Умный» ИИ держит парк ПВО: разбитые комплексы заказываются заново, электроника закупается пачками.
+func TestSmartFleetAndImports(t *testing.T) {
+	w := newWorld(t)
+	w.Solo = false
+	w.StartPlacement()
+	ru, ua := New(w.Catalog(), data.RU), New(w.Catalog(), data.UA)
+	if !ru.cfg.Smart || !ua.cfg.Smart {
+		t.Skip("в ai.json выключен умный режим")
+	}
+	ru.Place(w)
+	ua.Place(w)
+	orders := map[string]int{}
+	imports := 0
+	ru.OnCommand = func(c sim.Command, err string) {
+		if err != "" {
+			return
+		}
+		switch c.Kind {
+		case sim.CmdOrderAdd:
+			orders[c.Item]++
+		case sim.CmdImport:
+			imports++
+		}
+	}
+	// Сутки игры, затем уничтожаем всю ПВО России и даём ещё несколько часов.
+	for k := 0; k < 24*60; k++ {
+		w.Step(1)
+		ru.Tick(w)
+		ua.Tick(w)
+	}
+	adBefore := 0
+	for id, u := range w.Units {
+		if u.Side == data.RU {
+			if ut := w.Catalog().UnitByID[u.Type]; ut != nil && ut.Kind == "ad" && ut.Magazine > 0 && ut.RangeKm >= 100 {
+				delete(w.Units, id)
+				adBefore++
+			}
+		}
+	}
+	if adBefore == 0 {
+		t.Skip("у России нет дальней ПВО для проверки")
+	}
+	for k := 0; k < 6*60; k++ {
+		w.Step(1)
+		ru.Tick(w)
+	}
+	got := 0
+	for _, item := range []string{"s400", "s300", "buk_ru", "buk_m3", "pantsir", "pantsir_s2", "tor"} {
+		got += orders[item]
+	}
+	if got == 0 {
+		t.Errorf("уничтожено %d комплексов ПВО, а ИИ не заказал ни одного (заказы: %v)", adBefore, orders)
+	}
+	if imports < 2 {
+		t.Errorf("ИИ почти не закупает (%d закупок за сутки и 6 часов) — деньги должны тратиться", imports)
+	}
+}
+
+// Короткая дуэль двух «умных» ботов не падает и обе стороны действуют.
+func TestDuelSmoke(t *testing.T) {
+	w := newWorld(t)
+	w.Solo = false
+	w.StartPlacement()
+	bots := [2]*AI{New(w.Catalog(), data.RU), New(w.Catalog(), data.UA)}
+	n := [2]int{}
+	for s := range bots {
+		s := s
+		bots[s].OnCommand = func(c sim.Command, err string) {
+			if err == "" {
+				n[s]++
+			}
+		}
+		bots[s].Place(w)
+	}
+	for k := 0; k < 12*60; k++ {
+		w.Step(1)
+		for _, b := range bots {
+			b.Tick(w)
+		}
+	}
+	if n[0] < 20 || n[1] < 20 {
+		t.Errorf("слишком мало приказов за 12 часов: %v", n)
+	}
+}
