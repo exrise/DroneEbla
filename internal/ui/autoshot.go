@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -338,6 +339,11 @@ func (g *Game) autoPerf() {
 	case 2:
 		if a.frame-a.mark == 120 {
 			report("партия, 120 кадров")
+			if h, err := os.Create(filepath.Join(a.dir, "heap_game.pprof")); err == nil {
+				runtime.GC()
+				pprof.WriteHeapProfile(h)
+				h.Close()
+			}
 			x, y := g.m.Project(31.5, 48.0)
 			g.cam.CX, g.cam.CY, g.cam.Z = x, y, 3
 		}
