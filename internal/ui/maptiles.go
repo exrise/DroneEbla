@@ -348,6 +348,9 @@ func (t *tileSet) evict() {
 	}
 }
 
+// count — сколько плиток сейчас в видеопамяти.
+func (t *tileSet) count() int { return len(t.tiles) }
+
 // levelFor выбирает уровень детализации по зуму.
 func levelFor(z float64) int {
 	for i, s := range lodScales {

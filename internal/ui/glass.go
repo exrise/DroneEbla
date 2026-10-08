@@ -172,6 +172,7 @@ func withSquircle(src string) []byte {
 type glassFX struct {
 	blur, glass, pill, backdrop *ebiten.Shader
 	small, tmp                  *ebiten.Image
+	mid                         []*ebiten.Image
 	w, h                        int
 }
 
@@ -249,23 +250,27 @@ func (g *Game) glassPrep(screen *ebiten.Image) {
 // получились бы пропуски пикселей и мерцание размытия при движении карты.
 func (fx *glassFX) downsample(screen *ebiten.Image, sw, sh int) {
 	src, w, h := screen, sw, sh
-	for w >= fx.w*4 {
+	for i := 0; w >= fx.w*4; i++ {
 		w, h = w/2, h/2
-		step := ebiten.NewImage(w, h)
+		if i >= len(fx.mid) {
+			fx.mid = append(fx.mid, nil)
+		}
+		if fx.mid[i] == nil || fx.mid[i].Bounds().Dx() != w || fx.mid[i].Bounds().Dy() != h {
+			if fx.mid[i] != nil {
+				fx.mid[i].Deallocate()
+			}
+			fx.mid[i] = ebiten.NewImage(w, h) // промежуточные картинки живут между кадрами
+		}
+		step := fx.mid[i]
+		step.Clear()
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(0.5, 0.5)
 		step.DrawImage(src, op)
-		if src != screen {
-			src.Deallocate()
-		}
 		src = step
 	}
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 	op.GeoM.Scale(float64(fx.w)/float64(w), float64(fx.h)/float64(h))
 	fx.small.DrawImage(src, op)
-	if src != screen {
-		src.Deallocate()
-	}
 }
 
 func (fx *glassFX) pass(dst, src *ebiten.Image, dx, dy float32) {

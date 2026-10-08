@@ -16,7 +16,8 @@ type Settings struct {
 	WinW       int     `json:"win_w"`
 	WinH       int     `json:"win_h"`
 	Fullscreen bool    `json:"fullscreen"`
-	Scale      float64 `json:"scale"` // масштаб интерфейса; 0 — автоматически по размеру окна
+	Scale      float64 `json:"scale"`   // масштаб интерфейса; 0 — автоматически по размеру окна
+	Quality    float64 `json:"quality"` // качество отрисовки (доля физического разрешения); 0 — авто
 	Glass      bool    `json:"glass"`
 }
 
@@ -29,6 +30,9 @@ const (
 
 // scaleSteps — доступные масштабы интерфейса (0 — «Авто»).
 var scaleSteps = []float64{0, 0.75, 1, 1.25, 1.5, 1.75, 2}
+
+// qualitySteps — качество отрисовки (0 — «Авто»: внутренний кадр не больше 2560×1440).
+var qualitySteps = []float64{0, 1, 0.75, 0.5}
 
 // winPresets — размеры окна на выбор.
 var winPresets = [][2]int{{1280, 720}, {1366, 768}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3840, 2160}}
@@ -65,7 +69,27 @@ func (s *Settings) normalize() {
 	if !ok {
 		s.Scale = 0
 	}
+	ok = false
+	for _, v := range qualitySteps {
+		if s.Quality == v {
+			ok = true
+		}
+	}
+	if !ok {
+		s.Quality = 0
+	}
 }
+
+// renderQuality — доля физического разрешения, в которой рисуется кадр.
+func renderQuality(pw, ph, setting float64) float64 {
+	if setting > 0 {
+		return setting
+	}
+	return math.Min(1, math.Min(autoMaxW/pw, autoMaxH/ph))
+}
+
+// «Авто»: на экранах больше 2560×1440 кадр рисуется не крупнее этого и растягивается.
+const autoMaxW, autoMaxH = 2560, 1440
 
 // FitToMonitor уменьшает размер окна, если он не помещается на монитор (размеры в независимых от DPI пикселях).
 func (s *Settings) FitToMonitor(mw, mh int) {
@@ -172,6 +196,11 @@ func (g *Game) setWindowSize(w, h int) {
 	}
 	ebiten.SetWindowSize(w, h)
 	g.resetWinWatch()
+	g.saveSettings()
+}
+
+func (g *Game) setQuality(q float64) {
+	g.set.Quality = q
 	g.saveSettings()
 }
 
@@ -325,6 +354,23 @@ func (g *Game) drawSettingsBody(cx, y int) int {
 	drawText(u.screen, note, float64(cx), float64(y), 13, c, 1)
 	y += 30
 
+	section("Качество отрисовки")
+	x = cx - (len(qualitySteps)*sbw+(len(qualitySteps)-1)*sgap)/2
+	for _, q := range qualitySteps {
+		lbl := "Авто"
+		if q > 0 {
+			lbl = fmt.Sprintf("%.0f%%", q*100)
+		}
+		if u.ButtonState(x, y, sbw, 34, lbl, g.set.Quality == q, true) {
+			g.setQuality(q)
+		}
+		x += sbw + sgap
+	}
+	y += 42
+	note = fmt.Sprintf("Кадр %d×%d. Меньше — быстрее, но картинка мягче (если лагает на 4K, выберите 75%% или 50%%).", u.screen.Bounds().Dx(), u.screen.Bounds().Dy())
+	drawText(u.screen, note, float64(cx), float64(y), 13, colDim, 1)
+	y += 30
+
 	gl := "Стиль «жидкое стекло»: вкл (F9)"
 	if !g.glass {
 		gl = "Стиль «жидкое стекло»: выкл (F9)"
@@ -370,7 +416,7 @@ func (g *Game) drawGameMenu() {
 	host := g.sess != nil && g.sess.IsHost()
 	pw, ph := 640, 330
 	if g.menuPage == 1 {
-		ph = 470
+		ph = 560
 	}
 	ph = min(ph, u.H-24)
 	px, py := (u.W-pw)/2, (u.H-ph)/2

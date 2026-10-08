@@ -172,11 +172,33 @@ func strokeRect(dst *ebiten.Image, x, y, w, h float64, c color.Color, t float32)
 	vector.StrokeRect(dst, x0, y0, x1-x0, y1-y0, float32(math.Max(1, math.Round(float64(t)*rs))), c, false)
 }
 
+// offscreen — отрезок целиком по одну сторону от границы изображения (физические координаты).
+func offscreen(dst *ebiten.Image, minX, minY, maxX, maxY, pad float64) bool {
+	b := dst.Bounds()
+	return maxX+pad < float64(b.Min.X) || minX-pad > float64(b.Max.X) || maxY+pad < float64(b.Min.Y) || minY-pad > float64(b.Max.Y)
+}
+
 func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
+	if offscreen(dst, math.Min(x0, x1)*rs, math.Min(y0, y1)*rs, math.Max(x0, x1)*rs, math.Max(y0, y1)*rs, float64(t)*rs+2) {
+		return
+	}
 	vector.StrokeLine(dst, px(x0), px(y0), px(x1), px(y1), float32(math.Max(1, float64(t)*rs)), c, true)
 }
 
 func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
+	// Кольцо, которое не пересекает изображение: целиком снаружи или экран целиком внутри кольца.
+	cx, cy, pr, pt := x*rs, y*rs, r*rs, float64(t)*rs+2
+	if offscreen(dst, cx-pr, cy-pr, cx+pr, cy+pr, pt) {
+		return
+	}
+	b := dst.Bounds()
+	far := 0.0
+	for _, p := range [4][2]float64{{float64(b.Min.X), float64(b.Min.Y)}, {float64(b.Max.X), float64(b.Min.Y)}, {float64(b.Min.X), float64(b.Max.Y)}, {float64(b.Max.X), float64(b.Max.Y)}} {
+		far = math.Max(far, math.Hypot(p[0]-cx, p[1]-cy))
+	}
+	if far < pr-pt {
+		return
+	}
 	vector.StrokeCircle(dst, px(x), px(y), px(r), float32(math.Max(1, float64(t)*rs)), c, true)
 }
 
@@ -221,9 +243,27 @@ func drawTextHalo(dst *ebiten.Image, s string, x, y, size float64, c, halo color
 	drawText(dst, s, x, y, size, c, align)
 }
 
+type measureKey struct {
+	s     string
+	size  float64
+	scale float64
+}
+
+// measureCache — ширины строк: text.Measure дорог, а за кадр одни и те же подписи измеряются десятки раз.
+var measureCache = map[measureKey]float64{}
+
 func textWidth(s string, size float64) float64 {
+	k := measureKey{s, size, rs}
+	if w, ok := measureCache[k]; ok {
+		return w
+	}
+	if len(measureCache) > 20000 {
+		measureCache = map[measureKey]float64{}
+	}
 	w, _ := text.Measure(s, face(size), 0)
-	return w / rs
+	w /= rs
+	measureCache[k] = w
+	return w
 }
 
 // wrap разбивает текст на строки по ширине.

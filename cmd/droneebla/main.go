@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -52,6 +53,12 @@ func main() {
 	ebiten.SetWindowSizeLimits(1280, 720, -1, -1)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
+	// Страховка: куча Go не должна раздуваться мусором до гигабайт.
+	debug.SetGCPercent(50)
+	debug.SetMemoryLimit(2 << 30)
+	if os.Getenv("DRONEEBLA_PROF") != "" {
+		ui.StartProfiling(dir)
+	}
 	g := ui.New(cat, m, dataDir, saveDir)
 	g.SetSettings(st, settingsPath)
 	if len(updated) > 0 {

@@ -105,3 +105,29 @@ func TestFitToMonitor(t *testing.T) {
 		t.Error("монитор неизвестен — размер должен остаться")
 	}
 }
+
+func TestRenderQuality(t *testing.T) {
+	for _, c := range []struct{ w, h, set, want float64 }{
+		{1600, 900, 0, 1},
+		{2560, 1440, 0, 1},
+		{3840, 2160, 0, 2560.0 / 3840},
+		{3840, 2160, 0.5, 0.5},
+		{1920, 1080, 0.75, 0.75},
+	} {
+		if got := renderQuality(c.w, c.h, c.set); got != c.want {
+			t.Errorf("renderQuality(%v×%v, %v) = %v, ожидалось %v", c.w, c.h, c.set, got, c.want)
+		}
+	}
+	// Логический размер интерфейса не зависит от качества: кадр / (масштаб × качество).
+	s := layoutScale(3840, 2160, 1, 0)
+	for _, q := range []float64{1, 0.75, 0.5} {
+		if lw := 3840 * q / (s * q); lw != 3840/s {
+			t.Errorf("при качестве %v логическая ширина %v, ожидалось %v", q, lw, 3840/s)
+		}
+	}
+	st := Settings{WinW: 1600, WinH: 900, Quality: 0.6}
+	st.normalize()
+	if st.Quality != 0 {
+		t.Errorf("недопустимое качество должно сбрасываться в авто, а стало %v", st.Quality)
+	}
+}

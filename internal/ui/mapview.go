@@ -30,18 +30,20 @@ func (c *Camera) ToWorld(sx, sy float64) (float64, float64) {
 
 // MapRenderer — подложка и слои карты.
 type MapRenderer struct {
-	m        *world.MapData
-	tiles    *tileSet
-	ownerImg *ebiten.Image
-	fogImg   *ebiten.Image
-	ownerPix []byte
-	fogPix   []byte
-	lastOwn  []uint8
-	lastFog  []uint8
-	lastPres []uint8
-	front    []float32 // отрезки линии фронта x0,y0,x1,y1 в км
-	energy   *ebiten.Image
-	depImg   *ebiten.Image
+	m         *world.MapData
+	tiles     *tileSet
+	ownerImg  *ebiten.Image
+	fogImg    *ebiten.Image
+	ownerPix  []byte
+	fogPix    []byte
+	lastOwn   []uint8
+	lastFog   []uint8
+	lastPres  []uint8
+	front     []float32 // отрезки линии фронта x0,y0,x1,y1 в км
+	energy    *ebiten.Image
+	energyPix []byte
+	energyKey [2]float64
+	depImg    *ebiten.Image
 }
 
 var (
@@ -237,7 +239,17 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 
 // drawEnergy — обеспеченность энергией своих областей.
 func (r *MapRenderer) drawEnergy(v *sim.View) {
-	pix := make([]byte, r.m.W*r.m.H*4)
+	// Данные меняются раз в тик симуляции, а не каждый кадр.
+	key := [2]float64{v.Time, float64(v.Side)}
+	if r.energyKey == key && r.energyPix != nil {
+		return
+	}
+	r.energyKey = key
+	if r.energyPix == nil {
+		r.energyPix = make([]byte, r.m.W*r.m.H*4)
+	}
+	pix := r.energyPix
+	clear(pix)
 	my := uint8(v.Side + 1)
 	est := map[int]float64{}
 	for _, e := range v.EnemyPower {

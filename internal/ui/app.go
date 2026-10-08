@@ -83,9 +83,10 @@ type Game struct {
 	dsf            float64 // масштаб системы (DPI)
 	layoutN        int
 	renderScale    float64 // физических пикселей на логическую единицу интерфейса
-	menuOpen       bool    // окно меню в партии
-	menuPage       int     // 0 — меню, 1 — настройки
-	techOpen       bool    // открыто окно исследований
+	perf           perfStats
+	menuOpen       bool // окно меню в партии
+	menuPage       int  // 0 — меню, 1 — настройки
+	techOpen       bool // открыто окно исследований
 	scroll         map[string]float64
 	sel            Selection
 	mode           int
@@ -169,9 +170,11 @@ func (g *Game) LayoutF(w, h float64) (float64, float64) {
 	s := layoutScale(w, h, g.dsf, g.set.Scale)
 	g.effScale = s / g.dsf
 	g.capped = g.set.Scale > 0 && s < g.set.Scale*g.dsf-1e-9
-	g.renderScale = s
-	rs = s
-	return w * g.dsf, h * g.dsf
+	pw, ph := w*g.dsf, h*g.dsf
+	q := renderQuality(pw, ph, g.set.Quality)
+	g.renderScale = s * q
+	rs = s * q
+	return pw * q, ph * q
 }
 
 // uiScale — масштаб интерфейса: образец — окно 1440×810; шаг 0.25, чтобы картинка оставалась чёткой.
@@ -183,6 +186,8 @@ func uiScale(w, h int) float64 {
 
 // Update — сбор ввода.
 func (g *Game) Update() error {
+	t0 := time.Now()
+	defer func() { g.perf.updMs = ema(g.perf.updMs, float64(time.Since(t0).Microseconds())/1000) }()
 	in := &g.ui.in
 	in.tick++
 	cx, cy := ebiten.CursorPosition() // в физических пикселях кадра
@@ -204,6 +209,7 @@ func (g *Game) Update() error {
 	in.wheel += wy
 	in.collectTextInput()
 	g.settingsKeys()
+	g.perfKey()
 	g.watchWindow()
 	g.glassKey()
 	if g.scene == sceneGame {
@@ -221,6 +227,8 @@ func (g *Game) resetInput() {
 
 // Draw — отрисовка и обработка интерфейса (непосредственный режим).
 func (g *Game) Draw(screen *ebiten.Image) {
+	t0 := time.Now()
+	defer func() { g.perf.drawMs = ema(g.perf.drawMs, float64(time.Since(t0).Microseconds())/1000) }()
 	g.ui.screen = screen
 	g.ui.W, g.ui.H = int(float64(screen.Bounds().Dx())/rs), int(float64(screen.Bounds().Dy())/rs)
 	g.fxInit()
@@ -250,6 +258,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawGame()
 	}
 	g.ui.drawTooltip()
+	g.drawPerf()
 	g.resetInput()
 	if g.auto != nil {
 		g.autoShotStep(screen)
@@ -271,7 +280,7 @@ func (g *Game) menuFrame(title string) (int, int) {
 	cx := u.W / 2
 	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
-	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 520}[g.scene]
+	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 600}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {
 		ph = u.H - 150 - 24
 	}

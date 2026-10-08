@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -22,6 +23,7 @@ type autoShot struct {
 	dir   string
 	frame int
 	step  int
+	mark  int
 }
 
 func (g *Game) initAutoShot() {
@@ -52,6 +54,10 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 	}
 	if os.Getenv("DRONEEBLA_SOLO") != "" {
 		g.autoSolo(screen)
+		return
+	}
+	if os.Getenv("DRONEEBLA_PERF") != "" {
+		g.autoPerf()
 		return
 	}
 	if os.Getenv("DRONEEBLA_SETTINGS") != "" {
@@ -302,4 +308,45 @@ func (g *Game) autoSettings(screen *ebiten.Image) {
 		os.Exit(0)
 	}
 	a.step++
+}
+
+// autoPerf — замер: меню, затем партия; в конце каждого этапа печатает расход памяти и время кадра.
+func (g *Game) autoPerf() {
+	a := g.auto
+	report := func(name string) {
+		var ms runtime.MemStats
+		runtime.ReadMemStats(&ms)
+		var di ebiten.DebugInfo
+		ebiten.ReadDebugInfo(&di)
+		fmt.Printf("%s: кадр %.1f мс, update %.1f мс | куча %d МБ, ОС %d МБ, сборок %d, шрифтов %d+%d, плиток %d, видеопамять %d МБ | rs %.2f\n",
+			name, g.perf.drawMs, g.perf.updMs, ms.HeapAlloc>>20, ms.Sys>>20, ms.NumGC, len(faces), len(boldFaces), g.rend.tiles.count(), di.TotalGPUImageMemoryUsageInBytes>>20, rs)
+	}
+	switch a.step {
+	case 0:
+		a.mark = a.frame
+		a.step = 1
+	case 1:
+		if a.frame-a.mark == 120 {
+			report("меню, 120 кадров")
+		}
+		if a.frame-a.mark == 300 {
+			report("меню, 300 кадров")
+			g.startGame(netplay.NewSandbox(sim.New(g.cat, g.m, true), 0))
+			a.mark = a.frame
+			a.step = 2
+		}
+	case 2:
+		if a.frame-a.mark == 120 {
+			report("партия, 120 кадров")
+			x, y := g.m.Project(31.5, 48.0)
+			g.cam.CX, g.cam.CY, g.cam.Z = x, y, 3
+		}
+		if a.frame-a.mark == 240 {
+			report("партия, приближение, 240 кадров")
+		}
+		if a.frame-a.mark == 400 {
+			report("партия, 400 кадров")
+			os.Exit(0)
+		}
+	}
 }
