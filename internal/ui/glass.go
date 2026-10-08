@@ -38,6 +38,7 @@ package main
 var Rect vec4
 var Radius float
 var Tint vec4
+var Scale float
 
 //SD
 
@@ -49,8 +50,10 @@ func bg(pos vec2) vec3 {
 }
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
+	// Вся геометрия — в логических единицах интерфейса, а сглаживание края — в физических пикселях.
+	lp := dst.xy / Scale
 	half := Rect.zw * 0.5
-	p := dst.xy - (Rect.xy + half)
+	p := lp - (Rect.xy + half)
 	d0 := sdSq(p, half, Radius)
 	e := 1.0
 	n := vec2(
@@ -65,14 +68,14 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	depth := -d
 	edge := 1 - smoothstep(0, 26, depth)
 	k := edge * edge * 22
-	col := vec3(bg(dst.xy-n*k*1.00).r, bg(dst.xy-n*k*1.12).g, bg(dst.xy-n*k*1.25).b)
+	col := vec3(bg(lp-n*k*1.00).r, bg(lp-n*k*1.12).g, bg(lp-n*k*1.25).b)
 	col = mix(col, Tint.rgb, Tint.a)
-	col += vec3(0.025) * (1 - clamp((dst.y-Rect.y)/Rect.w, 0, 1))
+	col += vec3(0.025) * (1 - clamp((lp.y-Rect.y)/Rect.w, 0, 1))
 	col += vec3(0.06) * (1 - smoothstep(0, 10, depth))
 	l := 0.5 + 0.5*dot(n, normalize(vec2(-0.55, -0.85)))
 	rim := (1 - smoothstep(0, 2.2, depth)) * (0.22 + 0.6*l)
 	col += vec3(rim)
-	aa := clamp(0.5+depth, 0, 1)
+	aa := clamp(0.5+depth*Scale, 0, 1)
 	return vec4(col*aa, aa) + vec4(0, 0, 0, shadow)*(1-aa)
 }
 `
@@ -87,12 +90,14 @@ var Fill vec4
 var RimCol vec3
 var Rim float
 var Light float
+var Scale float
 
 //SD
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
+	lp := dst.xy / Scale
 	half := Rect.zw * 0.5
-	p := dst.xy - (Rect.xy + half)
+	p := lp - (Rect.xy + half)
 	d0 := sdSq(p, half, Radius)
 	e := 1.0
 	n := vec2(
@@ -100,12 +105,12 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 		sdSq(p+vec2(0, e), half, Radius)-sdSq(p-vec2(0, e), half, Radius))
 	d := d0 / max(length(n)*0.5, 0.35)
 	n = n / (length(n) + 0.0001)
-	aa := clamp(0.5-d, 0, 1)
+	aa := clamp(0.5-d*Scale, 0, 1)
 	if aa <= 0 {
 		return vec4(0)
 	}
 	depth := -d
-	g := 1 - clamp((dst.y-Rect.y)/Rect.w, 0, 1)
+	g := 1 - clamp((lp.y-Rect.y)/Rect.w, 0, 1)
 	col := Fill.rgb + vec3(0.10)*g*Light
 	a := Fill.a + 0.06*g*Light
 	l := 0.5 + 0.5*dot(n, normalize(vec2(-0.5, -0.85)))
@@ -226,18 +231,40 @@ func (g *Game) glassPrep(screen *ebiten.Image) {
 	}
 	fx := u.fx
 	b := screen.Bounds()
-	w, h := b.Dx()/2, b.Dy()/2
+	// Размытая копия — половина логического размера экрана: радиус размытия не зависит от разрешения.
+	w, h := int(float64(b.Dx())/rs/2), int(float64(b.Dy())/rs/2)
 	if fx.small == nil || fx.w != w || fx.h != h {
 		fx.small, fx.tmp = ebiten.NewImage(w, h), ebiten.NewImage(w, h)
 		fx.w, fx.h = w, h
 	}
 	fx.small.Clear()
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-	op.GeoM.Scale(0.5, 0.5)
-	fx.small.DrawImage(screen, op)
+	fx.downsample(screen, b.Dx(), b.Dy())
 	for i := 0; i < 2; i++ {
 		fx.pass(fx.tmp, fx.small, 2.2, 0)
 		fx.pass(fx.small, fx.tmp, 0, 2.2)
+	}
+}
+
+// downsample сжимает кадр до fx.small по половине за шаг: одним билинейным шагом из 4K
+// получились бы пропуски пикселей и мерцание размытия при движении карты.
+func (fx *glassFX) downsample(screen *ebiten.Image, sw, sh int) {
+	src, w, h := screen, sw, sh
+	for w >= fx.w*4 {
+		w, h = w/2, h/2
+		step := ebiten.NewImage(w, h)
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(0.5, 0.5)
+		step.DrawImage(src, op)
+		if src != screen {
+			src.Deallocate()
+		}
+		src = step
+	}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.Scale(float64(fx.w)/float64(w), float64(fx.h)/float64(h))
+	fx.small.DrawImage(src, op)
+	if src != screen {
+		src.Deallocate()
 	}
 }
 
@@ -273,8 +300,10 @@ func (u *UI) glassPanel(x, y, w, h, r, tintA float32) {
 		"Rect":   []float32{x, y, w, h},
 		"Radius": r,
 		"Tint":   []float32{0.06, 0.08, 0.11, tintA},
+		"Scale":  float32(rs),
 	}
-	u.screen.DrawTrianglesShader(quad(x-m, y-m, x+w+m, y+h+m), quadIdx, fx.glass, op)
+	k := float32(rs)
+	u.screen.DrawTrianglesShader(quad((x-m)*k, (y-m)*k, (x+w+m)*k, (y+h+m)*k), quadIdx, fx.glass, op)
 }
 
 // Заливки «таблеток».
@@ -303,6 +332,8 @@ func (u *UI) pill(x, y, w, h, r float32, fill [4]float32, rim float32, rimCol [3
 		"RimCol": rimCol[:],
 		"Rim":    rim,
 		"Light":  light,
+		"Scale":  float32(rs),
 	}
-	u.screen.DrawTrianglesShader(quad(x-1, y-1, x+w+1, y+h+1), quadIdx, fx.pill, op)
+	k := float32(rs)
+	u.screen.DrawTrianglesShader(quad(x*k-1, y*k-1, (x+w)*k+1, (y+h)*k+1), quadIdx, fx.pill, op)
 }

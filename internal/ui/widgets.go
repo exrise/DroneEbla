@@ -55,8 +55,8 @@ var interTTF []byte
 
 var (
 	fontSrc   *text.GoTextFaceSource
-	faces     = map[float64]*text.GoTextFace{}
-	boldFaces = map[float64]*text.GoTextFace{}
+	faces     = map[faceKey]*text.GoTextFace{}
+	boldFaces = map[faceKey]*text.GoTextFace{}
 )
 
 func init() {
@@ -67,30 +67,35 @@ func init() {
 	}
 }
 
-// newFace — шрифт Inter нужного кегля и веса (вариативная ось wght); для крупных размеров
-// включается оптический размер (ось opsz).
-func newFace(size, weight float64) *text.GoTextFace {
-	f := &text.GoTextFace{Source: fontSrc, Size: size}
+// faceKey — кегль в логических единицах и масштаб отрисовки.
+type faceKey struct{ size, scale float64 }
+
+// newFaceScaled — шрифт Inter кегля size (логические единицы), нарисованный в scale раз крупнее;
+// вес — вариативная ось wght, для крупных размеров включается оптический размер (ось opsz).
+func newFaceScaled(size, weight, scale float64) *text.GoTextFace {
+	f := &text.GoTextFace{Source: fontSrc, Size: size * scale}
 	f.SetVariation(text.MustParseTag("wght"), float32(weight))
 	f.SetVariation(text.MustParseTag("opsz"), float32(math.Max(14, math.Min(32, size))))
 	return f
 }
 
 func face(size float64) *text.GoTextFace {
-	if f, ok := faces[size]; ok {
+	k := faceKey{size, rs}
+	if f, ok := faces[k]; ok {
 		return f
 	}
-	f := newFace(size, 400)
-	faces[size] = f
+	f := newFaceScaled(size, 400, rs)
+	faces[k] = f
 	return f
 }
 
 func boldFace(size float64) *text.GoTextFace {
-	if f, ok := boldFaces[size]; ok {
+	k := faceKey{size, rs}
+	if f, ok := boldFaces[k]; ok {
 		return f
 	}
-	f := newFace(size, 650)
-	boldFaces[size] = f
+	f := newFaceScaled(size, 650, rs)
+	boldFaces[k] = f
 	return f
 }
 
@@ -146,31 +151,44 @@ func (u *UI) blockUI(x, y, w, h int) {
 	}
 }
 
+// rs — масштаб отрисовки: физических пикселей на логическую единицу интерфейса. Вся вёрстка
+// ведётся в логических единицах, а рисуется сразу в родном разрешении экрана — так на 4K
+// текст и линии остаются чёткими (а не растягиваются из маленького кадра).
+var rs = 1.0
+
+// px переводит логическую координату в физическую.
+func px(v float64) float32 { return float32(v * rs) }
+
+// snap — физическая координата, округлённая до пикселя (рамки без «лесенки» и швов).
+func snap(v float64) float32 { return float32(math.Round(v * rs)) }
+
 func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {
-	vector.FillRect(dst, float32(x), float32(y), float32(w), float32(h), c, false)
+	x0, y0, x1, y1 := snap(x), snap(y), snap(x+w), snap(y+h)
+	vector.FillRect(dst, x0, y0, x1-x0, y1-y0, c, false)
 }
 
 func strokeRect(dst *ebiten.Image, x, y, w, h float64, c color.Color, t float32) {
-	vector.StrokeRect(dst, float32(x), float32(y), float32(w), float32(h), t, c, false)
+	x0, y0, x1, y1 := snap(x), snap(y), snap(x+w), snap(y+h)
+	vector.StrokeRect(dst, x0, y0, x1-x0, y1-y0, float32(math.Max(1, math.Round(float64(t)*rs))), c, false)
 }
 
 func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
-	vector.StrokeLine(dst, float32(x0), float32(y0), float32(x1), float32(y1), t, c, false)
+	vector.StrokeLine(dst, px(x0), px(y0), px(x1), px(y1), float32(math.Max(1, float64(t)*rs)), c, true)
 }
 
 func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
-	vector.StrokeCircle(dst, float32(x), float32(y), float32(r), t, c, false)
+	vector.StrokeCircle(dst, px(x), px(y), px(r), float32(math.Max(1, float64(t)*rs)), c, true)
 }
 
 func disc(dst *ebiten.Image, x, y, r float64, c color.Color) {
-	vector.FillCircle(dst, float32(x), float32(y), float32(r), c, false)
+	vector.FillCircle(dst, px(x), px(y), px(r), c, true)
 }
 
 // drawText рисует строку; align: 0 влево, 1 по центру, 2 вправо.
 func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
 	f := face(size)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(x, y)
+	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
 	op.ColorScale.ScaleWithColor(c)
 	switch align {
 	case 1:
@@ -184,7 +202,7 @@ func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.C
 func drawBold(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
 	f := boldFace(size)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(x, y)
+	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
 	op.ColorScale.ScaleWithColor(c)
 	switch align {
 	case 1:
@@ -205,7 +223,7 @@ func drawTextHalo(dst *ebiten.Image, s string, x, y, size float64, c, halo color
 
 func textWidth(s string, size float64) float64 {
 	w, _ := text.Measure(s, face(size), 0)
-	return w
+	return w / rs
 }
 
 // wrap разбивает текст на строки по ширине.
@@ -369,7 +387,7 @@ func (u *UI) drawTooltip() {
 
 // sub возвращает подизображение экрана для обрезки содержимого.
 func (u *UI) sub(x, y, w, h int) *ebiten.Image {
-	return u.screen.SubImage(image.Rect(x, y, x+w, y+h)).(*ebiten.Image)
+	return u.screen.SubImage(image.Rect(int(snap(float64(x))), int(snap(float64(y))), int(snap(float64(x+w))), int(snap(float64(y+h))))).(*ebiten.Image)
 }
 
 // TextField — однострочное поле ввода.
@@ -462,9 +480,9 @@ func triangle(dst *ebiten.Image, x1, y1, x2, y2, x3, y3 float64, c color.Color) 
 	r, g, b, a := c.RGBA()
 	cr, cg, cb, ca := float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff
 	vs := []ebiten.Vertex{
-		{DstX: float32(x1), DstY: float32(y1), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
-		{DstX: float32(x2), DstY: float32(y2), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
-		{DstX: float32(x3), DstY: float32(y3), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
+		{DstX: px(x1), DstY: px(y1), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
+		{DstX: px(x2), DstY: px(y2), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
+		{DstX: px(x3), DstY: px(y3), SrcX: 1, SrcY: 1, ColorR: cr, ColorG: cg, ColorB: cb, ColorA: ca},
 	}
 	op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
 	dst.DrawTriangles32(vs, []uint32{0, 1, 2}, whitePix, op)

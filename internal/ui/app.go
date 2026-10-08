@@ -82,9 +82,10 @@ type Game struct {
 	capped         bool    // выбранный масштаб урезан: интерфейс не помещается
 	dsf            float64 // масштаб системы (DPI)
 	layoutN        int
-	menuOpen       bool // окно меню в партии
-	menuPage       int  // 0 — меню, 1 — настройки
-	techOpen       bool // открыто окно исследований
+	renderScale    float64 // физических пикселей на логическую единицу интерфейса
+	menuOpen       bool    // окно меню в партии
+	menuPage       int     // 0 — меню, 1 — настройки
+	techOpen       bool    // открыто окно исследований
 	scroll         map[string]float64
 	sel            Selection
 	mode           int
@@ -149,8 +150,15 @@ func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 // Notice — сообщение для главного меню.
 func (g *Game) Notice(s string) { g.notices = append(g.notices, s) }
 
-// Layout — логический размер экрана: окно делится на масштаб интерфейса (авто или выбранный игроком).
+// Layout — размер кадра равен размеру окна в физических пикселях: интерфейс рисуется сразу в родном
+// разрешении (на 4K остаётся чётким), а масштаб `rs` (авто или выбранный игроком) применяется при отрисовке.
 func (g *Game) Layout(w, h int) (int, int) {
+	fw, fh := g.LayoutF(float64(w), float64(h))
+	return int(math.Ceil(fw)), int(math.Ceil(fh))
+}
+
+// LayoutF — то же с дробным размером (масштаб системы бывает 125% и 150%).
+func (g *Game) LayoutF(w, h float64) (float64, float64) {
 	if g.layoutN%30 == 0 {
 		g.dsf = 1
 		if m := ebiten.Monitor(); m != nil {
@@ -158,11 +166,12 @@ func (g *Game) Layout(w, h int) (int, int) {
 		}
 	}
 	g.layoutN++
-	s := layoutScale(float64(w), float64(h), g.dsf, g.set.Scale)
+	s := layoutScale(w, h, g.dsf, g.set.Scale)
 	g.effScale = s / g.dsf
 	g.capped = g.set.Scale > 0 && s < g.set.Scale*g.dsf-1e-9
-	// Рисуем в физических пикселях: логический размер = физический / масштаб.
-	return int(float64(w) * g.dsf / s), int(float64(h) * g.dsf / s)
+	g.renderScale = s
+	rs = s
+	return w * g.dsf, h * g.dsf
 }
 
 // uiScale — масштаб интерфейса: образец — окно 1440×810; шаг 0.25, чтобы картинка оставалась чёткой.
@@ -176,7 +185,8 @@ func uiScale(w, h int) float64 {
 func (g *Game) Update() error {
 	in := &g.ui.in
 	in.tick++
-	in.mx, in.my = ebiten.CursorPosition()
+	cx, cy := ebiten.CursorPosition() // в физических пикселях кадра
+	in.mx, in.my = int(float64(cx)/rs), int(float64(cy)/rs)
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		in.click = true
 		if in.tick-in.lastClickT < 18 {
@@ -212,7 +222,7 @@ func (g *Game) resetInput() {
 // Draw — отрисовка и обработка интерфейса (непосредственный режим).
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.screen = screen
-	g.ui.W, g.ui.H = screen.Bounds().Dx(), screen.Bounds().Dy()
+	g.ui.W, g.ui.H = int(float64(screen.Bounds().Dx())/rs), int(float64(screen.Bounds().Dy())/rs)
 	g.fxInit()
 	screen.Fill(colPanel2)
 	if g.scene != sceneGame {
@@ -261,7 +271,7 @@ func (g *Game) menuFrame(title string) (int, int) {
 	cx := u.W / 2
 	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
-	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 470}[g.scene]
+	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 520}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {
 		ph = u.H - 150 - 24
 	}

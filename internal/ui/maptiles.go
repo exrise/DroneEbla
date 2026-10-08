@@ -26,7 +26,7 @@ const (
 
 // lodScales — пикселей на км для каждого уровня. Уровень выбирается так,
 // чтобы плитка растягивалась не более чем в 1.3 раза.
-var lodScales = []float64{1.0, 1.8, 3.2, 6.0, 14.0}
+var lodScales = []float64{1.0, 1.8, 3.2, 6.0, 14.0, 28.0}
 
 type seg struct{ x0, y0, x1, y1 float32 } // километры
 
@@ -366,6 +366,7 @@ func (t *tileSet) drawTile(dst *ebiten.Image, cam *Camera, k lodKey, img *ebiten
 	k2 := cam.Z / S
 	op.GeoM.Scale(k2, k2)
 	op.GeoM.Translate(sx, sy)
+	op.GeoM.Scale(rs, rs)
 	dst.DrawImage(sub, op)
 }
 
@@ -373,7 +374,7 @@ func (t *tileSet) drawTile(dst *ebiten.Image, cam *Camera, k lodKey, img *ebiten
 func (t *tileSet) draw(dst *ebiten.Image, cam *Camera) {
 	t.frame++
 	t.pump()
-	level := levelFor(cam.Z)
+	level := levelFor(cam.Z * rs) // детализация по физическим пикселям
 	S := lodScales[level]
 	wx0, wy0 := cam.ToWorld(float64(cam.X), float64(cam.Y))
 	wx1, wy1 := cam.ToWorld(float64(cam.X+cam.W), float64(cam.Y+cam.H))

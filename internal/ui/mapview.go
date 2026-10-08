@@ -7,7 +7,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/exrise/droneebla/internal/sim"
 	"github.com/exrise/droneebla/internal/world"
@@ -203,6 +202,7 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(cam.Z*r.m.TileKm, cam.Z*r.m.TileKm)
 		op.GeoM.Translate(ox, oy)
+		op.GeoM.Scale(rs, rs)
 		dst.DrawImage(img, op)
 	}
 	if layers["deposits"] {
@@ -231,7 +231,7 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 			ex, ey := dx/l*float64(w)/2, dy/l*float64(w)/2
 			x0, y0, x1, y1 = x0-ex, y0-ey, x1+ex, y1+ey
 		}
-		vector.StrokeLine(dst, float32(x0), float32(y0), float32(x1), float32(y1), w, colFront, false)
+		line(dst, x0, y0, x1, y1, colFront, w)
 	}
 }
 
