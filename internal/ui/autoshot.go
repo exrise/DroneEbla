@@ -54,6 +54,10 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.autoSolo(screen)
 		return
 	}
+	if os.Getenv("DRONEEBLA_SETTINGS") != "" {
+		g.autoSettings(screen)
+		return
+	}
 	if os.Getenv("DRONEEBLA_LOBBY") != "" {
 		g.autoLobby(screen)
 		return
@@ -258,6 +262,43 @@ func (g *Game) autoLobby(screen *ebiten.Image) {
 		}
 	case 6:
 		g.save(screen, "l0_lobby")
+		os.Exit(0)
+	}
+	a.step++
+}
+
+// autoSettings — снимки экрана настроек и меню в партии при разных масштабах.
+func (g *Game) autoSettings(screen *ebiten.Image) {
+	a := g.auto
+	switch a.step {
+	case 0:
+		g.save(screen, "c0_menu")
+		g.scene = sceneSettings
+	case 3:
+		g.save(screen, "c1_settings")
+		g.setScale(0.75)
+	case 6:
+		g.save(screen, "c2_settings_75")
+		g.setScale(2)
+	case 9:
+		g.save(screen, "c3_settings_200")
+		g.setScale(1)
+		g.startGame(netplay.NewSandbox(sim.New(g.cat, g.m, true), 0))
+	case 14:
+		g.save(screen, "c4_game_100")
+		g.menuOpen = true
+	case 17:
+		g.save(screen, "c5_gamemenu")
+		g.menuPage = 1
+	case 20:
+		g.save(screen, "c6_gamemenu_settings")
+		g.menuOpen = false
+		g.setScale(0.75)
+	case 24:
+		g.save(screen, "c7_game_75")
+		g.setScale(1.5)
+	case 28:
+		g.save(screen, "c8_game_150")
 		os.Exit(0)
 	}
 	a.step++

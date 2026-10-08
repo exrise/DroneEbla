@@ -35,6 +35,12 @@ func (g *Game) gameKeys() {
 	if g.sess == nil {
 		return
 	}
+	if g.menuOpen {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.menuOpen = false
+		}
+		return
+	}
 	pan := 600 / g.cam.Z / 60
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		g.cam.CY -= pan
@@ -48,10 +54,11 @@ func (g *Game) gameKeys() {
 	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		g.cam.CX += pan
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) || inpututil.IsKeyJustPressed(ebiten.KeyKPAdd) {
+	zoomOK := !ctrlHeld() // Ctrl+«+»/«−» меняют масштаб интерфейса
+	if zoomOK && (inpututil.IsKeyJustPressed(ebiten.KeyEqual) || inpututil.IsKeyJustPressed(ebiten.KeyKPAdd)) {
 		g.zoomAt(1.25, float64(g.cam.X+g.cam.W/2), float64(g.cam.Y+g.cam.H/2))
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyMinus) || inpututil.IsKeyJustPressed(ebiten.KeyKPSubtract) {
+	if zoomOK && (inpututil.IsKeyJustPressed(ebiten.KeyMinus) || inpututil.IsKeyJustPressed(ebiten.KeyKPSubtract)) {
 		g.zoomAt(0.8, float64(g.cam.X+g.cam.W/2), float64(g.cam.Y+g.cam.H/2))
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.view != nil && !g.view.TimeLocked {
@@ -75,8 +82,10 @@ func (g *Game) gameKeys() {
 		if g.mode != modeNone {
 			g.mode = modeNone
 			g.strike = strikePlan{}
-		} else {
+		} else if g.sel.Kind != "" {
 			g.sel = Selection{}
+		} else {
+			g.toggleGameMenu()
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
@@ -145,6 +154,11 @@ func (g *Game) drawGame() {
 	hov := g.drawEntities(mapImg)
 
 	g.glassPrep(u.screen)
+	var live input
+	frozen := g.menuOpen
+	if frozen {
+		live = u.freezeInput() // пока открыто меню, панели игры не реагируют на мышь
+	}
 	// Панели. Кнопка «Меню» может завершить игру посреди кадра.
 	g.drawTopBar()
 	if g.sess == nil {
@@ -169,6 +183,14 @@ func (g *Game) drawGame() {
 		}
 	}
 
+	if g.menuOpen {
+		if frozen {
+			u.in = live
+		}
+		g.drawGameMenu()
+		return
+	}
+
 	// Ввод карты.
 	g.mapInput(hov)
 }
@@ -179,6 +201,7 @@ func (g *Game) leaveGame() {
 	}
 	g.sess = nil
 	g.view = nil
+	g.menuOpen, g.menuPage = false, 0
 	g.scene = sceneMenu
 }
 
@@ -872,9 +895,8 @@ func (g *Game) drawTopBar() {
 			g.quickSave()
 		}
 	}
-	if u.Button(rx-bw, 35, bw, 24, "Меню") {
-		g.leaveGame()
-		return
+	if u.Button(rx-bw, 35, bw, 24, "Меню (Esc)") {
+		g.toggleGameMenu()
 	}
 	rx -= bw + 12
 	for k := 5; k >= 1; k-- {

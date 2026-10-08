@@ -173,7 +173,7 @@ type glassFX struct {
 // glassKey переключает стиль по F9.
 func (g *Game) glassKey() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF9) {
-		g.glass = !g.glass
+		g.setGlass(!g.glass)
 	}
 }
 

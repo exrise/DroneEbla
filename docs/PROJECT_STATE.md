@@ -157,7 +157,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 
 ## Обновления блока D (интерфейс)
 - `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 3` (версия 3: линейки версий, `Direction.FPVPow`; 5: мультиплеер до 6 игроков, лобби).
-- `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), F11/Alt+Enter в `Game.Update`, `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).
+- `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), настройки экрана — `ui/settings.go` (`Settings`, `settings.json`, `layoutScale`, экран настроек, меню партии; F11/Alt+Enter и Ctrl+±/0 — `settingsKeys`), `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).
 
 ## Обновления блока B (ПВО)
 - Перехват самолётами: `BuildingType.Intercept`, `Aircraft["fighter"]`, `Building.Busy`, `Engagement.Bld`, `sim/airdefense.go fighterIntercepts` и `underEnemyAD`; запасы `m_aam_ru/m_aam_ua`.

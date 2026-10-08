@@ -30,6 +30,7 @@ const (
 	sceneSolo
 	sceneLoad
 	sceneLobby
+	sceneSettings
 	sceneGame
 )
 
@@ -73,6 +74,16 @@ type Game struct {
 	glass          bool // стиль «жидкое стекло»
 	fxFailed       bool
 	menuCheat      bool // галочка «всё открыто» в настройке песочницы
+	set            Settings
+	setPath        string
+	winSeen        [2]int // последний замеченный размер окна и тик, когда он появился
+	winSeenAt      int
+	effScale       float64 // масштаб интерфейса, который действует сейчас (1 = 100%)
+	capped         bool    // выбранный масштаб урезан: интерфейс не помещается
+	dsf            float64 // масштаб системы (DPI)
+	layoutN        int
+	menuOpen       bool // окно меню в партии
+	menuPage       int  // 0 — меню, 1 — настройки
 	techOpen       bool // открыто окно исследований
 	scroll         map[string]float64
 	sel            Selection
@@ -117,6 +128,8 @@ func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 	flat := os.Getenv("DRONEEBLA_FLAT") != "" // отладка: плоский стиль без шейдеров
 	g := &Game{
 		glass: !flat,
+		set:   DefaultSettings(),
+		dsf:   1,
 		cat:   cat, m: m, dataDir: dataDir, saveDir: saveDir,
 		dataHash: netplay.DataHash(dataDir),
 		rend:     newMapRenderer(m),
@@ -136,10 +149,20 @@ func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 // Notice — сообщение для главного меню.
 func (g *Game) Notice(s string) { g.notices = append(g.notices, s) }
 
-// Layout — логический размер равен размеру окна.
+// Layout — логический размер экрана: окно делится на масштаб интерфейса (авто или выбранный игроком).
 func (g *Game) Layout(w, h int) (int, int) {
-	s := uiScale(w, h)
-	return int(float64(w) / s), int(float64(h) / s)
+	if g.layoutN%30 == 0 {
+		g.dsf = 1
+		if m := ebiten.Monitor(); m != nil {
+			g.dsf = math.Max(1, m.DeviceScaleFactor())
+		}
+	}
+	g.layoutN++
+	s := layoutScale(float64(w), float64(h), g.dsf, g.set.Scale)
+	g.effScale = s / g.dsf
+	g.capped = g.set.Scale > 0 && s < g.set.Scale*g.dsf-1e-9
+	// Рисуем в физических пикселях: логический размер = физический / масштаб.
+	return int(float64(w) * g.dsf / s), int(float64(h) * g.dsf / s)
 }
 
 // uiScale — масштаб интерфейса: образец — окно 1440×810; шаг 0.25, чтобы картинка оставалась чёткой.
@@ -170,10 +193,8 @@ func (g *Game) Update() error {
 	_, wy := ebiten.Wheel()
 	in.wheel += wy
 	in.collectTextInput()
-	if inpututil.IsKeyJustPressed(ebiten.KeyF11) ||
-		(inpututil.IsKeyJustPressed(ebiten.KeyEnter) && ebiten.IsKeyPressed(ebiten.KeyAlt)) {
-		ebiten.SetFullscreen(!ebiten.IsFullscreen())
-	}
+	g.settingsKeys()
+	g.watchWindow()
 	g.glassKey()
 	if g.scene == sceneGame {
 		g.gameKeys()
@@ -213,6 +234,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawLoad()
 	case sceneLobby:
 		g.drawLobby()
+	case sceneSettings:
+		g.drawSettings()
 	case sceneGame:
 		g.drawGame()
 	}
@@ -238,7 +261,7 @@ func (g *Game) menuFrame(title string) (int, int) {
 	cx := u.W / 2
 	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
-	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520}[g.scene]
+	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 470}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {
 		ph = u.H - 150 - 24
 	}
@@ -290,6 +313,7 @@ func (g *Game) drawMenu() {
 		{"Одиночная игра (против ИИ)", sceneSolo},
 		{"Песочница (оба игрока вручную)", sceneSandbox},
 		{"Загрузить сохранение", sceneLoad},
+		{"Настройки (экран, масштаб)", sceneSettings},
 	}
 	for _, it := range items {
 		if u.Button(cx-bw/2, y, bw, 42, it.label) {
@@ -304,16 +328,11 @@ func (g *Game) drawMenu() {
 		os.Exit(0)
 	}
 	y += 58
-	gl := "Стиль «жидкое стекло»: вкл (F9)"
-	if !g.glass {
-		gl = "Стиль «жидкое стекло»: выкл (F9)"
-	}
-	if u.ButtonState(cx-bw/2, y, bw, 34, gl, g.glass, !g.fxFailed) {
-		g.glass = !g.glass
-	}
-	y += 52
 	fy := float64(y)
 	fy = g.centerText("Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные вводят его IP из Radmin (26.x.x.x) и выбирают сторону в лобби.", cx, fy, menuW, 13, colDim)
+	if fy > float64(u.H-90) {
+		return
+	}
 	fy = g.centerText("Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у всех игроков файлы должны совпадать).", cx, fy+4, menuW, 13, colDim)
 	for _, n := range g.notices {
 		fy = g.centerText(n, cx, fy+4, menuW, 13, colWarn)

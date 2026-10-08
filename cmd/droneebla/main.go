@@ -42,11 +42,18 @@ func main() {
 		fatal("Ошибка карты: " + err.Error())
 	}
 	ebiten.SetWindowTitle("DroneEbla — война на истощение")
-	ebiten.SetWindowSize(1600, 900)
+	settingsPath := filepath.Join(dir, "settings.json")
+	st := ui.LoadSettings(settingsPath)
+	if mon := ebiten.Monitor(); mon != nil {
+		st.FitToMonitor(mon.Size())
+	}
+	ebiten.SetWindowSize(st.WinW, st.WinH)
+	ebiten.SetFullscreen(st.Fullscreen)
 	ebiten.SetWindowSizeLimits(1280, 720, -1, -1)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
 	g := ui.New(cat, m, dataDir, saveDir)
+	g.SetSettings(st, settingsPath)
 	if len(updated) > 0 {
 		g.Notice("Файлы данных обновлены до новой версии: " + strings.Join(updated, ", "))
 	}
