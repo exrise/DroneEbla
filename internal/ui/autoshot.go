@@ -337,6 +337,13 @@ func (g *Game) autoPerf() {
 			a.step = 2
 		}
 	case 2:
+		if a.frame-a.mark == 20 {
+			report("партия, 20 кадров")
+			if h, err := os.Create(filepath.Join(a.dir, "heap_game20.pprof")); err == nil {
+				pprof.Lookup("allocs").WriteTo(h, 0)
+				h.Close()
+			}
+		}
 		if a.frame-a.mark == 120 {
 			report("партия, 120 кадров")
 			if h, err := os.Create(filepath.Join(a.dir, "heap_game.pprof")); err == nil {
