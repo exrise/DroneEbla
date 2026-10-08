@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -37,10 +39,7 @@ var Rect vec4
 var Radius float
 var Tint vec4
 
-func sdBox(p vec2, b vec2, r float) float {
-	q := abs(p) - b + vec2(r)
-	return length(max(q, vec2(0))) + min(max(q.x, q.y), 0) - r
-}
+//SD
 
 func bg(pos vec2) vec3 {
 	o := imageSrc0Origin()
@@ -52,17 +51,18 @@ func bg(pos vec2) vec3 {
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	half := Rect.zw * 0.5
 	p := dst.xy - (Rect.xy + half)
-	d := sdBox(p, half, Radius)
+	d0 := sdSq(p, half, Radius)
+	e := 1.0
+	n := vec2(
+		sdSq(p+vec2(e, 0), half, Radius)-sdSq(p-vec2(e, 0), half, Radius),
+		sdSq(p+vec2(0, e), half, Radius)-sdSq(p-vec2(0, e), half, Radius))
+	d := d0 / max(length(n)*0.5, 0.35)
+	n = n / (length(n) + 0.0001)
 	shadow := (1 - smoothstep(0, 16, d)) * 0.30
 	if d > 0 {
 		return vec4(0, 0, 0, shadow) * step(0.001, shadow)
 	}
 	depth := -d
-	e := 1.0
-	n := vec2(
-		sdBox(p+vec2(e, 0), half, Radius)-sdBox(p-vec2(e, 0), half, Radius),
-		sdBox(p+vec2(0, e), half, Radius)-sdBox(p-vec2(0, e), half, Radius))
-	n = n / (length(n) + 0.0001)
 	edge := 1 - smoothstep(0, 26, depth)
 	k := edge * edge * 22
 	col := vec3(bg(dst.xy-n*k*1.00).r, bg(dst.xy-n*k*1.12).g, bg(dst.xy-n*k*1.25).b)
@@ -88,15 +88,18 @@ var RimCol vec3
 var Rim float
 var Light float
 
-func sdBox(p vec2, b vec2, r float) float {
-	q := abs(p) - b + vec2(r)
-	return length(max(q, vec2(0))) + min(max(q.x, q.y), 0) - r
-}
+//SD
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	half := Rect.zw * 0.5
 	p := dst.xy - (Rect.xy + half)
-	d := sdBox(p, half, Radius)
+	d0 := sdSq(p, half, Radius)
+	e := 1.0
+	n := vec2(
+		sdSq(p+vec2(e, 0), half, Radius)-sdSq(p-vec2(e, 0), half, Radius),
+		sdSq(p+vec2(0, e), half, Radius)-sdSq(p-vec2(0, e), half, Radius))
+	d := d0 / max(length(n)*0.5, 0.35)
+	n = n / (length(n) + 0.0001)
 	aa := clamp(0.5-d, 0, 1)
 	if aa <= 0 {
 		return vec4(0)
@@ -105,11 +108,6 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	g := 1 - clamp((dst.y-Rect.y)/Rect.w, 0, 1)
 	col := Fill.rgb + vec3(0.10)*g*Light
 	a := Fill.a + 0.06*g*Light
-	e := 1.0
-	n := vec2(
-		sdBox(p+vec2(e, 0), half, Radius)-sdBox(p-vec2(e, 0), half, Radius),
-		sdBox(p+vec2(0, e), half, Radius)-sdBox(p-vec2(0, e), half, Radius))
-	n = n / (length(n) + 0.0001)
 	l := 0.5 + 0.5*dot(n, normalize(vec2(-0.5, -0.85)))
 	r := (1 - smoothstep(0, 1.4, depth)) * Rim * (0.35 + 0.65*l)
 	col = mix(col, RimCol, clamp(r, 0, 1))
@@ -144,6 +142,27 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 }
 `
 
+// Непрерывные («яблочные») скругления: в зоне угла расстояние считается по p-норме
+// (суперэллипс), поэтому кривизна нарастает плавно и угол не похож на дугу окружности.
+const (
+	squircleN     = "4.0"  // показатель суперэллипса (у Apple угол плавно разгоняется на ~1.5 радиуса)
+	squircleScale = "1.6" // эффективный радиус: на диагонали суперэллипс «срезан», компенсируем
+)
+
+const sdSquircleKage = `func sdSq(p vec2, b vec2, r float) float {
+	R := min(r*` + squircleScale + `, min(b.x, b.y))
+	q := abs(p) - b + vec2(R)
+	qp := max(q, vec2(0.00001))
+	corner := pow(pow(qp.x, ` + squircleN + `)+pow(qp.y, ` + squircleN + `), 1.0/` + squircleN + `)
+	return corner + min(max(q.x, q.y), 0.0) - R
+}
+`
+
+// withSquircle подставляет общую функцию расстояния в текст шейдера.
+func withSquircle(src string) []byte {
+	return []byte(strings.Replace(src, "//SD\n", sdSquircleKage, 1))
+}
+
 // glassFX — ресурсы эффекта.
 type glassFX struct {
 	blur, glass, pill, backdrop *ebiten.Shader
@@ -169,8 +188,8 @@ func (g *Game) fxInit() {
 		fx := &glassFX{}
 		var errs [4]error
 		fx.blur, errs[0] = ebiten.NewShader([]byte(blurKage))
-		fx.glass, errs[1] = ebiten.NewShader([]byte(glassKage))
-		fx.pill, errs[2] = ebiten.NewShader([]byte(pillKage))
+		fx.glass, errs[1] = ebiten.NewShader(withSquircle(glassKage))
+		fx.pill, errs[2] = ebiten.NewShader(withSquircle(pillKage))
 		fx.backdrop, errs[3] = ebiten.NewShader([]byte(backdropKage))
 		for _, e := range errs {
 			if e != nil {

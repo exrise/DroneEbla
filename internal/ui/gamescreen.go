@@ -808,7 +808,7 @@ func (g *Game) drawTopBar() {
 	u := &g.ui
 	v := g.view
 	if u.on {
-		u.glassPanel(6, 5, float32(u.W-12), topH-10, 16, 0.7)
+		u.glassPanel(6, 5, float32(u.W-12), topH-10, 22, 0.7)
 	} else {
 		fillRect(u.screen, 0, 0, float64(u.W), topH, colPanel)
 		line(u.screen, 0, topH, float64(u.W), topH, colBorder, 1)

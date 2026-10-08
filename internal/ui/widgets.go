@@ -322,7 +322,7 @@ func (u *UI) Panel(x, y, w, h int) { u.PanelT(x, y, w, h, 0.66) }
 // PanelT — панель с заданной плотностью подкраски стекла (0.5…0.9).
 func (u *UI) PanelT(x, y, w, h int, tint float32) {
 	if u.on {
-		u.glassPanel(float32(x), float32(y), float32(w), float32(h), 18, tint)
+		u.glassPanel(float32(x), float32(y), float32(w), float32(h), 24, tint)
 	} else {
 		fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), colPanel)
 		strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
@@ -473,7 +473,7 @@ func triangle(dst *ebiten.Image, x1, y1, x2, y2, x3, y3 float64, c color.Color) 
 // plate — плашка для уведомлений и подсказок: тёмное стекло с цветной кромкой (в плоском стиле — рамка).
 func (u *UI) plate(x, y, w, h float64, flat, rim color.RGBA) {
 	if u.on {
-		u.pill(float32(x), float32(y), float32(w), float32(h), 11, [4]float32{0.04, 0.055, 0.08, 0.88},
+		u.pill(float32(x), float32(y), float32(w), float32(h), 14, [4]float32{0.04, 0.055, 0.08, 0.88},
 			0.9, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 0.4)
 		return
 	}
@@ -484,7 +484,7 @@ func (u *UI) plate(x, y, w, h float64, flat, rim color.RGBA) {
 // card — карточка внутри панели: лёгкая светлая плашка (в плоском стиле — тёмная заливка).
 func (u *UI) card(x, y, w, h float64, rim color.RGBA, strong float32) {
 	if u.on {
-		u.pill(float32(x), float32(y), float32(w), float32(h), 12, [4]float32{1, 1, 1, 0.06 + 0.04*strong},
+		u.pill(float32(x), float32(y), float32(w), float32(h), 16, [4]float32{1, 1, 1, 0.06 + 0.04*strong},
 			0.35+0.6*strong, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 1)
 		return
 	}
