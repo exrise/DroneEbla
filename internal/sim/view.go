@@ -30,6 +30,7 @@ type View struct {
 	Side       int
 	Sandbox    bool
 	Solo       bool
+	TimeLocked bool // игрок не управляет скоростью и паузой (не хост в сетевой игре)
 	Time       float64
 	PrepEnd    float64
 	War        bool

@@ -25,7 +25,7 @@ import (
 )
 
 // Version — версия протокола.
-const Version = 4
+const Version = 5
 
 // DefaultPort — порт по умолчанию.
 const DefaultPort = 27015
@@ -36,7 +36,10 @@ type Session interface {
 	Send(c sim.Command)
 	Messages() []string
 	Side() int
-	SetSide(s int) // только песочница
+	SetSide(s int)      // только песочница
+	Lobby() *LobbyState // лобби сетевой игры (nil — не сетевая)
+	PickSide(side int)  // выбрать сторону в лобби
+	StartGame()         // начать партию (только хост)
 	IsHost() bool
 	Sandbox() bool
 	Status() string // "" — идёт игра
@@ -50,10 +53,53 @@ type Hello struct {
 	DataHash string
 }
 
+// MaxPerSide — сколько игроков может играть за одну сторону; всего до 6.
+const MaxPerSide = 3
+
 // Welcome — ответ хоста.
 type Welcome struct {
-	Side  int
+	ID    int // номер игрока (0 — хост)
 	Error string
+}
+
+// Pick — выбор стороны клиентом.
+type Pick struct{ Side int }
+
+// LobbyPlayer — игрок в лобби.
+type LobbyPlayer struct {
+	ID   int
+	Name string
+	Side int // -1 — сторона ещё не выбрана
+	Host bool
+}
+
+// LobbyState — состояние лобби, которое хост рассылает всем игрокам.
+type LobbyState struct {
+	You     int // номер получателя
+	Players []LobbyPlayer
+	Started bool
+	Max     int
+}
+
+// Count — сколько игроков на стороне side.
+func (l *LobbyState) Count(side int) int {
+	n := 0
+	for _, p := range l.Players {
+		if p.Side == side {
+			n++
+		}
+	}
+	return n
+}
+
+// Me — запись получателя.
+func (l *LobbyState) Me() LobbyPlayer {
+	for _, p := range l.Players {
+		if p.ID == l.You {
+			return p
+		}
+	}
+	return LobbyPlayer{ID: l.You, Side: -1}
 }
 
 // Msg — конверт сетевого сообщения.
@@ -63,6 +109,8 @@ type Msg struct {
 	Cmd     *sim.Command
 	View    *sim.View
 	Notice  string
+	Lobby   *LobbyState
+	Pick    *Pick
 }
 
 // conn — gob поверх сжатого потока.
@@ -127,23 +175,32 @@ func LocalIPs() []string {
 // ---------------------------------------------------------------------
 // Хост и песочница.
 
-// Host — локальная симуляция; при сетевой игре принимает одного клиента.
+// Host — локальная симуляция; при сетевой игре принимает до 5 клиентов (до 3 игроков на сторону).
 type Host struct {
 	mu       sync.Mutex
 	w        *sim.World
-	side     int
+	side     int // сторона хоста
 	sandbox  bool
 	ln       net.Listener
-	client   *conn
-	status   string
+	players  []*player
+	nextID   int
+	started  bool // сетевая партия началась (до этого — лобби)
+	network  bool
 	msgs     []string
 	stop     chan struct{}
-	lastEv   uint64
-	sending  bool
 	view     *sim.View
 	viewAt   time.Time
 	dataHash string
 	ai       *ai.AI // компьютерный противник (одиночная игра)
+}
+
+// player — подключённый клиент.
+type player struct {
+	id      int
+	k       *conn
+	side    int // -1 — не выбрана
+	sending bool
+	lastEv  uint64
 }
 
 // LogDir — папка журналов партий; пусто — журнал не ведётся (например, в тестах).
@@ -172,6 +229,7 @@ func startLog(w *sim.World, mode string, extra map[string]any) {
 // NewSandbox — одиночная игра без сети.
 func NewSandbox(w *sim.World, side int) *Host {
 	startLog(w, "sandbox", map[string]any{"side": side})
+	w.NetHost = false
 	h := &Host{w: w, side: side, sandbox: true, stop: make(chan struct{})}
 	go h.loop()
 	return h
@@ -180,7 +238,7 @@ func NewSandbox(w *sim.World, side int) *Host {
 // NewSolo — одиночная игра: человек играет за сторону human, другой стороной
 // управляет ИИ. Правила и туман войны те же, что в сетевой игре.
 func NewSolo(w *sim.World, human int) *Host {
-	w.Sandbox, w.Solo, w.Human = true, true, human
+	w.Sandbox, w.Solo, w.Human, w.NetHost = true, true, human, false
 	w.StartPlacement()
 	startLog(w, "solo", map[string]any{"human": human})
 	h := &Host{w: w, side: human, sandbox: true, ai: ai.New(w.Catalog(), 1-human), stop: make(chan struct{})}
@@ -195,9 +253,9 @@ func NewHost(w *sim.World, side int, port int, dataHash string) (*Host, error) {
 		return nil, err
 	}
 	w.StartPlacement()
+	w.NetHost, w.HostSide = true, side
 	startLog(w, "network", map[string]any{"host_side": side, "data_hash": dataHash})
-	h := &Host{w: w, side: side, ln: ln, stop: make(chan struct{}), dataHash: dataHash,
-		status: fmt.Sprintf("Ожидание второго игрока на порту %d…", port)}
+	h := &Host{w: w, side: side, ln: ln, stop: make(chan struct{}), dataHash: dataHash, network: true, nextID: 1}
 	go h.accept()
 	go h.loop()
 	return h, nil
@@ -228,47 +286,151 @@ func (h *Host) accept() {
 			continue
 		}
 		h.mu.Lock()
-		if h.client != nil {
+		if len(h.players) >= 2*MaxPerSide-1 {
 			h.mu.Unlock()
-			k.send(&Msg{Welcome: &Welcome{Error: "в игре уже есть второй игрок"}})
+			k.send(&Msg{Welcome: &Welcome{Error: "в игре уже 6 игроков"}})
 			c.Close()
 			continue
 		}
-		h.client = k
-		h.lastEv = 0
-		h.status = ""
-		h.msgs = append(h.msgs, "Второй игрок подключился: "+c.RemoteAddr().String())
+		p := &player{id: h.nextID, k: k, side: -1}
+		h.nextID++
+		h.players = append(h.players, p)
+		h.note(fmt.Sprintf("Игрок %d подключился: %s", p.id, c.RemoteAddr().String()))
+		h.msgs = append(h.msgs, fmt.Sprintf("Игрок %d подключился", p.id))
+		ls := h.lobbyFor(p.id)
 		h.mu.Unlock()
-		k.send(&Msg{Welcome: &Welcome{Side: 1 - h.side}})
-		go h.readClient(k)
+		k.send(&Msg{Welcome: &Welcome{ID: p.id}})
+		k.send(&Msg{Lobby: ls})
+		h.broadcastLobby(p.id)
+		go h.readPlayer(p)
 	}
 }
 
-func (h *Host) readClient(k *conn) {
+// note пишет заметку в журнал партии (под блокировкой хоста).
+func (h *Host) note(text string) { h.w.RecordNote(text) }
+
+// humans — сколько живых игроков на стороне (хост тоже считается).
+func (h *Host) humans(side int) int {
+	n := 0
+	if h.side == side {
+		n++
+	}
+	for _, p := range h.players {
+		if p.side == side {
+			n++
+		}
+	}
+	return n
+}
+
+// lobbyFor — состояние лобби для игрока id.
+func (h *Host) lobbyFor(id int) *LobbyState {
+	ls := &LobbyState{You: id, Started: h.started, Max: MaxPerSide}
+	ls.Players = append(ls.Players, LobbyPlayer{ID: 0, Name: "Хост", Side: h.side, Host: true})
+	for _, p := range h.players {
+		ls.Players = append(ls.Players, LobbyPlayer{ID: p.id, Name: fmt.Sprintf("Игрок %d", p.id), Side: p.side})
+	}
+	return ls
+}
+
+// broadcastLobby рассылает лобби всем клиентам, кроме except (−1 — всем).
+func (h *Host) broadcastLobby(except int) {
+	h.mu.Lock()
+	type out struct {
+		k  *conn
+		ls *LobbyState
+	}
+	var outs []out
+	for _, p := range h.players {
+		if p.id != except {
+			outs = append(outs, out{p.k, h.lobbyFor(p.id)})
+		}
+	}
+	h.mu.Unlock()
+	for _, o := range outs {
+		o.k.send(&Msg{Lobby: o.ls})
+	}
+}
+
+// pick — выбор стороны игроком (под блокировкой).
+func (h *Host) pick(p *player, side int) string {
+	if side < 0 || side > 1 {
+		return "Неверная сторона"
+	}
+	if p.side == side {
+		return ""
+	}
+	if h.started && p.side >= 0 {
+		return "После начала партии сторону менять нельзя"
+	}
+	if h.humans(side) >= MaxPerSide {
+		return fmt.Sprintf("За %s уже %d игрока", data.SideNames[side], MaxPerSide)
+	}
+	p.side = side
+	h.note(fmt.Sprintf("Игрок %d выбрал сторону: %s", p.id, data.SideNames[side]))
+	return ""
+}
+
+func (h *Host) readPlayer(p *player) {
 	for {
-		m, err := k.recv()
+		m, err := p.k.recv()
 		if err != nil {
 			h.mu.Lock()
-			if h.client == k {
-				h.client = nil
-				h.status = "Второй игрок отключился. Ожидание переподключения…"
-				h.w.Sides[1-h.side].Pausing = false
+			for i, q := range h.players {
+				if q == p {
+					h.players = append(h.players[:i], h.players[i+1:]...)
+					break
+				}
 			}
+			h.note(fmt.Sprintf("Игрок %d отключился", p.id))
+			h.msgs = append(h.msgs, fmt.Sprintf("Игрок %d отключился", p.id))
 			h.mu.Unlock()
-			k.c.Close()
+			p.k.c.Close()
+			h.broadcastLobby(-1)
 			return
+		}
+		if m.Pick != nil {
+			h.mu.Lock()
+			e := h.pick(p, m.Pick.Side)
+			h.mu.Unlock()
+			if e != "" {
+				p.k.send(&Msg{Notice: e})
+			}
+			h.broadcastLobby(-1)
+			continue
 		}
 		if m.Cmd != nil {
 			h.mu.Lock()
 			c := *m.Cmd
-			c.Side = 1 - h.side
-			e := h.w.Apply(c)
+			e := ""
+			switch {
+			case p.side < 0 || !h.started:
+				e = "Сначала выберите сторону и дождитесь начала игры"
+			case c.Kind == sim.CmdSpeed || c.Kind == sim.CmdPause:
+				e = "Скоростью и паузой управляет хост"
+			default:
+				c.Side, c.Player = p.side, p.id
+				e = h.w.Apply(c)
+			}
 			h.mu.Unlock()
 			if e != "" {
-				k.send(&Msg{Notice: e})
+				p.k.send(&Msg{Notice: e})
 			}
 		}
 	}
+}
+
+// running — идёт ли время: партия началась и у каждой стороны есть живой игрок.
+func (h *Host) running() bool {
+	if h.sandbox {
+		return true
+	}
+	return h.started && h.humans(0) > 0 && h.humans(1) > 0
+}
+
+type outView struct {
+	p *player
+	v *sim.View
 }
 
 func (h *Host) loop() {
@@ -287,40 +449,75 @@ func (h *Host) loop() {
 				dt = 0.5
 			}
 			h.mu.Lock()
-			running := h.sandbox || h.client != nil
-			if running {
+			if h.running() {
 				h.w.Update(dt)
 				if h.ai != nil && (!h.w.Paused() || h.w.Placement) {
 					h.ai.Tick(h.w)
 				}
 			}
-			var v *sim.View
-			k := h.client
+			var outs []outView
 			sendAcc += dt
-			if k != nil && sendAcc >= 0.2 && !h.sending {
+			if h.started && sendAcc >= 0.2 {
 				sendAcc = 0
-				v = h.w.BuildView(1-h.side, h.lastEv)
-				h.sending = true
+				outs = h.collectViews()
 			}
 			h.mu.Unlock()
-			if v != nil {
-				go func(k *conn, v *sim.View) {
-					err := k.send(&Msg{View: v})
+			for _, o := range outs {
+				go func(o outView) {
+					err := o.p.k.send(&Msg{View: o.v})
 					h.mu.Lock()
-					h.sending = false
+					o.p.sending = false
 					if err == nil {
-						if n := len(v.Events); n > 0 && v.Events[n-1].ID > h.lastEv {
-							h.lastEv = v.Events[n-1].ID
+						if n := len(o.v.Events); n > 0 && o.v.Events[n-1].ID > o.p.lastEv {
+							o.p.lastEv = o.v.Events[n-1].ID
 						}
 					}
 					h.mu.Unlock()
 					if err != nil {
-						k.c.Close()
+						o.p.k.c.Close()
 					}
-				}(k, v)
+				}(o)
 			}
 		}
 	}
+}
+
+// collectViews строит представления для клиентов (под блокировкой): одно на сторону,
+// с общим туманом войны; события фильтруются по курсору каждого игрока.
+func (h *Host) collectViews() []outView {
+	var outs []outView
+	for side := 0; side < 2; side++ {
+		var due []*player
+		minEv := ^uint64(0)
+		for _, p := range h.players {
+			if p.side == side && !p.sending {
+				due = append(due, p)
+				if p.lastEv < minEv {
+					minEv = p.lastEv
+				}
+			}
+		}
+		if len(due) == 0 {
+			continue
+		}
+		base := h.w.BuildView(side, minEv)
+		for _, p := range due {
+			vv := *base
+			vv.Events = nil
+			for _, e := range base.Events {
+				if e.ID > p.lastEv {
+					vv.Events = append(vv.Events, e)
+				}
+			}
+			// Скоростью и паузой управляет хост: клиент видит их, но не меняет.
+			vv.TimeLocked = true
+			vv.MySpeed = vv.Speed
+			vv.Pausing = vv.Paused
+			p.sending = true
+			outs = append(outs, outView{p, &vv})
+		}
+	}
+	return outs
 }
 
 // View — представление для локального игрока.
@@ -360,6 +557,8 @@ func (h *Host) Messages() []string {
 
 func (h *Host) Side() int { return h.side }
 
+// Lobby, PickSide и StartGame нужны только сетевой игре.
+
 // SetSide — смена стороны в песочнице.
 func (h *Host) SetSide(s int) {
 	if h.sandbox && h.ai == nil {
@@ -376,7 +575,51 @@ func (h *Host) Sandbox() bool { return h.sandbox }
 func (h *Host) Status() string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.status
+	if h.network && h.started {
+		for side := 0; side < 2; side++ {
+			if h.humans(side) == 0 {
+				return fmt.Sprintf("За сторону «%s» никого нет — пауза до возвращения игроков", data.SideNames[side])
+			}
+		}
+	}
+	return ""
+}
+
+// Lobby — состояние лобби (nil вне сетевой игры).
+func (h *Host) Lobby() *LobbyState {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.network {
+		return nil
+	}
+	return h.lobbyFor(0)
+}
+
+// PickSide — хост выбирает свою сторону (только до начала партии).
+func (h *Host) PickSide(side int) {
+	h.mu.Lock()
+	if !h.network || h.started || side < 0 || side > 1 || side == h.side || h.humans(side) >= MaxPerSide {
+		h.mu.Unlock()
+		return
+	}
+	h.side = side
+	h.w.HostSide = side
+	h.view = nil
+	h.mu.Unlock()
+	h.broadcastLobby(-1)
+}
+
+// StartGame — хост начинает партию; нужен хотя бы один игрок за каждую сторону.
+func (h *Host) StartGame() {
+	h.mu.Lock()
+	if !h.network || h.started || h.humans(0) == 0 || h.humans(1) == 0 {
+		h.mu.Unlock()
+		return
+	}
+	h.started = true
+	h.note("Партия началась")
+	h.mu.Unlock()
+	h.broadcastLobby(-1)
 }
 
 // Save сохраняет партию.
@@ -398,8 +641,8 @@ func (h *Host) Close() {
 	if h.ln != nil {
 		h.ln.Close()
 	}
-	if h.client != nil {
-		h.client.c.Close()
+	for _, p := range h.players {
+		p.k.c.Close()
 	}
 	h.mu.Unlock()
 }
@@ -414,7 +657,8 @@ func (h *Host) World() *sim.World { return h.w }
 type Client struct {
 	mu     sync.Mutex
 	k      *conn
-	side   int
+	id     int
+	lobby  *LobbyState
 	view   *sim.View
 	events []sim.Event
 	lastEv uint64
@@ -452,7 +696,7 @@ func Connect(addr string, dataHash string) (*Client, error) {
 		c.Close()
 		return nil, fmt.Errorf("%s", m.Welcome.Error)
 	}
-	cl := &Client{k: k, side: m.Welcome.Side, status: "Получение данных…"}
+	cl := &Client{k: k, id: m.Welcome.ID, status: "Лобби"}
 	go cl.read()
 	return cl, nil
 }
@@ -487,6 +731,9 @@ func (cl *Client) read() {
 			cl.view = m.View
 			cl.status = ""
 		}
+		if m.Lobby != nil {
+			cl.lobby = m.Lobby
+		}
 		if m.Notice != "" {
 			cl.msgs = append(cl.msgs, m.Notice)
 		}
@@ -501,7 +748,10 @@ func (cl *Client) View() *sim.View {
 }
 
 func (cl *Client) Send(c sim.Command) {
-	c.Side = cl.side
+	if cl.Side() < 0 {
+		return
+	}
+	c.Side = cl.Side()
 	go func() {
 		if err := cl.k.send(&Msg{Cmd: &c}); err != nil {
 			cl.mu.Lock()
@@ -519,7 +769,28 @@ func (cl *Client) Messages() []string {
 	return m
 }
 
-func (cl *Client) Side() int     { return cl.side }
+func (cl *Client) Side() int {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	if cl.lobby == nil {
+		return -1
+	}
+	return cl.lobby.Me().Side
+}
+
+// Lobby — последнее состояние лобби от хоста.
+func (cl *Client) Lobby() *LobbyState {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	return cl.lobby
+}
+
+// PickSide просит хост перевести игрока на сторону side.
+func (cl *Client) PickSide(side int) {
+	go cl.k.send(&Msg{Pick: &Pick{Side: side}})
+}
+
+func (cl *Client) StartGame()    {}
 func (cl *Client) SetSide(int)   {}
 func (cl *Client) IsHost() bool  { return false }
 func (cl *Client) Sandbox() bool { return false }

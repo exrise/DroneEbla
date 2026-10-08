@@ -27,6 +27,7 @@ const (
 	sceneSandbox
 	sceneSolo
 	sceneLoad
+	sceneLobby
 	sceneGame
 )
 
@@ -190,6 +191,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawSoloSetup()
 	case sceneLoad:
 		g.drawLoad()
+	case sceneLobby:
+		g.drawLobby()
 	case sceneGame:
 		g.drawGame()
 	}
@@ -243,7 +246,7 @@ func (g *Game) drawMenu() {
 		os.Exit(0)
 	}
 	lines := []string{
-		"Сетевая игра на двоих через Radmin VPN: хост создаёт игру, второй игрок вводит его IP из Radmin (26.x.x.x).",
+		"Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные вводят его IP из Radmin (26.x.x.x) и выбирают сторону в лобби.",
 		"Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у обоих игроков файлы должны совпадать).",
 	}
 	for i, l := range lines {
@@ -276,7 +279,7 @@ func (g *Game) drawHostSetup() {
 	drawText(u.screen, "Порт:", float64(cx-180), float64(y+60), 16, colText, 0)
 	g.portField.Draw(u, cx-40, y+52, 110, 32)
 	ips := netplay.LocalIPs()
-	drawText(u.screen, "Ваши IP-адреса (сообщите второму игроку адрес Radmin VPN, обычно 26.x.x.x):", float64(cx), float64(y+104), 14, colDim, 1)
+	drawText(u.screen, "Ваши IP-адреса (сообщите игрокам адрес Radmin VPN, обычно 26.x.x.x):", float64(cx), float64(y+104), 14, colDim, 1)
 	for i, ip := range ips {
 		if i > 5 {
 			break
@@ -297,7 +300,7 @@ func (g *Game) drawHostSetup() {
 			if err != nil {
 				g.menuErr = "Не удалось открыть порт: " + err.Error()
 			} else {
-				g.startGame(h)
+				g.openLobby(h)
 			}
 		}
 	}
@@ -320,7 +323,7 @@ func (g *Game) drawConnect() {
 		if err != nil {
 			g.menuErr = "Ошибка: " + err.Error()
 		} else {
-			g.startGame(cl)
+			g.openLobby(cl)
 		}
 	}
 	if g.menuErr != "" {
@@ -446,7 +449,7 @@ func (g *Game) loadSave(path string, sandbox bool) {
 		g.menuErr = "Не удалось открыть порт: " + err.Error()
 		return
 	}
-	g.startGame(h)
+	g.openLobby(h)
 }
 
 func (g *Game) startGame(s netplay.Session) {

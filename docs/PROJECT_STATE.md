@@ -156,7 +156,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 - Сталь/тыл: `Object.Scale` → `Building.Scale`, тип `rail_station`, ~13 комбинатов и ~24 узла и станции; руда для комбинатов в радиусе 800 км.
 
 ## Обновления блока D (интерфейс)
-- `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 3` (версия 3: линейки версий, `Direction.FPVPow`).
+- `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 3` (версия 3: линейки версий, `Direction.FPVPow`; 5: мультиплеер до 6 игроков, лобби).
 - `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), F11/Alt+Enter в `Game.Update`, `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).
 
 ## Обновления блока B (ПВО)

@@ -54,7 +54,7 @@ func (g *Game) gameKeys() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyMinus) || inpututil.IsKeyJustPressed(ebiten.KeyKPSubtract) {
 		g.zoomAt(0.8, float64(g.cam.X+g.cam.W/2), float64(g.cam.Y+g.cam.H/2))
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.view != nil {
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.view != nil && !g.view.TimeLocked {
 		p := 1
 		if g.view.Pausing {
 			p = 0
@@ -82,6 +82,14 @@ func (g *Game) gameKeys() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
 		g.quickSave()
 	}
+}
+
+// lockNote — пояснение для игрока без управления временем.
+func lockNote(v *sim.View) string {
+	if v.TimeLocked {
+		return " Скоростью и паузой управляет хост."
+	}
+	return ""
 }
 
 func (g *Game) zoomAt(k, sx, sy float64) {
@@ -865,17 +873,17 @@ func (g *Game) drawTopBar() {
 		if k > 3 {
 			lbl = fmt.Sprintf("×%d", int(sim.SpeedMult[k]))
 		}
-		if u.ButtonState(int(rx)-30, 30, 30, 20, lbl, v.MySpeed == k, true) {
+		if u.ButtonState(int(rx)-30, 30, 30, 20, lbl, v.MySpeed == k, !v.TimeLocked) {
 			g.sess.Send(sim.Command{Kind: sim.CmdSpeed, Int: k})
 		}
-		u.Tooltip(int(rx)-30, 30, 30, 20, fmt.Sprintf("Скорость %d (×%.0f). Действует меньшая из выбранных игроками. Клавиши [ и ] (или цифры numpad 1–5).", k, sim.SpeedMult[k]))
+		u.Tooltip(int(rx)-30, 30, 30, 20, fmt.Sprintf("Скорость %d (×%.0f). Клавиши [ и ] (или цифры numpad 1–5).%s", k, sim.SpeedMult[k], lockNote(v)))
 		rx -= 32
 	}
 	pl := "Пауза"
 	if v.Pausing {
 		pl = "Продолжить"
 	}
-	if u.ButtonState(int(rx)-84, 30, 84, 20, pl, v.Pausing, true) {
+	if u.ButtonState(int(rx)-84, 30, 84, 20, pl, v.Pausing, !v.TimeLocked) {
 		p := 1
 		if v.Pausing {
 			p = 0
@@ -883,7 +891,7 @@ func (g *Game) drawTopBar() {
 		g.sess.Send(sim.Command{Kind: sim.CmdPause, Int: p})
 	}
 	if !v.Sandbox {
-		u.Tooltip(int(rx)-84, 30, 84, 20, fmt.Sprintf("Пауза может поставить любой игрок. Осталось: %.0f с. Пробел.", v.PauseLeft))
+		u.Tooltip(int(rx)-84, 30, 84, 20, "Паузой управляет хост. Пробел."+lockNote(v))
 	}
 	status := sim.FmtTime(v.Time)
 	if !v.War {
@@ -894,7 +902,7 @@ func (g *Game) drawTopBar() {
 	}
 	drawText(u.screen, status, float64(u.W)-90, 8, 14, colText, 2)
 	if !v.Sandbox {
-		drawText(u.screen, fmt.Sprintf("скорость: %d (вы %d, противник %d)", v.Speed, v.MySpeed, v.EnemySpeed), rx-92, 33, 11, colDim, 2)
+		drawText(u.screen, fmt.Sprintf("скорость: %d (задаёт хост)", v.Speed), rx-92, 33, 11, colDim, 2)
 	}
 }
 

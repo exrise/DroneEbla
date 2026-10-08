@@ -4,6 +4,9 @@ import "github.com/exrise/droneebla/internal/data"
 
 // EffectiveSpeed — действующая скорость (меньшая из выбранных).
 func (w *World) EffectiveSpeed() int {
+	if w.NetHost {
+		return w.Sides[w.HostSide].Speed
+	}
 	if w.Sandbox {
 		return w.Sides[0].Speed
 	}
@@ -18,6 +21,9 @@ func (w *World) EffectiveSpeed() int {
 func (w *World) Paused() bool {
 	if w.Winner >= 0 || w.Placement {
 		return true
+	}
+	if w.NetHost {
+		return w.Sides[w.HostSide].Pausing
 	}
 	for s := 0; s < 2; s++ {
 		sd := w.Sides[s]
@@ -34,7 +40,7 @@ func (w *World) Update(realSec float64) {
 		return
 	}
 	if w.Paused() {
-		if !w.Sandbox {
+		if !w.Sandbox && !w.NetHost {
 			for s := 0; s < 2; s++ {
 				sd := w.Sides[s]
 				if sd.Pausing {

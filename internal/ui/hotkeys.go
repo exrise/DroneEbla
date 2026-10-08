@@ -18,7 +18,7 @@ import (
 
 // speedKeys переключает скорость игры.
 func (g *Game) speedKeys() {
-	if g.view == nil {
+	if g.view == nil || g.view.TimeLocked {
 		return
 	}
 	cur := g.view.MySpeed

@@ -90,6 +90,9 @@ func (w *World) recCommand(c Command, err string) {
 	if c.ID != 0 {
 		d["id"] = c.ID
 	}
+	if c.Player != 0 {
+		d["player"] = c.Player
+	}
 	if c.Count != 0 {
 		d["count"] = c.Count
 	}
@@ -210,3 +213,10 @@ func (w *World) recSnapshot() {
 }
 
 func r1(v float64) float64 { return math.Round(v*10) / 10 }
+
+// RecordNote дописывает в журнал партии произвольную заметку (вход и выход игроков и т. п.).
+func (w *World) RecordNote(text string) {
+	if w.rec != nil {
+		w.rec.write("note", w.Time, map[string]any{"text": text})
+	}
+}

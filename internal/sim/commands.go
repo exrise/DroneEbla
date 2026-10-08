@@ -21,6 +21,8 @@ type Command struct {
 	Pts   []Pt
 	Vals  []float64
 	Delay float64
+	// Player — номер игрока в сетевой игре (0 — хост); заполняет хост, нужен журналу партий.
+	Player int
 }
 
 // Виды приказов.

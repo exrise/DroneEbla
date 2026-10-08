@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/exrise/droneebla/internal/ai"
+	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/netplay"
 	"github.com/exrise/droneebla/internal/sim"
 )
@@ -51,6 +52,10 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 	}
 	if os.Getenv("DRONEEBLA_SOLO") != "" {
 		g.autoSolo(screen)
+		return
+	}
+	if os.Getenv("DRONEEBLA_LOBBY") != "" {
+		g.autoLobby(screen)
 		return
 	}
 	switch a.step {
@@ -227,6 +232,32 @@ func (g *Game) autoSolo(screen *ebiten.Image) {
 		g.view = nil
 	case 21:
 		g.save(screen, "s8_tech_ua")
+		os.Exit(0)
+	}
+	a.step++
+}
+
+// autoLobby — сценарий лобби (DRONEEBLA_LOBBY=1): хост и несколько клиентов.
+func (g *Game) autoLobby(screen *ebiten.Image) {
+	a := g.auto
+	switch a.step {
+	case 0:
+		w := sim.New(g.cat, g.m, false)
+		h, err := netplay.NewHost(w, data.RU, 27990, g.dataHash)
+		if err != nil {
+			os.Exit(1)
+		}
+		g.openLobby(h)
+		for i, side := range []int{data.UA, data.UA, data.RU} {
+			cl, err := netplay.Connect("127.0.0.1:27990", g.dataHash)
+			if err != nil {
+				os.Exit(1)
+			}
+			cl.PickSide(side)
+			_ = i
+		}
+	case 6:
+		g.save(screen, "l0_lobby")
 		os.Exit(0)
 	}
 	a.step++

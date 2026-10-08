@@ -34,9 +34,12 @@ func TestHostClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cl.Close()
-	if cl.Side() != data.UA {
-		t.Fatal("клиент должен играть за Украину")
+	if cl.Side() != -1 {
+		t.Fatal("до выбора стороны клиент нигде не играет")
 	}
+	cl.PickSide(data.UA)
+	waitFor(t, "выбор стороны", func() bool { return cl.Side() == data.UA })
+	h.StartGame()
 	deadline := time.Now().Add(5 * time.Second)
 	for cl.View() == nil && time.Now().Before(deadline) {
 		time.Sleep(50 * time.Millisecond)
@@ -153,4 +156,120 @@ func TestSoloUkraine(t *testing.T) {
 	if v := h.View(); v == nil || v.Side != data.UA || !v.Solo {
 		t.Fatal("неверное представление игрока")
 	}
+}
+
+func waitFor(t *testing.T, what string, f func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !f() {
+		if time.Now().After(deadline) {
+			t.Fatalf("не дождались: %s", what)
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+}
+
+// До 6 игроков: до 3 на сторону, общий вид и приказы соратников, время — только у хоста.
+func TestMultiplayer(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := world.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := sim.New(cat, m, false)
+	hash := DataHash("")
+	h, err := NewHost(w, data.RU, 27998, hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	connect := func() *Client {
+		c, err := Connect("127.0.0.1:27998", hash)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(c.Close)
+		return c
+	}
+	a, b, c, d := connect(), connect(), connect(), connect()
+	a.PickSide(data.UA)
+	b.PickSide(data.UA)
+	c.PickSide(data.RU)
+	d.PickSide(data.UA)
+	waitFor(t, "лобби", func() bool {
+		l := h.Lobby()
+		return l.Count(data.UA) == 3 && l.Count(data.RU) == 2
+	})
+	// Четвёртый за Украину не помещается: он остаётся без стороны.
+	e := connect()
+	e.PickSide(data.UA)
+	time.Sleep(300 * time.Millisecond)
+	if e.Side() != -1 {
+		t.Fatal("четвёртый игрок за сторону не должен помещаться")
+	}
+	// Седьмой игрок (хост + 5 клиентов уже в игре) отклоняется.
+	if g, err := Connect("127.0.0.1:27998", hash); err == nil {
+		g.Close()
+		t.Fatal("в игре не может быть больше 6 игроков")
+	}
+	e.PickSide(data.RU)
+	waitFor(t, "третий за Россию", func() bool { return h.Lobby().Count(data.RU) == 3 })
+	// Партия ещё не началась: приказы не принимаются.
+	a.Send(sim.Command{Kind: sim.CmdResearch, Item: "ua_fpv"})
+	time.Sleep(200 * time.Millisecond)
+	if w.Sides[data.UA].Research != "" {
+		t.Fatal("до начала партии приказы принимать нельзя")
+	}
+	h.StartGame()
+	waitFor(t, "представления", func() bool { return a.View() != nil && b.View() != nil && c.View() != nil })
+	if a.View().Side != data.UA || c.View().Side != data.RU {
+		t.Fatal("игроки получили представление не своей стороны")
+	}
+	if !a.View().TimeLocked {
+		t.Fatal("у клиента время должно быть заблокировано")
+	}
+	// Приказ соратника действует на общую сторону.
+	b.Send(sim.Command{Kind: sim.CmdResearch, Item: "ua_fpv"})
+	waitFor(t, "приказ соратника", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return w.Sides[data.UA].Research == "ua_fpv"
+	})
+	// Скорость и пауза — только у хоста.
+	before := w.Sides[data.UA].Speed
+	a.Send(sim.Command{Kind: sim.CmdSpeed, Int: 5})
+	a.Send(sim.Command{Kind: sim.CmdPause, Int: 1})
+	time.Sleep(300 * time.Millisecond)
+	h.mu.Lock()
+	if w.Sides[data.UA].Speed != before || w.Sides[data.UA].Pausing {
+		h.mu.Unlock()
+		t.Fatal("клиент не должен управлять скоростью и паузой")
+	}
+	h.mu.Unlock()
+	h.Send(sim.Command{Kind: sim.CmdSpeed, Int: 3})
+	h.mu.Lock()
+	sp := w.EffectiveSpeed()
+	h.mu.Unlock()
+	if sp != 3 {
+		t.Fatalf("скорость задаёт хост: %d", sp)
+	}
+	// Отключение: слот освобождается; если сторона опустела — пауза.
+	a.Close()
+	b.Close()
+	d.Close()
+	waitFor(t, "освобождение слотов", func() bool { return h.Lobby().Count(data.UA) == 0 })
+	if h.Status() == "" {
+		t.Fatal("у стороны без игроков игра должна вставать на паузу")
+	}
+	// Возврат в свободный слот.
+	r := connect()
+	r.PickSide(data.UA)
+	waitFor(t, "возврат", func() bool { return h.Lobby().Count(data.UA) == 1 })
+	if h.Status() != "" {
+		t.Fatal("после возвращения игрока игра должна продолжиться")
+	}
+	waitFor(t, "представление вернувшегося", func() bool { return r.View() != nil })
 }
