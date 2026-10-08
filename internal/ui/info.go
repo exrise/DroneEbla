@@ -443,28 +443,29 @@ func (g *Game) drawStrikePanel() {
 		py = g.kv("Время полёта", fmtMin(l/m.SpeedKmh*60), px, py, pw, colText)
 	}
 	if m.Kind != "recon" {
+		// Колонки: подпись слева, значение прижато вправо к кнопкам, кнопки с одной и той же x у обеих строк.
 		drawText(u.screen, "Количество:", float64(px), float64(py+3), 14, colDim, 0)
 		mx := g.maxSalvo()
 		for i, d := range []int{-10, -1, 1, 10} {
 			lbl := fmt.Sprintf("%+d", d)
-			if u.Button(px+122+i*42, py, 38, 22, lbl) {
+			if u.Button(px+strikeBtnX+i*42, py, 38, 22, lbl) {
 				g.strike.Count = max(1, min(mx, g.strike.Count+d))
 			}
 		}
-		if u.Button(px+122+4*42, py, pw-122-4*42, 22, fmt.Sprintf("Макс %d", mx)) {
+		if u.Button(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 22, fmt.Sprintf("Макс %d", mx)) {
 			g.strike.Count = max(1, mx)
 		}
-		u.Tooltip(px+122+4*42, py, pw-122-4*42, 22, "Максимальный залп: ограничен запасом, залпом пусковой или пропускной способностью площадки")
-		drawBold(u.screen, fmt.Sprintf("%d", g.strike.Count), float64(px+100), float64(py+2), 16, colText, 1)
+		u.Tooltip(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 22, "Максимальный залп: ограничен запасом, залпом пусковой или пропускной способностью площадки")
+		drawBold(u.screen, fmt.Sprintf("%d", g.strike.Count), float64(px+strikeBtnX-8), float64(py+3), 14, colText, 2)
 		py += 28
 	}
 	drawText(u.screen, "Задержка:", float64(px), float64(py+3), 14, colDim, 0)
 	for i, d := range []float64{-30, -5, 5, 30} {
-		if u.Button(px+122+i*42, py, 38, 22, fmt.Sprintf("%+.0f", d)) {
+		if u.Button(px+strikeBtnX+i*42, py, 38, 22, fmt.Sprintf("%+.0f", d)) {
 			g.strike.Delay = math.Max(0, g.strike.Delay+d)
 		}
 	}
-	drawBold(u.screen, fmt.Sprintf("%.0f мин", g.strike.Delay), float64(px+92), float64(py+2), 14, colText, 1)
+	drawBold(u.screen, fmt.Sprintf("%.0f мин", g.strike.Delay), float64(px+strikeBtnX-8), float64(py+3), 14, colText, 2)
 	u.Tooltip(px, py, pw, 22, "Задержка позволяет синхронизировать несколько групп: например, пустить ложные цели раньше ракет.")
 	py += 32
 	if u.Button(px, py, pw/2-4, 30, "Отмена") {
@@ -502,15 +503,19 @@ func (g *Game) confirmStrike() {
 	g.strike = strikePlan{}
 }
 
+// strikeBtnX — x кнопок «Количество» и «Задержка» относительно левого края панели планирования удара.
+const strikeBtnX = 146
+
 func (g *Game) drawHelp() {
 	u := &g.ui
 	v := g.view
 	lines := []string{
-		"ЛКМ — выбрать объект, перетаскивание — сдвиг карты",
+		"ЛКМ — выбрать, перетаскивание — сдвиг карты",
 		"Колесо — масштаб, WASD/стрелки — прокрутка",
 		"ПКМ — марш юнита, F — пуск (пусковая выбрана)",
-		"Ctrl+1…9 — запомнить в группу, 1…9 — выбрать",
-		"Пробел — пауза, [ ] — скорость, F5 — сохр., F11 — экран",
+		"Ctrl+1…9 — в группу, 1…9 — выбрать группу",
+		"Пробел — пауза, [ ] — скорость, F5 — сохранить",
+		"Esc — меню, F11 — экран, Ctrl+«+»/«−» — масштаб",
 	}
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)

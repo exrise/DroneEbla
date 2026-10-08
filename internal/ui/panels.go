@@ -16,11 +16,18 @@ var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "С�
 func (g *Game) drawLeftPanel() {
 	u := &g.ui
 	u.Panel(6, topH+4, leftW-6, u.H-topH-10)
-	tw := (leftW - 36) / 5
+	// Вкладки: две строки (5 и 4), обе от левого до правого края содержимого (x=22…leftW-26).
+	const tx, tgap = 22, 4
+	rowW := leftW - 48
 	for i, name := range tabNames {
-		x := 18 + (i%5)*tw
+		n, k := 5, i
+		if i >= 5 {
+			n, k = len(tabNames)-5, i-5
+		}
+		bw := (rowW - (n-1)*tgap) / n
+		x := tx + k*(bw+tgap)
 		y := topH + 14 + (i/5)*30
-		if u.ButtonState(x, y, tw-4, 26, name, g.tab == i, true) {
+		if u.ButtonState(x, y, bw, 26, name, g.tab == i, true) {
 			g.tab = i
 		}
 	}
