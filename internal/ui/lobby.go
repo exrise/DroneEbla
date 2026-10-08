@@ -50,7 +50,7 @@ func (g *Game) drawLobby() {
 		if side == 1 {
 			x = cx + 20
 		}
-		drawBold(u.screen, fmt.Sprintf("%s (%d/%d)", data.SideNames[side], lob.Count(side), lob.Max), float64(x), float64(y), 18, sideColor(side), 0)
+		drawBold(u.screen, fmt.Sprintf("%s (%d/%d)", data.SideNames[side], lob.Count(side), lob.Max), float64(x), float64(y), 18, sideText(side), 0)
 		row := 0
 		for _, p := range lob.Players {
 			if p.Side != side {
@@ -62,12 +62,12 @@ func (g *Game) drawLobby() {
 				name += " (вы)"
 				col = colAccent
 			}
-			fillRect(u.screen, float64(x), float64(y+30+row*34), float64(colW), 30, color.RGBA{34, 40, 48, 255})
+			u.card(float64(x), float64(y+30+row*34), float64(colW), 30, color.RGBA{255, 255, 255, 110}, 0.2)
 			drawText(u.screen, name, float64(x+10), float64(y+37+row*34), 16, col, 0)
 			row++
 		}
 		for ; row < lob.Max; row++ {
-			fillRect(u.screen, float64(x), float64(y+30+row*34), float64(colW), 30, color.RGBA{26, 30, 36, 255})
+			u.card(float64(x), float64(y+30+row*34), float64(colW), 30, color.RGBA{255, 255, 255, 40}, 0)
 			drawText(u.screen, "свободно", float64(x+10), float64(y+37+row*34), 15, colDim, 0)
 		}
 		can := me.Side != side && lob.Count(side) < lob.Max && (!lob.Started || me.Side < 0) && !(me.Host && lob.Started)
@@ -75,7 +75,7 @@ func (g *Game) drawLobby() {
 			g.sess.PickSide(side)
 		}
 	}
-	by := y + 30 + lob.Max*34 + 70
+	by := y + 30 + lob.Max*34 + 96
 	switch {
 	case g.sess.IsHost():
 		ok := lob.Count(0) > 0 && lob.Count(1) > 0
@@ -83,7 +83,7 @@ func (g *Game) drawLobby() {
 		if ok {
 			msg = "Всё готово. Когда все подключились — нажмите «Начать». Скоростью и паузой управляете только вы."
 		}
-		drawText(u.screen, msg, float64(cx), float64(by-26), 14, colDim, 1)
+		g.centerText(msg, cx, float64(by-54), 640, 13, colDim)
 		if u.ButtonState(cx+10, by, 200, 40, "Начать", false, ok) {
 			g.sess.StartGame()
 			if l := g.sess.Lobby(); l != nil && l.Started {
@@ -92,11 +92,11 @@ func (g *Game) drawLobby() {
 			}
 		}
 	case lob.Started && me.Side < 0:
-		drawText(u.screen, "Партия уже идёт — выберите сторону с свободным местом, чтобы войти.", float64(cx), float64(by-26), 14, colWarn, 1)
+		g.centerText("Партия уже идёт — выберите сторону с свободным местом, чтобы войти.", cx, float64(by-54), 640, 13, colWarn)
 	case me.Side < 0:
-		drawText(u.screen, "Выберите сторону. Затем хост начнёт партию.", float64(cx), float64(by-26), 14, colDim, 1)
+		g.centerText("Выберите сторону. Затем хост начнёт партию.", cx, float64(by-54), 640, 13, colDim)
 	default:
-		drawText(u.screen, "Вы в игре. Ждём, пока хост начнёт партию…", float64(cx), float64(by-26), 14, colDim, 1)
+		g.centerText("Вы в игре. Ждём, пока хост начнёт партию…", cx, float64(by-54), 640, 13, colDim)
 	}
 	if u.Button(cx-210, by, 200, 40, "Выйти") {
 		g.leaveLobby()
@@ -105,6 +105,6 @@ func (g *Game) drawLobby() {
 		g.menuErr = m
 	}
 	if g.menuErr != "" {
-		drawText(u.screen, g.menuErr, float64(cx), float64(by+56), 15, colWarn, 1)
+		g.centerText(g.menuErr, cx, float64(by+56), 640, 14, colWarn)
 	}
 }

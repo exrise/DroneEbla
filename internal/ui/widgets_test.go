@@ -77,3 +77,14 @@ func TestControlGroups(t *testing.T) {
 		t.Fatal("контакт попал в группу")
 	}
 }
+
+func TestUIScale(t *testing.T) {
+	for _, c := range []struct {
+		w, h int
+		want float64
+	}{{1600, 900, 1}, {1280, 720, 0.85}, {2560, 1440, 1.75}, {3840, 2160, 2.5}, {800, 600, 0.85}} {
+		if got := uiScale(c.w, c.h); got != c.want {
+			t.Errorf("uiScale(%d,%d) = %v, ожидалось %v", c.w, c.h, got, c.want)
+		}
+	}
+}

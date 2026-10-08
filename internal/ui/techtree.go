@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"strings"
 
@@ -17,7 +18,7 @@ import (
 // версии — карточка с цифрами и изменением относительно предыдущей.
 
 const (
-	cardW   = 208
+	cardW   = 224
 	cardH   = 184
 	cardGap = 8
 )
@@ -162,10 +163,7 @@ func (g *Game) drawTechTree() {
 	}
 	px, py := leftW, topH
 	pw, ph := u.W-leftW, u.H-topH
-	u.Panel(px, py, pw, ph)
-	solid := colPanel
-	solid.A = 255
-	fillRect(u.screen, float64(px+1), float64(py+1), float64(pw-2), float64(ph-2), solid)
+	u.PanelT(px, py, pw, ph, 0.82)
 	// Шапка: текущее исследование и кнопка закрытия.
 	drawBold(u.screen, "Исследования: "+data.SideNames[v.Side], float64(px+14), float64(py+10), 18, colAccent, 0)
 	if u.Button(px+pw-130, py+8, 116, 26, "Закрыть (T)") {
@@ -277,7 +275,7 @@ func (g *Game) drawCard(v *sim.View, c techCard, st, prev []stat, x, y int, area
 		status = sim.TechDone
 	}
 	active := c.tech != nil && v.Research == c.tech.ID
-	border, bg := colBorder, colPanel
+	border := color.RGBA{255, 255, 255, 120}
 	switch {
 	case active:
 		border = colAccent
@@ -286,8 +284,11 @@ func (g *Game) drawCard(v *sim.View, c techCard, st, prev []stat, x, y int, area
 	case status == sim.TechOpen:
 		border = colWarn
 	}
-	fillRect(u.screen, float64(x), float64(y), cardW, cardH, bg)
-	strokeRect(u.screen, float64(x), float64(y), cardW, cardH, border, 1.5)
+	strong := float32(0.3)
+	if active || status == sim.TechOpen {
+		strong = 1
+	}
+	u.card(float64(x), float64(y), cardW, cardH, border, strong)
 
 	// Название (до двух строк).
 	nameCol := colText

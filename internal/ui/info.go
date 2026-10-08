@@ -90,7 +90,7 @@ func (g *Game) drawInfoPanel() {
 		if g.m.In(tx, ty) {
 			o := int(v.Owner[g.m.Idx(tx, ty)]) - 1
 			if o >= 0 {
-				py = g.kv("Контроль", data.SideNames[o], px, py, pw, sideColor(o))
+				py = g.kv("Контроль", data.SideNames[o], px, py, pw, sideText(o))
 			}
 		}
 	}
@@ -100,7 +100,7 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 	u := &g.ui
 	v := g.view
 	bt := g.cat.BuildingByID[b.Type]
-	drawBold(u.screen, fitText(b.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideColor(v.Side), 0)
+	drawBold(u.screen, fitText(b.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideText(v.Side), 0)
 	y += 22
 	drawText(u.screen, bt.Name, float64(x), float64(y), 13, colDim, 0)
 	y += 20
@@ -217,7 +217,7 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 	u := &g.ui
 	v := g.view
 	ut := g.cat.UnitByID[un.Type]
-	drawBold(u.screen, fitText(ut.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideColor(v.Side), 0)
+	drawBold(u.screen, fitText(ut.Name, 16, float64(w-30)), float64(x), float64(y), 16, sideText(v.Side), 0)
 	y += 24
 	y = g.para(ut.Desc, x, y, w, colDim)
 	y += 4
@@ -515,15 +515,15 @@ func (g *Game) drawHelp() {
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)
 	}
-	h := len(lines)*18 + 14
+	h := len(lines)*18 + 20
 	x, y := u.W-infoW-8, u.H-h-8
-	fillRect(u.screen, float64(x), float64(y), infoW, float64(h), color.RGBA{24, 28, 34, 180})
+	u.Panel(x, y, infoW, h)
 	for i, l := range lines {
-		c := colDim
+		c := color.RGBA{196, 202, 210, 255}
 		if i == 0 && !v.War {
 			c = colWarn
 		}
-		drawText(u.screen, l, float64(x+10), float64(y+7+i*18), 13, c, 0)
+		drawText(u.screen, l, float64(x+16), float64(y+9+i*18), 13, c, 0)
 	}
 }
 

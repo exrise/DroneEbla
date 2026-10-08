@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"image"
+	"image/color"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -69,7 +71,6 @@ type Game struct {
 	cam            Camera
 	tab            int
 	glass          bool // стиль «жидкое стекло»
-	fx             *glassFX
 	fxFailed       bool
 	menuCheat      bool // галочка «всё открыто» в настройке песочницы
 	techOpen       bool // открыто окно исследований
@@ -113,8 +114,9 @@ type strikePlan struct {
 // New создаёт игру.
 func New(cat *data.Catalog, m *world.MapData, dataDir, saveDir string) *Game {
 	netplay.LogDir = filepath.Join(filepath.Dir(dataDir), "logs")
+	flat := os.Getenv("DRONEEBLA_FLAT") != "" // отладка: плоский стиль без шейдеров
 	g := &Game{
-		glass: true,
+		glass: !flat,
 		cat:   cat, m: m, dataDir: dataDir, saveDir: saveDir,
 		dataHash: netplay.DataHash(dataDir),
 		rend:     newMapRenderer(m),
@@ -136,7 +138,15 @@ func (g *Game) Notice(s string) { g.notices = append(g.notices, s) }
 
 // Layout — логический размер равен размеру окна.
 func (g *Game) Layout(w, h int) (int, int) {
-	return w, h
+	s := uiScale(w, h)
+	return int(float64(w) / s), int(float64(h) / s)
+}
+
+// uiScale — масштаб интерфейса: образец — окно 1440×810; шаг 0.25, чтобы картинка оставалась чёткой.
+func uiScale(w, h int) float64 {
+	s := math.Min(float64(w)/1440, float64(h)/810)
+	s = math.Floor(s*4) / 4
+	return math.Max(0.85, math.Min(2.5, s))
 }
 
 // Update — сбор ввода.
@@ -182,7 +192,12 @@ func (g *Game) resetInput() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.screen = screen
 	g.ui.W, g.ui.H = screen.Bounds().Dx(), screen.Bounds().Dy()
+	g.fxInit()
 	screen.Fill(colPanel2)
+	if g.scene != sceneGame {
+		g.drawBackdrop(screen)
+		g.glassPrep(screen)
+	}
 	switch g.scene {
 	case sceneMenu:
 		g.drawMenu()
@@ -221,65 +236,98 @@ func (g *Game) toast(s string) {
 func (g *Game) menuFrame(title string) (int, int) {
 	u := &g.ui
 	cx := u.W / 2
-	drawBold(u.screen, "DRONEEBLA", float64(cx), 60, 44, colAccent, 1)
-	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 116, 18, colDim, 1)
-	drawBold(u.screen, title, float64(cx), 170, 22, colText, 1)
-	return cx, 220
+	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
+	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
+	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520}[g.scene]
+	if ph == 0 || ph > u.H-150-24 {
+		ph = u.H - 150 - 24
+	}
+	pw := 700
+	if pw > u.W-40 {
+		pw = u.W - 40
+	}
+	u.Panel(cx-pw/2, 144, pw, ph)
+	drawBold(u.screen, title, float64(cx), 164, 22, colText, 1)
+	return cx, 214
+}
+
+// menuW — ширина содержимого меню.
+const menuW = 560
+
+// centerText рисует абзац по центру с переносом по ширине w и возвращает следующий y.
+func (g *Game) centerText(text string, cx int, y float64, w float64, size float64, c color.Color) float64 {
+	for _, l := range wrap(text, size, w) {
+		drawText(g.ui.screen, l, float64(cx), y, size, c, 1)
+		y += size + 7
+	}
+	return y
+}
+
+// menuButtons — пара кнопок «Назад» и основное действие в ряд.
+func (g *Game) menuButtons(cx, y int, ok string) (back, act bool) {
+	u := &g.ui
+	back = u.Button(cx-200-8, y, 200, 42, "Назад")
+	act = u.Button(cx+8, y, 200, 42, ok)
+	return
+}
+
+func (g *Game) menuError(cx, y int) {
+	if g.menuErr != "" {
+		g.centerText(g.menuErr, cx, float64(y), menuW, 15, colBad)
+	}
 }
 
 func (g *Game) drawMenu() {
 	u := &g.ui
 	cx, y := g.menuFrame("Главное меню")
-	bw := 360
-	if u.Button(cx-bw/2, y, bw, 44, "Создать сетевую игру (хост)") {
-		g.scene, g.menuErr = sceneHostSetup, ""
+	bw := menuW - 160
+	items := []struct {
+		label string
+		scene int
+	}{
+		{"Создать сетевую игру (хост)", sceneHostSetup},
+		{"Подключиться к игре", sceneConnect},
+		{"Одиночная игра (против ИИ)", sceneSolo},
+		{"Песочница (оба игрока вручную)", sceneSandbox},
+		{"Загрузить сохранение", sceneLoad},
 	}
-	if u.Button(cx-bw/2, y+56, bw, 44, "Подключиться к игре") {
-		g.scene, g.menuErr = sceneConnect, ""
+	for _, it := range items {
+		if u.Button(cx-bw/2, y, bw, 42, it.label) {
+			g.scene, g.menuErr = it.scene, ""
+			if it.scene == sceneLoad {
+				g.saves = g.listSaves()
+			}
+		}
+		y += 50
 	}
-	if u.Button(cx-bw/2, y+112, bw, 44, "Одиночная игра (против ИИ)") {
-		g.scene, g.menuErr = sceneSolo, ""
+	if u.Button(cx-bw/2, y, bw, 42, "Выход") {
+		os.Exit(0)
 	}
-	if u.Button(cx-bw/2, y+168, bw, 44, "Песочница (оба игрока вручную)") {
-		g.scene, g.menuErr = sceneSandbox, ""
-	}
-	if u.Button(cx-bw/2, y+224, bw, 44, "Загрузить сохранение") {
-		g.scene, g.menuErr = sceneLoad, ""
-		g.saves = g.listSaves()
-	}
+	y += 58
 	gl := "Стиль «жидкое стекло»: вкл (F9)"
 	if !g.glass {
 		gl = "Стиль «жидкое стекло»: выкл (F9)"
 	}
-	if u.ButtonState(cx-bw/2, y+336, bw, 34, gl, g.glass, !g.fxFailed) {
+	if u.ButtonState(cx-bw/2, y, bw, 34, gl, g.glass, !g.fxFailed) {
 		g.glass = !g.glass
 	}
-	if u.Button(cx-bw/2, y+280, bw, 44, "Выход") {
-		os.Exit(0)
-	}
-	lines := []string{
-		"Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные вводят его IP из Radmin (26.x.x.x) и выбирают сторону в лобби.",
-		"Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у обоих игроков файлы должны совпадать).",
-	}
-	for i, l := range lines {
-		drawText(u.screen, l, float64(cx), float64(y+386+i*22), 14, colDim, 1)
-	}
-	ny := float64(y + 446)
+	y += 52
+	fy := float64(y)
+	fy = g.centerText("Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные вводят его IP из Radmin (26.x.x.x) и выбирают сторону в лобби.", cx, fy, menuW, 13, colDim)
+	fy = g.centerText("Игровые цифры лежат в папке data рядом с игрой — их можно править без пересборки (у всех игроков файлы должны совпадать).", cx, fy+4, menuW, 13, colDim)
 	for _, n := range g.notices {
-		for _, l := range wrap(n, 14, float64(u.W)-200) {
-			drawText(u.screen, l, float64(cx), ny, 14, colWarn, 1)
-			ny += 20
-		}
+		fy = g.centerText(n, cx, fy+4, menuW, 13, colWarn)
 	}
 }
 
+// sidePicker — «Ваша сторона» и две кнопки в одной строке по центру.
 func (g *Game) sidePicker(cx, y int) {
 	u := &g.ui
-	drawText(u.screen, "Ваша сторона:", float64(cx-180), float64(y+8), 16, colText, 0)
-	if u.ButtonState(cx-40, y, 110, 34, "Россия", g.menuSide == data.RU, true) {
+	drawText(u.screen, "Ваша сторона:", float64(cx-menuW/2+20), float64(y+9), 16, colText, 0)
+	if u.ButtonState(cx-30, y, 130, 36, "Россия", g.menuSide == data.RU, true) {
 		g.menuSide = data.RU
 	}
-	if u.ButtonState(cx+80, y, 110, 34, "Украина", g.menuSide == data.UA, true) {
+	if u.ButtonState(cx+110, y, 130, 36, "Украина", g.menuSide == data.UA, true) {
 		g.menuSide = data.UA
 	}
 }
@@ -288,21 +336,24 @@ func (g *Game) drawHostSetup() {
 	u := &g.ui
 	cx, y := g.menuFrame("Создание сетевой игры")
 	g.sidePicker(cx, y)
-	drawText(u.screen, "Порт:", float64(cx-180), float64(y+60), 16, colText, 0)
-	g.portField.Draw(u, cx-40, y+52, 110, 32)
-	ips := netplay.LocalIPs()
-	drawText(u.screen, "Ваши IP-адреса (сообщите игрокам адрес Radmin VPN, обычно 26.x.x.x):", float64(cx), float64(y+104), 14, colDim, 1)
-	for i, ip := range ips {
+	y += 56
+	drawText(u.screen, "Порт:", float64(cx-menuW/2+20), float64(y+9), 16, colText, 0)
+	g.portField.Draw(u, cx-30, y, 130, 36)
+	y += 60
+	fy := g.centerText("Ваши IP-адреса: сообщите игрокам адрес Radmin VPN (обычно 26.x.x.x).", cx, float64(y), menuW, 13, colDim) + 4
+	for i, ip := range netplay.LocalIPs() {
 		if i > 5 {
 			break
 		}
-		drawText(u.screen, ip, float64(cx), float64(y+128+i*20), 16, colAccent, 1)
+		drawText(u.screen, ip, float64(cx), fy, 17, colAccent, 1)
+		fy += 24
 	}
-	by := y + 260
-	if u.Button(cx-180, by, 170, 40, "Назад") {
+	by := int(fy) + 22
+	back, act := g.menuButtons(cx, by, "Создать")
+	if back {
 		g.scene = sceneMenu
 	}
-	if u.Button(cx+10, by, 170, 40, "Создать") {
+	if act {
 		port, err := strconv.Atoi(strings.TrimSpace(g.portField.Text))
 		if err != nil {
 			g.menuErr = "Неверный порт"
@@ -316,21 +367,20 @@ func (g *Game) drawHostSetup() {
 			}
 		}
 	}
-	if g.menuErr != "" {
-		drawText(u.screen, g.menuErr, float64(cx), float64(by+56), 15, colBad, 1)
-	}
+	g.menuError(cx, by+60)
 }
 
 func (g *Game) drawConnect() {
 	u := &g.ui
 	cx, y := g.menuFrame("Подключение к игре")
-	drawText(u.screen, "IP хоста (Radmin VPN), можно с портом через двоеточие:", float64(cx), float64(y), 15, colDim, 1)
-	g.ipField.Draw(u, cx-160, y+24, 320, 34)
-	by := y + 90
-	if u.Button(cx-180, by, 170, 40, "Назад") {
+	y0 := g.centerText("IP хоста (Radmin VPN); порт можно указать через двоеточие.", cx, float64(y), menuW, 14, colDim)
+	g.ipField.Draw(u, cx-170, int(y0)+8, 340, 38)
+	by := int(y0) + 74
+	back, act := g.menuButtons(cx, by, "Подключиться")
+	if back {
 		g.scene = sceneMenu
 	}
-	if u.Button(cx+10, by, 170, 40, "Подключиться") {
+	if act {
 		cl, err := netplay.Connect(strings.TrimSpace(g.ipField.Text), g.dataHash)
 		if err != nil {
 			g.menuErr = "Ошибка: " + err.Error()
@@ -338,28 +388,28 @@ func (g *Game) drawConnect() {
 			g.openLobby(cl)
 		}
 	}
-	if g.menuErr != "" {
-		drawText(u.screen, g.menuErr, float64(cx), float64(by+56), 15, colBad, 1)
-	}
+	g.menuError(cx, by+60)
 }
 
 func (g *Game) drawSandboxSetup() {
 	u := &g.ui
 	cx, y := g.menuFrame("Песочница")
 	g.sidePicker(cx, y)
-	drawText(u.screen, "Противник не управляется. Сторону можно переключать во время игры кнопкой в верхней панели.", float64(cx), float64(y+64), 14, colDim, 1)
+	y += 62
+	ty := g.centerText("Противник не управляется. Сторону можно переключать во время игры кнопкой в верхней панели.", cx, float64(y), menuW, 14, colDim)
 	mark := "[ ]"
 	if g.menuCheat {
 		mark = "[x]"
 	}
-	if u.ButtonState(cx-250, y+92, 500, 30, mark+" Всё открыто: всё изучено, производство и стройка мгновенно и бесплатно", g.menuCheat, true) {
+	if u.ButtonState(cx-menuW/2+20, int(ty)+10, menuW-40, 36, mark+" Всё открыто: всё изучено, производство и стройка мгновенно и бесплатно", g.menuCheat, true) {
 		g.menuCheat = !g.menuCheat
 	}
-	by := y + 150
-	if u.Button(cx-180, by, 170, 40, "Назад") {
+	by := int(ty) + 80
+	back, act := g.menuButtons(cx, by, "Начать")
+	if back {
 		g.scene = sceneMenu
 	}
-	if u.Button(cx+10, by, 170, 40, "Начать") {
+	if act {
 		w := sim.New(g.cat, g.m, true)
 		if g.menuCheat {
 			w.EnableCheat()
@@ -369,23 +419,17 @@ func (g *Game) drawSandboxSetup() {
 }
 
 func (g *Game) drawSoloSetup() {
-	u := &g.ui
 	cx, y := g.menuFrame("Одиночная игра")
-	drawText(u.screen, "Ваша сторона:", float64(cx-180), float64(y+8), 16, colText, 0)
-	if u.ButtonState(cx-40, y, 110, 34, "Россия", g.menuSide == data.RU, true) {
-		g.menuSide = data.RU
-	}
-	if u.ButtonState(cx+80, y, 110, 34, "Украина", g.menuSide == data.UA, true) {
-		g.menuSide = data.UA
-	}
-	drawText(u.screen, "Противоположной стороной управляет компьютер.", float64(cx), float64(y+60), 14, colDim, 1)
-	drawText(u.screen, "ИИ играет по тем же правилам: видит только то, что видит его разведка, и делает те же приказы.", float64(cx), float64(y+82), 14, colDim, 1)
-	drawText(u.screen, "Его настройки — файл ai.json в папке data рядом с игрой.", float64(cx), float64(y+104), 14, colDim, 1)
-	by := y + 150
-	if u.Button(cx-180, by, 170, 40, "Назад") {
+	g.sidePicker(cx, y)
+	ty := float64(y + 66)
+	ty = g.centerText("Противоположной стороной управляет компьютер.", cx, ty, menuW, 14, colText)
+	ty = g.centerText("ИИ играет по тем же правилам: видит только то, что видит его разведка, и отдаёт те же приказы. Его настройки — файл ai.json в папке data рядом с игрой.", cx, ty+4, menuW, 13, colDim)
+	by := int(ty) + 30
+	back, act := g.menuButtons(cx, by, "Начать")
+	if back {
 		g.scene = sceneMenu
 	}
-	if u.Button(cx+10, by, 170, 40, "Начать") {
+	if act {
 		w := sim.New(g.cat, g.m, true)
 		g.startGame(netplay.NewSolo(w, g.menuSide))
 	}
@@ -408,32 +452,38 @@ func (g *Game) drawLoad() {
 	u := &g.ui
 	cx, y := g.menuFrame("Загрузка сохранения")
 	g.sidePicker(cx, y)
-	drawText(u.screen, "Порт:", float64(cx-180), float64(y+52), 16, colText, 0)
-	g.portField.Draw(u, cx-40, y+44, 110, 32)
-	ly := y + 96
+	y += 52
+	drawText(u.screen, "Порт:", float64(cx-menuW/2+20), float64(y+9), 16, colText, 0)
+	g.portField.Draw(u, cx-30, y, 130, 36)
+	ly := y + 54
 	if len(g.saves) == 0 {
-		drawText(u.screen, "Сохранений нет (папка saves рядом с игрой)", float64(cx), float64(ly), 15, colDim, 1)
+		g.centerText("Сохранений нет (папка saves рядом с игрой)", cx, float64(ly), menuW, 14, colDim)
+	}
+	rows := (u.H - ly - 150) / 38
+	if rows > 10 {
+		rows = 10
+	}
+	if rows < 3 {
+		rows = 3
 	}
 	for i, f := range g.saves {
-		if i >= 10 {
+		if i >= rows {
 			break
 		}
 		name := filepath.Base(f)
-		bw := 280
-		if u.Button(cx-bw-5, ly+i*38, bw, 32, name) {
+		bw := menuW/2 - 24
+		if u.Button(cx-bw-6, ly+i*38, bw, 32, name) {
 			g.loadSave(f, false)
 		}
-		if u.Button(cx+5, ly+i*38, bw, 32, "без сети (песочница / одиночная)") {
+		if u.Button(cx+6, ly+i*38, bw, 32, "без сети (песочница / одиночная)") {
 			g.loadSave(f, true)
 		}
 	}
-	by := ly + 10*38 + 10
-	if u.Button(cx-85, by, 170, 40, "Назад") {
+	by := ly + rows*38 + 14
+	if u.Button(cx-100, by, 200, 42, "Назад") {
 		g.scene = sceneMenu
 	}
-	if g.menuErr != "" {
-		drawText(u.screen, g.menuErr, float64(cx), float64(by+56), 15, colBad, 1)
-	}
+	g.menuError(cx, by+58)
 }
 
 func (g *Game) loadSave(path string, sandbox bool) {

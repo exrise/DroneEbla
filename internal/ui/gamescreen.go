@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	topH  = 56
+	topH  = 64
 	leftW = 420
 	infoW = 390
 	infoH = 410
@@ -110,7 +110,7 @@ func (g *Game) drawGame() {
 	}
 	g.cam.X, g.cam.Y = leftW, topH
 	g.cam.W, g.cam.H = u.W-leftW, u.H-topH
-	if g.glass && !g.fxFailed {
+	if u.on {
 		// Стекло: карта идёт под панели, чтобы их было чем размывать.
 		g.cam.X, g.cam.Y, g.cam.W, g.cam.H = 0, 0, u.W, u.H
 	}
@@ -157,9 +157,10 @@ func (g *Game) drawGame() {
 	g.drawResearchNotice()
 	g.drawTechTree()
 	if st := g.sess.Status(); st != "" {
-		w := textWidth(st, 16) + 30
-		fillRect(u.screen, float64(g.cam.X)+float64(g.cam.W)/2-w/2, float64(topH+10), w, 32, color.RGBA{120, 30, 20, 230})
-		drawText(u.screen, st, float64(g.cam.X)+float64(g.cam.W)/2, float64(topH+16), 16, colText, 1)
+		w := textWidth(st, 15) + 36
+		cx := float64(g.cam.X) + float64(g.cam.W)/2
+		u.plate(cx-w/2, float64(topH+10), w, 34, color.RGBA{120, 30, 20, 235}, colBad)
+		drawText(u.screen, st, cx, float64(topH+18), 15, colText, 1)
 	}
 	if v.Winner >= 0 {
 		g.drawVictory()
@@ -806,17 +807,17 @@ func fmtRate(v float64) string {
 func (g *Game) drawTopBar() {
 	u := &g.ui
 	v := g.view
-	if g.glassOn() {
-		g.glassRect(4, 4, float32(u.W-8), topH-8, 14)
+	if u.on {
+		u.glassPanel(6, 5, float32(u.W-12), topH-10, 16, 0.7)
 	} else {
 		fillRect(u.screen, 0, 0, float64(u.W), topH, colPanel)
 		line(u.screen, 0, topH, float64(u.W), topH, colBorder, 1)
 	}
 	u.blockUI(0, 0, u.W, topH)
-	x := 10.0
-	drawBold(u.screen, data.SideNames[v.Side], x, 6, 16, sideColor(v.Side), 0)
+	x := 22.0
+	drawBold(u.screen, data.SideNames[v.Side], x, 11, 18, sideText(v.Side), 0)
 	if v.Sandbox && !v.Solo {
-		if u.Button(int(x), 30, 110, 20, "Сменить сторону") {
+		if u.Button(int(x), 35, 118, 22, "Сменить сторону") {
 			// Новое представление придёт со следующим кадром.
 			g.sess.SetSide(1 - v.Side)
 			g.sel = Selection{}
@@ -825,74 +826,73 @@ func (g *Game) drawTopBar() {
 			g.rend.lastFog = nil
 		}
 	}
-	x = 130
+	// Ячейки показателей: подпись, значение, при необходимости пояснение под значением.
+	x = 160
+	cell := func(label, value string, vc color.Color, extra string, ec color.Color, w float64, tip string) {
+		drawText(u.screen, label, x, 9, 11, colDim, 0)
+		drawBold(u.screen, value, x, 23, 16, vc, 0)
+		if extra != "" {
+			drawText(u.screen, extra, x+textWidth(value, 16)+6, 27, 11, ec, 0)
+		}
+		u.Tooltip(int(x), 4, int(w), topH-8, tip)
+		x += w
+	}
 	for i := 0; i < data.NumRes; i++ {
 		rc := colGood
 		if v.Rates[i] < -0.05 {
 			rc = colBad
 		}
-		drawText(u.screen, data.ResNames[i], x, 6, 12, colDim, 0)
-		drawBold(u.screen, fmtNum(v.Res[i]), x, 22, 16, colText, 0)
-		drawText(u.screen, fmtRate(v.Rates[i])+"/ч", x+textWidth(fmtNum(v.Res[i]), 16)+6, 26, 12, rc, 0)
 		tip := fmt.Sprintf("%s: %.0f, изменение %.1f в час", data.ResNames[i], v.Res[i], v.Rates[i])
 		if i == data.ResMoney {
 			tip += fmt.Sprintf("\nДоход (налоги, экспорт): %.0f в час", v.Income)
 		}
-		u.Tooltip(int(x), 0, 120, topH, tip)
-		x += 128
+		cell(data.ResNames[i], fmtNum(v.Res[i]), colText, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
 	}
-	// Мораль, люди, энергия.
-	mc := colorForFrac(v.Morale / 100)
-	drawText(u.screen, "Мораль", x, 6, 12, colDim, 0)
-	drawBold(u.screen, fmt.Sprintf("%.0f", v.Morale), x, 22, 16, mc, 0)
-	u.Tooltip(int(x), 0, 70, topH, g.moraleEffects()+"\nПадает от потерь, блэкаутов, потери городов, мобилизации; растёт от помощи, взятия городов, поражения ключевых объектов врага и пропаганды.")
-	x += 72
-	drawText(u.screen, "Резерв", x, 6, 12, colDim, 0)
-	drawBold(u.screen, fmt.Sprintf("%.0fk", v.People), x, 22, 16, colText, 0)
-	u.Tooltip(int(x), 0, 70, topH, fmt.Sprintf("Мобилизационный резерв, тыс. человек. Потеря рабочей силы: %.0f%%", v.LaborLoss*100))
-	x += 72
+	cell("Мораль", fmt.Sprintf("%.0f", v.Morale), colorForFrac(v.Morale/100), "", colDim, 74,
+		g.moraleEffects()+"\nПадает от потерь, блэкаутов, потери городов, мобилизации; растёт от помощи, взятия городов, поражения ключевых объектов врага и пропаганды.")
+	cell("Резерв", fmt.Sprintf("%.0fk", v.People), colText, "", colDim, 74,
+		fmt.Sprintf("Мобилизационный резерв, тыс. человек. Потеря рабочей силы: %.0f%%", v.LaborLoss*100))
 	ec := colGood
 	if v.Blackout > 0.05 {
 		ec = colBad
 	}
-	drawText(u.screen, "Энергия, МВт", x, 6, 12, colDim, 0)
-	drawBold(u.screen, fmt.Sprintf("%.0f/%.0f", v.Power[0], v.Power[1]), x, 22, 15, ec, 0)
-	tip := fmt.Sprintf("Генерация / потребление. Без света: %.0f%% населения", v.Blackout*100)
+	etip := fmt.Sprintf("Генерация / потребление. Без света: %.0f%% населения", v.Blackout*100)
+	ex := x
+	cell("Энергия, МВт", fmt.Sprintf("%.0f/%.0f", v.Power[0], v.Power[1]), ec, "", colDim, 132, etip)
 	if len(v.EnemyPower) > 0 {
-		tip += fmt.Sprintf("\nПротивник (оценка по разведданным): ≈%.0f / ≈%.0f МВт. Подробно — вкладка «Разведка».", v.EnemyGen, v.EnemyUse)
-		drawText(u.screen, fmt.Sprintf("враг ≈%.0f/%.0f", v.EnemyGen, v.EnemyUse), x, 42, 11, colDim, 0)
+		drawText(u.screen, fmt.Sprintf("враг ≈%.0f/%.0f", v.EnemyGen, v.EnemyUse), ex, 44, 11, colDim, 0)
+		u.Tooltip(int(ex), 4, 132, topH-8, etip+fmt.Sprintf("\nПротивник (оценка по разведданным): ≈%.0f / ≈%.0f МВт. Подробно — вкладка «Разведка».", v.EnemyGen, v.EnemyUse))
 	}
-	u.Tooltip(int(x), 0, 110, topH, tip)
-	x += 118
 
-	// Время и скорость (справа).
-	rx := float64(u.W) - 10
+	// Справа: две колонки кнопок и время.
+	rx := u.W - 22
+	bw := 96
 	if g.sess.IsHost() {
-		if u.Button(int(rx)-70, 6, 70, 20, "Сохранить") {
+		if u.Button(rx-bw, 9, bw, 24, "Сохранить") {
 			g.quickSave()
 		}
 	}
-	if u.Button(int(rx)-70, 30, 70, 20, "Меню") {
+	if u.Button(rx-bw, 35, bw, 24, "Меню") {
 		g.leaveGame()
 		return
 	}
-	rx -= 80
+	rx -= bw + 12
 	for k := 5; k >= 1; k-- {
 		lbl := strings.Repeat(">", min(k, 3))
 		if k > 3 {
 			lbl = fmt.Sprintf("×%d", int(sim.SpeedMult[k]))
 		}
-		if u.ButtonState(int(rx)-30, 30, 30, 20, lbl, v.MySpeed == k, !v.TimeLocked) {
+		if u.ButtonState(rx-34, 35, 34, 24, lbl, v.MySpeed == k, !v.TimeLocked) {
 			g.sess.Send(sim.Command{Kind: sim.CmdSpeed, Int: k})
 		}
-		u.Tooltip(int(rx)-30, 30, 30, 20, fmt.Sprintf("Скорость %d (×%.0f). Клавиши [ и ] (или цифры numpad 1–5).%s", k, sim.SpeedMult[k], lockNote(v)))
-		rx -= 32
+		u.Tooltip(rx-34, 35, 34, 24, fmt.Sprintf("Скорость %d (×%.0f). Клавиши [ и ] (или цифры numpad 1–5).%s", k, sim.SpeedMult[k], lockNote(v)))
+		rx -= 38
 	}
 	pl := "Пауза"
 	if v.Pausing {
 		pl = "Продолжить"
 	}
-	if u.ButtonState(int(rx)-84, 30, 84, 20, pl, v.Pausing, !v.TimeLocked) {
+	if u.ButtonState(rx-100, 35, 100, 24, pl, v.Pausing, !v.TimeLocked) {
 		p := 1
 		if v.Pausing {
 			p = 0
@@ -900,19 +900,19 @@ func (g *Game) drawTopBar() {
 		g.sess.Send(sim.Command{Kind: sim.CmdPause, Int: p})
 	}
 	if !v.Sandbox {
-		u.Tooltip(int(rx)-84, 30, 84, 20, "Паузой управляет хост. Пробел."+lockNote(v))
+		u.Tooltip(rx-100, 35, 100, 24, "Паузой управляет хост. Пробел."+lockNote(v))
 	}
 	status := sim.FmtTime(v.Time)
 	if !v.War {
-		status += fmt.Sprintf(" · подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))
+		status += fmt.Sprintf(" · до войны %s", fmtMin(v.PrepEnd-v.Time))
 	}
 	if v.Paused {
 		status += " · ПАУЗА"
 	}
-	drawText(u.screen, status, float64(u.W)-90, 8, 14, colText, 2)
-	if !v.Sandbox {
-		drawText(u.screen, fmt.Sprintf("скорость: %d (задаёт хост)", v.Speed), rx-92, 33, 11, colDim, 2)
+	if !v.Sandbox && v.TimeLocked {
+		status += fmt.Sprintf(" · ×%d (хост)", int(sim.SpeedMult[min(max(v.Speed, 1), 5)]))
 	}
+	drawText(u.screen, status, float64(u.W-22-bw-12), 12, 13, colText, 2)
 }
 
 func (g *Game) drawLayerButtons() {
@@ -925,15 +925,18 @@ func (g *Game) drawLayerButtons() {
 		{"energy", "Энергия", "Энергия областей: красный — дефицит (меньше 70%), жёлтый — частичная нехватка, зелёный — норма. У противника — оценка по разведданным (бледнее); нет цвета — данных нет"},
 		{"deposits", "Ресурсы", "Месторождения: нефть (тёмные), газ (голубые), уголь (коричневые), руда (рыжие)"},
 	}
-	x := u.W - infoW - 10 - len(layers)*84
-	y := topH + 8
+	bw, gap := 88, 6
+	pw := len(layers)*(bw+gap) + gap + 8
+	x := u.W - infoW - 16 - pw
+	y := topH + 6
+	u.Panel(x, y, pw, 38)
+	x += gap + 4
 	for _, l := range layers {
-		if u.ButtonState(x, y, 80, 22, l.name, g.layers[l.key], true) {
+		if u.ButtonState(x, y+7, bw, 24, l.name, g.layers[l.key], true) {
 			g.layers[l.key] = !g.layers[l.key]
 		}
-		u.Tooltip(x, y, 80, 22, l.tip)
-		u.blockUI(x, y, 80, 22)
-		x += 84
+		u.Tooltip(x, y+7, bw, 24, l.tip)
+		x += bw + gap
 	}
 }
 
@@ -958,26 +961,25 @@ func (g *Game) drawResearchNotice() {
 	}
 	u := &g.ui
 	txt := "Не выбрано исследование — нажмите, чтобы открыть «Наука»"
-	w := textWidth(txt, 15) + 30
+	w := textWidth(txt, 14) + 36
 	x := float64(g.cam.X) + float64(g.cam.W)/2 - w/2
-	y := float64(topH + 42)
-	hot := u.mouseIn(int(x), int(y), int(w), 28)
+	y := float64(topH + 54)
+	hot := u.mouseIn(int(x), int(y), int(w), 32)
 	c := color.RGBA{140, 90, 15, 235}
 	if hot {
 		c = color.RGBA{175, 115, 20, 245}
 	}
-	fillRect(u.screen, x, y, w, 28, c)
-	strokeRect(u.screen, x, y, w, 28, colWarn, 1)
-	drawText(u.screen, txt, x+w/2, y+6, 15, colText, 1)
-	u.blockUI(int(x), int(y), int(w), 28)
-	if u.clicked(int(x), int(y), int(w), 28) {
+	u.plate(x, y, w, 32, c, colWarn)
+	drawText(u.screen, txt, x+w/2, y+8, 14, colText, 1)
+	u.blockUI(int(x), int(y), int(w), 32)
+	if u.clicked(int(x), int(y), int(w), 32) {
 		g.tab, g.techOpen = 4, true
 	}
 }
 
 func (g *Game) drawToasts() {
 	u := &g.ui
-	y := float64(u.H - 40)
+	y := float64(u.H - 46)
 	now := time.Now()
 	for i := len(g.toasts) - 1; i >= 0; i-- {
 		t := g.toasts[i]
@@ -985,12 +987,11 @@ func (g *Game) drawToasts() {
 		if age > 9 {
 			continue
 		}
-		w := textWidth(t.text, 14) + 20
-		x := float64(leftW) + 12
-		fillRect(u.screen, x, y, w, 26, color.RGBA{20, 22, 26, 220})
-		strokeRect(u.screen, x, y, w, 26, colAccent, 1)
-		drawText(u.screen, t.text, x+10, y+5, 14, colText, 0)
-		y -= 30
+		w := textWidth(t.text, 14) + 28
+		x := float64(leftW) + 18
+		u.plate(x, y, w, 30, color.RGBA{20, 22, 26, 220}, colAccent)
+		drawText(u.screen, t.text, x+14, y+7, 14, colText, 0)
+		y -= 36
 	}
 }
 
@@ -999,8 +1000,7 @@ func (g *Game) drawVictory() {
 	v := g.view
 	w, h := 560.0, 200.0
 	x, y := float64(u.W)/2-w/2, float64(u.H)/2-h/2
-	fillRect(u.screen, x, y, w, h, color.RGBA{16, 18, 22, 245})
-	strokeRect(u.screen, x, y, w, h, colAccent, 2)
+	u.Panel(int(x), int(y), int(w), int(h))
 	title := "ПОРАЖЕНИЕ"
 	c := colBad
 	if v.Winner == v.Side {

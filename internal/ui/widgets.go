@@ -3,6 +3,7 @@ package ui
 
 import (
 	"bytes"
+	_ "embed"
 	"image"
 	"image/color"
 	"math"
@@ -12,8 +13,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"golang.org/x/image/font/gofont/gobold"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 // Палитра.
@@ -22,10 +21,10 @@ var (
 	colPanel2    = color.RGBA{36, 42, 50, 245}
 	colBorder    = color.RGBA{70, 80, 92, 255}
 	colText      = color.RGBA{230, 230, 228, 255}
-	colDim       = color.RGBA{150, 156, 164, 255}
+	colDim       = color.RGBA{176, 183, 194, 255}
 	colAccent    = color.RGBA{217, 164, 65, 255}
 	colGood      = color.RGBA{110, 190, 110, 255}
-	colBad       = color.RGBA{225, 90, 80, 255}
+	colBad       = color.RGBA{240, 110, 98, 255}
 	colWarn      = color.RGBA{235, 190, 70, 255}
 	colButton    = color.RGBA{52, 60, 72, 255}
 	colButtonHi  = color.RGBA{72, 84, 100, 255}
@@ -36,6 +35,14 @@ var (
 	colMapText   = color.RGBA{40, 36, 30, 255}
 )
 
+// sideText — светлый оттенок цвета стороны для текста на тёмном стекле.
+func sideText(s int) color.RGBA {
+	if s == 0 {
+		return color.RGBA{242, 112, 100, 255}
+	}
+	return color.RGBA{112, 162, 244, 255}
+}
+
 func sideColor(s int) color.RGBA {
 	if s == 0 {
 		return colRU
@@ -43,30 +50,37 @@ func sideColor(s int) color.RGBA {
 	return colUA
 }
 
+//go:embed fonts/Inter.ttf
+var interTTF []byte
+
 var (
-	fontSrc     *text.GoTextFaceSource
-	fontBoldSrc *text.GoTextFaceSource
-	faces       = map[float64]*text.GoTextFace{}
-	boldFaces   = map[float64]*text.GoTextFace{}
+	fontSrc   *text.GoTextFaceSource
+	faces     = map[float64]*text.GoTextFace{}
+	boldFaces = map[float64]*text.GoTextFace{}
 )
 
 func init() {
 	var err error
-	fontSrc, err = text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+	fontSrc, err = text.NewGoTextFaceSource(bytes.NewReader(interTTF))
 	if err != nil {
 		panic(err)
 	}
-	fontBoldSrc, err = text.NewGoTextFaceSource(bytes.NewReader(gobold.TTF))
-	if err != nil {
-		panic(err)
-	}
+}
+
+// newFace — шрифт Inter нужного кегля и веса (вариативная ось wght); для крупных размеров
+// включается оптический размер (ось opsz).
+func newFace(size, weight float64) *text.GoTextFace {
+	f := &text.GoTextFace{Source: fontSrc, Size: size}
+	f.SetVariation(text.MustParseTag("wght"), float32(weight))
+	f.SetVariation(text.MustParseTag("opsz"), float32(math.Max(14, math.Min(32, size))))
+	return f
 }
 
 func face(size float64) *text.GoTextFace {
 	if f, ok := faces[size]; ok {
 		return f
 	}
-	f := &text.GoTextFace{Source: fontSrc, Size: size}
+	f := newFace(size, 400)
 	faces[size] = f
 	return f
 }
@@ -75,7 +89,7 @@ func boldFace(size float64) *text.GoTextFace {
 	if f, ok := boldFaces[size]; ok {
 		return f
 	}
-	f := &text.GoTextFace{Source: fontBoldSrc, Size: size}
+	f := newFace(size, 650)
 	boldFaces[size] = f
 	return f
 }
@@ -105,6 +119,8 @@ type UI struct {
 	W, H   int
 	tip    string
 	clip   image.Rectangle // если задан, ввод принимается только внутри
+	on     bool            // стиль «стекло» включён и готов
+	fx     *glassFX
 }
 
 func (u *UI) mouseIn(x, y, w, h int) bool {
@@ -223,26 +239,45 @@ func (u *UI) Button(x, y, w, h int, label string) bool {
 // ButtonState — кнопка с состоянием «включено» и «доступна».
 func (u *UI) ButtonState(x, y, w, h int, label string, on, enabled bool) bool {
 	hover := u.mouseIn(x, y, w, h)
-	c := colButton
-	switch {
-	case !enabled:
-		c = colButtonOff
-	case on:
-		c = colButtonOn
-	case hover:
-		c = colButtonHi
-	}
-	fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), c)
-	strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
-	tc := colText
-	if !enabled {
-		tc = colDim
-	}
 	size := 14.0
 	if h < 22 {
 		size = 12
 	}
-	lbl := fitText(label, size, float64(w-6))
+	for size > 11 && textWidth(label, size) > float64(w-12) {
+		size -= 0.5
+	}
+	tc := colText
+	if !enabled {
+		tc = colDim
+	}
+	if u.on {
+		fill, rim, light := pillNormal, float32(0.35), float32(1)
+		switch {
+		case !enabled:
+			fill, rim, light = pillOff, 0.15, 0
+		case on:
+			fill, rim = pillOn, 0.55
+		case hover:
+			fill, rim = pillHover, 0.6
+		}
+		u.pill(float32(x), float32(y), float32(w), float32(h), 10, fill, rim, [3]float32{1, 1, 1}, light)
+		if on && enabled {
+			tc = color.RGBA{255, 250, 238, 255}
+		}
+	} else {
+		c := colButton
+		switch {
+		case !enabled:
+			c = colButtonOff
+		case on:
+			c = colButtonOn
+		case hover:
+			c = colButtonHi
+		}
+		fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), c)
+		strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
+	}
+	lbl := fitText(label, size, float64(w-12))
 	drawText(u.screen, lbl, float64(x+w/2), float64(y)+float64(h)/2-size*0.62, size, tc, 1)
 	if !enabled {
 		return false
@@ -267,15 +302,31 @@ func fitText(s string, size, w float64) string {
 
 // Bar — полоса прогресса.
 func (u *UI) Bar(x, y, w, h int, frac float64, c color.Color) {
+	frac = math.Max(0, math.Min(1, frac))
+	if u.on {
+		u.pill(float32(x), float32(y), float32(w), float32(h), 6, pillDark, 0.25, [3]float32{1, 1, 1}, 0)
+		if fw := float64(w) * frac; fw >= 2 {
+			r, g, b, _ := c.RGBA()
+			u.pill(float32(x), float32(y), float32(fw), float32(h), 6, [4]float32{float32(r) / 0xffff, float32(g) / 0xffff, float32(b) / 0xffff, 0.95}, 0.3, [3]float32{1, 1, 1}, 1)
+		}
+		return
+	}
 	fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), color.RGBA{20, 20, 24, 255})
-	fillRect(u.screen, float64(x), float64(y), float64(w)*math.Max(0, math.Min(1, frac)), float64(h), c)
+	fillRect(u.screen, float64(x), float64(y), float64(w)*frac, float64(h), c)
 	strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
 }
 
-// Panel — фон панели.
-func (u *UI) Panel(x, y, w, h int) {
-	fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), colPanel)
-	strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
+// Panel — фон панели (стеклянная плашка или плоский фон).
+func (u *UI) Panel(x, y, w, h int) { u.PanelT(x, y, w, h, 0.66) }
+
+// PanelT — панель с заданной плотностью подкраски стекла (0.5…0.9).
+func (u *UI) PanelT(x, y, w, h int, tint float32) {
+	if u.on {
+		u.glassPanel(float32(x), float32(y), float32(w), float32(h), 18, tint)
+	} else {
+		fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), colPanel)
+		strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
+	}
 	u.blockUI(x, y, w, h)
 }
 
@@ -304,10 +355,14 @@ func (u *UI) drawTooltip() {
 	if y+h > float64(u.H) {
 		y = float64(u.in.my) - h - 4
 	}
-	fillRect(u.screen, x, y, w+12, h, color.RGBA{14, 16, 20, 245})
-	strokeRect(u.screen, x, y, w+12, h, colAccent, 1)
+	if u.on {
+		u.pill(float32(x), float32(y), float32(w+16), float32(h+4), 10, [4]float32{0.04, 0.055, 0.08, 0.93}, 0.5, [3]float32{1, 1, 1}, 0.4)
+	} else {
+		fillRect(u.screen, x, y, w+12, h, color.RGBA{14, 16, 20, 245})
+		strokeRect(u.screen, x, y, w+12, h, colAccent, 1)
+	}
 	for i, l := range lines {
-		drawText(u.screen, l, x+6, y+4+float64(i)*17, 13, colText, 0)
+		drawText(u.screen, l, x+8, y+5+float64(i)*17, 13, colText, 0)
 	}
 	u.tip = ""
 }
@@ -361,12 +416,21 @@ func (t *TextField) Draw(u *UI, x, y, w, h int) {
 		t.applyInput(u.in.chars, u.in.backspace)
 		u.in.chars, u.in.backspace = nil, 0
 	}
-	fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), color.RGBA{14, 16, 20, 255})
-	bc := colBorder
-	if t.Focused {
-		bc = colAccent
+	if u.on {
+		rc := [3]float32{1, 1, 1}
+		rim := float32(0.3)
+		if t.Focused {
+			rc, rim = [3]float32{0.92, 0.66, 0.24}, 0.95
+		}
+		u.pill(float32(x), float32(y), float32(w), float32(h), 10, pillDark, rim, rc, 0)
+	} else {
+		fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), color.RGBA{14, 16, 20, 255})
+		bc := colBorder
+		if t.Focused {
+			bc = colAccent
+		}
+		strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), bc, 1)
 	}
-	strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), bc, 1)
 	s := t.Text
 	if t.Focused && (u.in.tick/30)%2 == 0 {
 		s += "|"
@@ -404,4 +468,31 @@ func triangle(dst *ebiten.Image, x1, y1, x2, y2, x3, y3 float64, c color.Color) 
 	}
 	op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
 	dst.DrawTriangles32(vs, []uint32{0, 1, 2}, whitePix, op)
+}
+
+// plate — плашка для уведомлений и подсказок: тёмное стекло с цветной кромкой (в плоском стиле — рамка).
+func (u *UI) plate(x, y, w, h float64, flat, rim color.RGBA) {
+	if u.on {
+		u.pill(float32(x), float32(y), float32(w), float32(h), 11, [4]float32{0.04, 0.055, 0.08, 0.88},
+			0.9, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 0.4)
+		return
+	}
+	fillRect(u.screen, x, y, w, h, flat)
+	strokeRect(u.screen, x, y, w, h, rim, 1)
+}
+
+// card — карточка внутри панели: лёгкая светлая плашка (в плоском стиле — тёмная заливка).
+func (u *UI) card(x, y, w, h float64, rim color.RGBA, strong float32) {
+	if u.on {
+		u.pill(float32(x), float32(y), float32(w), float32(h), 12, [4]float32{1, 1, 1, 0.06 + 0.04*strong},
+			0.35+0.6*strong, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 1)
+		return
+	}
+	fillRect(u.screen, x, y, w, h, color.RGBA{30, 35, 42, 255})
+	strokeRect(u.screen, x, y, w, h, rim, 1)
+}
+
+// rowHi — подсветка строки списка под курсором.
+func (u *UI) rowHi(x, y, w, h float64) {
+	fillRect(u.screen, x, y, w, h, color.RGBA{34, 34, 34, 34})
 }

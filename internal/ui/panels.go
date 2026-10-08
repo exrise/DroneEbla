@@ -15,22 +15,17 @@ var tabNames = []string{"Фронт", "Госзаказ", "Арсенал", "С�
 
 func (g *Game) drawLeftPanel() {
 	u := &g.ui
-	if g.glassOn() {
-		g.glassRect(4, topH+2, leftW-6, float32(u.H-topH-6), 14)
-		u.blockUI(0, topH, leftW, u.H-topH)
-	} else {
-		u.Panel(0, topH, leftW, u.H-topH)
-	}
-	tw := (leftW - 12) / 5
+	u.Panel(6, topH+4, leftW-6, u.H-topH-10)
+	tw := (leftW - 36) / 5
 	for i, name := range tabNames {
-		x := 6 + (i%5)*tw
-		y := topH + 6 + (i/5)*28
-		if u.ButtonState(x, y, tw-4, 24, name, g.tab == i, true) {
+		x := 18 + (i%5)*tw
+		y := topH + 14 + (i/5)*30
+		if u.ButtonState(x, y, tw-4, 26, name, g.tab == i, true) {
 			g.tab = i
 		}
 	}
-	top := topH + 6 + 2*28 + 4
-	area := image.Rect(0, top, leftW, u.H)
+	top := topH + 14 + 2*30 + 8
+	area := image.Rect(10, top, leftW-4, u.H-14)
 	key := tabNames[g.tab]
 	sc := g.scroll[key]
 	if image.Pt(u.in.mx, u.in.my).In(area) && u.in.wheel != 0 {
@@ -45,7 +40,7 @@ func (g *Game) drawLeftPanel() {
 	u.clip = area
 	y0 := float64(top+8) - sc
 	var bottom int
-	x, w := 12, leftW-24
+	x, w := 22, leftW-48
 	switch g.tab {
 	case 0:
 		bottom = g.tabFront(x, int(y0), w)
@@ -138,7 +133,7 @@ func (g *Game) tabFront(x, y, w int) int {
 	y = g.header("Направления", x, y)
 	for d := 0; d < 3; d++ {
 		f := v.Front[d]
-		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 225, color.RGBA{30, 35, 42, 255})
+		u.card(float64(x-6), float64(y-6), float64(w+12), 229, color.RGBA{255, 255, 255, 90}, 0)
 		drawBold(u.screen, sim.DirNames[d], float64(x), float64(y), 15, colText, 0)
 		drawText(u.screen, fmt.Sprintf("доля пополнений %.0f%%", v.Alloc[d]*100), float64(x+w-70), float64(y+1), 13, colDim, 2)
 		if u.Button(x+w-60, y-2, 28, 20, "−") {
@@ -462,7 +457,7 @@ type cand struct {
 func (g *Game) clickRow(k, val string, x, y, w int, c color.Color, key string, list func() []cand) int {
 	u := &g.ui
 	if u.mouseIn(x-2, y-2, w+4, 20) {
-		fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), 20, colButtonHi)
+		u.rowHi(float64(x-4), float64(y-2), float64(w+8), 20)
 	}
 	if u.clicked(x-2, y-2, w+4, 20) {
 		g.cycleSelect(key, list())
@@ -593,7 +588,7 @@ func (g *Game) tabBuild(x, y, w int) int {
 		}
 		cost := data.ToRes(bt.Cost)
 		afford := v.Res.Covers(cost, 1)
-		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 2, colBorder)
+		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 1, color.RGBA{255, 255, 255, 40})
 		drawBold(u.screen, bt.Name, float64(x), float64(y), 14, colText, 0)
 		y += 20
 		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(cost), bt.BuildHours), x, y, w, colDim)
@@ -737,7 +732,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 	y = g.header("Спутники", x, y)
 	y = g.para("Оптика определяет тип объекта и повреждения, но не видит замаскированное. Радар видит замаскированное, но тип не определяет.", x, y, w, colDim)
 	for _, s := range v.Sats {
-		c := sideColor(s.Side)
+		c := sideText(s.Side)
 		sensor := "оптика"
 		if s.Sensor == "radar" {
 			sensor = "радар"
@@ -795,7 +790,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 		}
 		t := fitText(g.contactTitle(&c), 13, float64(w-110))
 		if u.mouseIn(x, y-2, w, 20) {
-			fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), 20, colButtonHi)
+			u.rowHi(float64(x-4), float64(y-2), float64(w+8), 20)
 		}
 		drawText(u.screen, t, float64(x), float64(y), 13, colText, 0)
 		drawText(u.screen, ageText(v.Time, c.Seen), float64(x+w), float64(y), 12, colDim, 2)
@@ -826,7 +821,7 @@ func (g *Game) tabLog(x, y, w int) int {
 		lines := wrap(e.Text, 13, float64(w-60))
 		h := len(lines)*17 + 4
 		if e.HasPos && u.mouseIn(x, y-2, w, h) {
-			fillRect(u.screen, float64(x-2), float64(y-2), float64(w+4), float64(h), colButtonHi)
+			u.rowHi(float64(x-4), float64(y-2), float64(w+8), float64(h))
 		}
 		drawText(u.screen, fmt.Sprintf("%02d:%02d", (int(e.Time)%1440)/60, int(e.Time)%60), float64(x), float64(y), 12, colDim, 0)
 		for k, l := range lines {

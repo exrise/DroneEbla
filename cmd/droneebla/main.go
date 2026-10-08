@@ -43,6 +43,7 @@ func main() {
 	}
 	ebiten.SetWindowTitle("DroneEbla — война на истощение")
 	ebiten.SetWindowSize(1600, 900)
+	ebiten.SetWindowSizeLimits(1280, 720, -1, -1)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
 	g := ui.New(cat, m, dataDir, saveDir)
