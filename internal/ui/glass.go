@@ -299,6 +299,9 @@ func (u *UI) glassPanel(x, y, w, h, r, tintA float32) {
 		return
 	}
 	const m = 18 // запас под тень
+	if u.glassK > 0 {
+		tintA = min(0.97, max(0.05, tintA*u.glassK))
+	}
 	op := &ebiten.DrawTrianglesShaderOptions{}
 	op.Images[0] = fx.small
 	op.Uniforms = map[string]any{

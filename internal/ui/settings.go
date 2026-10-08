@@ -13,12 +13,13 @@ import (
 
 // Settings — настройки экрана; лежат в settings.json рядом с игрой.
 type Settings struct {
-	WinW       int     `json:"win_w"`
-	WinH       int     `json:"win_h"`
-	Fullscreen bool    `json:"fullscreen"`
-	Scale      float64 `json:"scale"`   // масштаб интерфейса; 0 — автоматически по размеру окна
-	Quality    float64 `json:"quality"` // качество отрисовки (доля физического разрешения); 0 — авто
-	Glass      bool    `json:"glass"`
+	WinW         int     `json:"win_w"`
+	WinH         int     `json:"win_h"`
+	Fullscreen   bool    `json:"fullscreen"`
+	Scale        float64 `json:"scale"`         // масштаб интерфейса; 0 — автоматически по размеру окна
+	Quality      float64 `json:"quality"`       // качество отрисовки (доля физического разрешения); 0 — авто
+	GlassOpacity float64 `json:"glass_opacity"` // прозрачность стекла: 0 — почти прозрачное, 1 — плотное; 0,5 — по умолчанию
+	Glass        bool    `json:"glass"`
 }
 
 const (
@@ -39,7 +40,7 @@ var winPresets = [][2]int{{1280, 720}, {1366, 768}, {1600, 900}, {1920, 1080}, {
 
 // DefaultSettings — настройки по умолчанию.
 func DefaultSettings() Settings {
-	return Settings{WinW: 1600, WinH: 900, Scale: 0, Glass: true}
+	return Settings{WinW: 1600, WinH: 900, Scale: 0, Glass: true, GlassOpacity: 0.5}
 }
 
 // LoadSettings читает settings.json; при отсутствии или ошибке возвращает значения по умолчанию.
@@ -68,6 +69,9 @@ func (s *Settings) normalize() {
 	}
 	if !ok {
 		s.Scale = 0
+	}
+	if !(s.GlassOpacity >= 0 && s.GlassOpacity <= 1) { // в том числе NaN
+		s.GlassOpacity = d.GlassOpacity
 	}
 	ok = false
 	for _, v := range qualitySteps {
@@ -204,6 +208,16 @@ func (g *Game) setQuality(q float64) {
 	g.saveSettings()
 }
 
+func (g *Game) setGlassOpacity(v float64) {
+	g.set.GlassOpacity = math.Round(math.Max(0, math.Min(1, v))*100) / 100
+	g.saveSettings()
+}
+
+// glassTintK — множитель плотности подложки стеклянных панелей по ползунку (0,5 → 1, как раньше).
+func glassTintK(opacity float64) float32 {
+	return float32(0.25 + 1.5*math.Max(0, math.Min(1, opacity)))
+}
+
 func (g *Game) setScale(s float64) {
 	g.set.Scale = s
 	g.saveSettings()
@@ -277,23 +291,45 @@ func monitorDIP() (int, int) {
 	return 0, 0
 }
 
-// drawSettingsBody рисует выбор режима, размера окна и масштаба; возвращает y под последним элементом.
+// drawSettingsBody рисует настройки экрана; возвращает y под последним элементом.
+// Сетка одна на все разделы: подпись 20, ряд кнопок 32 (шаг 40), пояснение 18, отступ между разделами 14.
 func (g *Game) drawSettingsBody(cx, y int) int {
 	u := &g.ui
 	left := float64(cx - menuW/2)
+	gap := 14
+	if u.H < 780 { // минимальный логический экран: плотнее
+		gap = 8
+	}
 	section := func(title string) {
 		drawText(u.screen, title, left, float64(y), 14, colDim, 0)
-		y += 22
+		y += 20
+	}
+	note := func(s string, c color.Color) {
+		drawText(u.screen, s, float64(cx), float64(y), 13, c, 1)
+		y += 18
+	}
+	// row рисует ряд одинаковых кнопок по центру; click получает индекс нажатой.
+	row := func(n, bw, g int, btn func(i, x int) bool) {
+		x := cx - (n*bw+(n-1)*g)/2
+		for i := 0; i < n; i++ {
+			btn(i, x)
+			x += bw + g
+		}
+		y += 40
 	}
 
 	section("Режим экрана")
-	if u.ButtonState(cx-204, y, 200, 36, "Окно", !g.set.Fullscreen, true) {
-		g.setFullscreen(false)
-	}
-	if u.ButtonState(cx+4, y, 200, 36, "Полный экран (F11)", g.set.Fullscreen, true) {
-		g.setFullscreen(true)
-	}
-	y += 52
+	row(2, 200, 8, func(i, x int) bool {
+		if i == 0 {
+			if u.ButtonState(x, y, 200, 32, "Окно", !g.set.Fullscreen, true) {
+				g.setFullscreen(false)
+			}
+		} else if u.ButtonState(x, y, 200, 32, "Полный экран (F11)", g.set.Fullscreen, true) {
+			g.setFullscreen(true)
+		}
+		return false
+	})
+	y += gap - 8
 
 	section("Размер окна")
 	mw, mh := monitorDIP()
@@ -306,79 +342,81 @@ func (g *Game) drawSettingsBody(cx, y int) int {
 	if !have && (mw <= 0 || cur[0] <= mw) {
 		choices = append(append([][2]int{}, choices...), cur) // текущий размер (например, подобранный мышью)
 	}
-	const perRow, bw, gap = 4, 130, 8
+	const perRow = 4
 	for i := 0; i < len(choices); i += perRow {
-		row := choices[i:min(i+perRow, len(choices))]
-		x := cx - (len(row)*bw+(len(row)-1)*gap)/2
-		for _, c := range row {
+		r := choices[i:min(i+perRow, len(choices))]
+		row(len(r), 130, 8, func(k, x int) bool {
+			c := r[k]
 			on := !g.set.Fullscreen && g.set.WinW == c[0] && g.set.WinH == c[1]
-			if u.ButtonState(x, y, bw, 34, fmt.Sprintf("%d×%d", c[0], c[1]), on, !g.set.Fullscreen) {
+			if u.ButtonState(x, y, 130, 32, fmt.Sprintf("%d×%d", c[0], c[1]), on, !g.set.Fullscreen) {
 				g.setWindowSize(c[0], c[1])
 			}
-			x += bw + gap
-		}
-		y += 42
+			return false
+		})
 	}
-	note := "Размер окна можно менять и мышью — потянув за край."
 	if g.set.Fullscreen {
-		note = "В полном экране размер окна не используется."
+		note("В полном экране размер окна не используется.", colDim)
+	} else {
+		note("Размер окна можно менять и мышью — потянув за край.", colDim)
 	}
-	drawText(u.screen, note, float64(cx), float64(y), 13, colDim, 1)
-	y += 30
+	y += gap - 4
 
 	section("Масштаб интерфейса")
-	const sbw, sgap = 72, 6
-	ww, wh := ebiten.WindowSize()
-	x := cx - (len(scaleSteps)*sbw+(len(scaleSteps)-1)*sgap)/2
-	for _, s := range scaleSteps {
+	row(len(scaleSteps), 72, 6, func(i, x int) bool {
+		s := scaleSteps[i]
 		lbl := "Авто"
 		if s > 0 {
 			lbl = fmt.Sprintf("%.0f%%", s*100)
 		}
+		ww, wh := ebiten.WindowSize()
 		fits := s == 0 || layoutScale(float64(ww), float64(wh), g.dsf, s) >= s*g.dsf-1e-9
-		if u.ButtonState(x, y, sbw, 34, lbl, g.set.Scale == s, fits) {
+		if u.ButtonState(x, y, 72, 32, lbl, g.set.Scale == s, fits) {
 			g.setScale(s)
 		}
-		x += sbw + sgap
+		return false
+	})
+	switch {
+	case g.capped:
+		note(fmt.Sprintf("Выбрано %.0f%%, но при таком размере окна интерфейс не помещается — показано %.0f%%.", g.set.Scale*100, g.effScale*100), colWarn)
+	case g.set.Scale == 0:
+		note(fmt.Sprintf("Авто: по размеру окна, сейчас %.0f%%. Ctrl+«+» / Ctrl+«−» — вручную.", g.effScale*100), colDim)
+	default:
+		note(fmt.Sprintf("Сейчас %.0f%%. Ctrl+«+» / Ctrl+«−» — шаг, Ctrl+0 — авто.", g.effScale*100), colDim)
 	}
-	y += 42
-	note = fmt.Sprintf("Сейчас %.0f%%. Ctrl+«+» / Ctrl+«−» — шаг масштаба, Ctrl+0 — авто.", g.effScale*100)
-	if g.set.Scale == 0 {
-		note = fmt.Sprintf("Авто: подбирается по размеру окна, сейчас %.0f%%. Ctrl+«+» / Ctrl+«−» — вручную.", g.effScale*100)
-	}
-	c := color.Color(colDim)
-	if g.capped {
-		note = fmt.Sprintf("Выбрано %.0f%%, но при таком размере окна интерфейс не помещается — показано %.0f%%.", g.set.Scale*100, g.effScale*100)
-		c = colWarn
-	}
-	drawText(u.screen, note, float64(cx), float64(y), 13, c, 1)
-	y += 30
+	y += gap - 4
 
 	section("Качество отрисовки")
-	x = cx - (len(qualitySteps)*sbw+(len(qualitySteps)-1)*sgap)/2
-	for _, q := range qualitySteps {
+	row(len(qualitySteps), 72, 6, func(i, x int) bool {
+		q := qualitySteps[i]
 		lbl := "Авто"
 		if q > 0 {
 			lbl = fmt.Sprintf("%.0f%%", q*100)
 		}
-		if u.ButtonState(x, y, sbw, 34, lbl, g.set.Quality == q, true) {
+		if u.ButtonState(x, y, 72, 32, lbl, g.set.Quality == q, true) {
 			g.setQuality(q)
 		}
-		x += sbw + sgap
-	}
-	y += 42
-	note = fmt.Sprintf("Кадр %d×%d. Меньше — быстрее, но картинка мягче (если лагает на 4K, выберите 75%% или 50%%).", u.screen.Bounds().Dx(), u.screen.Bounds().Dy())
-	drawText(u.screen, note, float64(cx), float64(y), 13, colDim, 1)
-	y += 30
+		return false
+	})
+	note(fmt.Sprintf("Кадр %d×%d. Меньше — быстрее, но картинка мягче.", u.screen.Bounds().Dx(), u.screen.Bounds().Dy()), colDim)
+	y += gap - 4
 
-	gl := "Стиль «жидкое стекло»: вкл (F9)"
+	section("Жидкое стекло")
+	gl := "Включено (F9)"
 	if !g.glass {
-		gl = "Стиль «жидкое стекло»: выкл (F9)"
+		gl = "Выключено (F9)"
 	}
-	if u.ButtonState(cx-150, y, 300, 34, gl, g.glass, !g.fxFailed) {
+	x0 := cx - menuW/2 + 6
+	if u.ButtonState(x0, y, 200, 32, gl, g.glass, !g.fxFailed) {
 		g.setGlass(!g.glass)
 	}
-	return y + 46
+	drawText(u.screen, "Прозрачность", float64(x0+200+16), float64(y+9), 13, colDim, 0)
+	sx := x0 + 200 + 16 + int(textWidth("Прозрачность", 13)) + 10
+	sw := cx + menuW/2 - 6 - 44 - sx
+	if v, ch := u.Slider("glass", sx, y, sw, 32, g.set.GlassOpacity); ch {
+		g.setGlassOpacity(v)
+	}
+	drawText(u.screen, fmt.Sprintf("%.0f%%", g.set.GlassOpacity*100), float64(cx+menuW/2-6), float64(y+9), 13, colText, 2)
+	return y + 32 + gap + 4
 }
 
 func (g *Game) drawSettings() {

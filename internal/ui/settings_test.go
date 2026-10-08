@@ -131,3 +131,54 @@ func TestRenderQuality(t *testing.T) {
 		t.Errorf("недопустимое качество должно сбрасываться в авто, а стало %v", st.Quality)
 	}
 }
+
+func TestGlassOpacity(t *testing.T) {
+	if got := glassTintK(0.5); got != 1 {
+		t.Errorf("при 50%% множитель плотности должен быть 1 (прежний вид), а %v", got)
+	}
+	if glassTintK(0) >= glassTintK(0.5) || glassTintK(1) <= glassTintK(0.5) {
+		t.Error("множитель должен расти с ползунком")
+	}
+	if glassTintK(-1) != glassTintK(0) || glassTintK(2) != glassTintK(1) {
+		t.Error("значения вне 0…1 должны ограничиваться")
+	}
+	s := Settings{WinW: 1600, WinH: 900, GlassOpacity: 7}
+	s.normalize()
+	if s.GlassOpacity != 0.5 {
+		t.Errorf("недопустимая прозрачность должна сбрасываться в 0,5, а стала %v", s.GlassOpacity)
+	}
+	if d := DefaultSettings(); d.GlassOpacity != 0.5 {
+		t.Errorf("по умолчанию 0,5, а %v", d.GlassOpacity)
+	}
+	// Файл без ключа прозрачности даёт значение по умолчанию.
+	p := filepath.Join(t.TempDir(), "s.json")
+	os.WriteFile(p, []byte(`{"scale":1}`), 0o644)
+	if got := LoadSettings(p).GlassOpacity; got != 0.5 {
+		t.Errorf("без ключа ожидалось 0,5, а %v", got)
+	}
+}
+
+func TestLineK(t *testing.T) {
+	if lineK(3) != 1 || lineK(0.05) != 0.5 {
+		t.Errorf("lineK: на большом зуме 1, на малом 0,5; вышло %v и %v", lineK(3), lineK(0.05))
+	}
+	if !(lineK(0.3) < lineK(0.6)) {
+		t.Error("линии должны утолщаться с приближением")
+	}
+}
+
+func TestFitRowSameSize(t *testing.T) {
+	labels := []string{"Оборона", "Активная оборона", "Наступление"}
+	rsOld := rs
+	rs = 1
+	defer func() { rs = rsOld }()
+	a := fitRow(labels, 124, 26)
+	for _, l := range labels {
+		if textWidth(l, a) > 124-8 {
+			t.Errorf("подпись %q не помещается при общем кегле %v", l, a)
+		}
+	}
+	if a < 10 || a > 14 {
+		t.Errorf("кегль вне 10…14: %v", a)
+	}
+}

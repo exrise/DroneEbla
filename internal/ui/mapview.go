@@ -200,8 +200,13 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 	}
 	ox, oy := cam.ToScreen(0, 0)
 	r.tiles.draw(dst, cam)
+	// Слой владения и давления (розовая полоса у фронта) на малом зуме бледнее.
+	ownA := float32(math.Max(0.5, math.Min(1, 0.45+0.6*cam.Z)))
 	tile := func(img *ebiten.Image) {
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
+		if img == r.ownerImg {
+			op.ColorScale.ScaleAlpha(ownA)
+		}
 		op.GeoM.Scale(cam.Z*r.m.TileKm, cam.Z*r.m.TileKm)
 		op.GeoM.Translate(ox, oy)
 		op.GeoM.Scale(rs, rs)
@@ -219,7 +224,8 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 		tile(r.fogImg)
 	}
 	// Линия фронта.
-	w := float32(math.Max(2, math.Min(4, cam.Z*1.2)))
+	w := float32(math.Max(1, math.Min(3.2, 0.4+0.9*cam.Z)))
+	fc := withAlpha(colFront, uint8(255*math.Max(0.6, math.Min(1, 0.5+cam.Z))))
 	for k := 0; k+3 < len(r.front); k += 4 {
 		x0, y0 := cam.ToScreen(float64(r.front[k]), float64(r.front[k+1]))
 		x1, y1 := cam.ToScreen(float64(r.front[k+2]), float64(r.front[k+3]))
@@ -233,7 +239,7 @@ func (r *MapRenderer) drawBase(dst *ebiten.Image, cam *Camera, layers map[string
 			ex, ey := dx/l*float64(w)/2, dy/l*float64(w)/2
 			x0, y0, x1, y1 = x0-ex, y0-ey, x1+ex, y1+ey
 		}
-		line(dst, x0, y0, x1, y1, colFront, w)
+		line(dst, x0, y0, x1, y1, fc, w)
 	}
 }
 

@@ -515,15 +515,26 @@ func (g *Game) drawHelp() {
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)
 	}
-	h := len(lines)*18 + 20
+	// Строки длиннее плашки переносятся, а не вылезают за рамку.
+	type hl struct {
+		text string
+		warn bool
+	}
+	var out []hl
+	for i, l := range lines {
+		for _, w := range wrap(l, 13, infoW-32) {
+			out = append(out, hl{w, i == 0 && !v.War})
+		}
+	}
+	h := len(out)*18 + 20
 	x, y := u.W-infoW-8, u.H-h-8
 	u.Panel(x, y, infoW, h)
-	for i, l := range lines {
+	for i, l := range out {
 		c := color.RGBA{196, 202, 210, 255}
-		if i == 0 && !v.War {
+		if l.warn {
 			c = colWarn
 		}
-		drawText(u.screen, l, float64(x+16), float64(y+9+i*18), 13, c, 0)
+		drawText(u.screen, l.text, float64(x+16), float64(y+9+i*18), 13, c, 0)
 	}
 }
 

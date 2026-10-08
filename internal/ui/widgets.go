@@ -119,13 +119,16 @@ type input struct {
 
 // UI — непосредственный режим: виджеты рисуются и обрабатывают ввод в Draw.
 type UI struct {
-	in     input
-	screen *ebiten.Image
-	W, H   int
-	tip    string
-	clip   image.Rectangle // если задан, ввод принимается только внутри
-	on     bool            // стиль «стекло» включён и готов
-	fx     *glassFX
+	in      input
+	screen  *ebiten.Image
+	W, H    int
+	tip     string
+	clip    image.Rectangle // если задан, ввод принимается только внутри
+	on      bool            // стиль «стекло» включён и готов
+	glassK  float32         // множитель плотности подложки стекла (ползунок в настройках)
+	drag    string          // какой ползунок сейчас тянут
+	rowSize float64         // общий кегль подписей ряда кнопок (0 — каждая кнопка подбирает свой)
+	fx      *glassFX
 }
 
 func (u *UI) mouseIn(x, y, w, h int) bool {
@@ -156,6 +159,13 @@ func (u *UI) blockUI(x, y, w, h int) {
 // текст и линии остаются чёткими (а не растягиваются из маленького кадра).
 var rs = 1.0
 
+// mapLineK — множитель толщины штрихов при рисовании карты: на малом зуме линии и контуры значков тоньше.
+// Вне карты всегда 1.
+var mapLineK = 1.0
+
+// lineK — множитель по зуму камеры: от 1 при приближении до 0,5 на самом малом масштабе.
+func lineK(z float64) float64 { return math.Max(0.5, math.Min(1, 0.35+0.65*z)) }
+
 // vecAA — сглаживание векторных линий и кругов. Должно быть false: с antialias=true Ebiten 2.10
 // в партии раздувает кучу Go до гигабайт (замер: 5 ГБ против 50 МБ) и кадр уходит в сотни миллисекунд.
 const vecAA = false
@@ -177,6 +187,7 @@ func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {
 
 func strokeRect(dst *ebiten.Image, x, y, w, h float64, c color.Color, t float32) {
 	callStats.stroke++
+	t *= float32(mapLineK)
 	x0, y0, x1, y1 := snap(x), snap(y), snap(x+w), snap(y+h)
 	vector.StrokeRect(dst, x0, y0, x1-x0, y1-y0, float32(math.Max(1, math.Round(float64(t)*rs))), c, false)
 }
@@ -189,6 +200,7 @@ func offscreen(dst *ebiten.Image, minX, minY, maxX, maxY, pad float64) bool {
 
 func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
 	callStats.line++
+	t *= float32(mapLineK)
 	if offscreen(dst, math.Min(x0, x1)*rs, math.Min(y0, y1)*rs, math.Max(x0, x1)*rs, math.Max(y0, y1)*rs, float64(t)*rs+2) {
 		return
 	}
@@ -197,6 +209,7 @@ func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
 
 func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
 	callStats.circle++
+	t *= float32(mapLineK)
 	// Кольцо, которое не пересекает изображение: целиком снаружи или экран целиком внутри кольца.
 	cx, cy, pr, pt := x*rs, y*rs, r*rs, float64(t)*rs+2
 	if offscreen(dst, cx-pr, cy-pr, cx+pr, cy+pr, pt) {
@@ -222,6 +235,7 @@ func disc(dst *ebiten.Image, x, y, r float64, c color.Color) {
 func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
 	callStats.text++
 	callStats.glyphs += len(s)
+	auditText(s, x, y, size, align)
 	f := face(size)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
@@ -238,6 +252,7 @@ func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.C
 func drawBold(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
 	callStats.text++
 	callStats.glyphs += len(s)
+	auditText(s, x, y, size, align)
 	f := boldFace(size)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
@@ -317,7 +332,10 @@ func (u *UI) ButtonState(x, y, w, h int, label string, on, enabled bool) bool {
 	if h < 22 {
 		size = 12
 	}
-	for size > 11 && textWidth(label, size) > float64(w-12) {
+	if u.rowSize > 0 {
+		size = u.rowSize
+	}
+	for size > 10 && textWidth(label, size) > float64(w-8) {
 		size -= 0.5
 	}
 	tc := colText
@@ -351,7 +369,10 @@ func (u *UI) ButtonState(x, y, w, h int, label string, on, enabled bool) bool {
 		fillRect(u.screen, float64(x), float64(y), float64(w), float64(h), c)
 		strokeRect(u.screen, float64(x), float64(y), float64(w), float64(h), colBorder, 1)
 	}
-	lbl := fitText(label, size, float64(w-12))
+	lbl := fitText(label, size, float64(w-8))
+	if lbl != label {
+		auditReport("кнопка обрезана", label, textWidth(label, size), float64(w-8))
+	}
 	drawText(u.screen, lbl, float64(x+w/2), float64(y)+float64(h)/2-size*0.62, size, tc, 1)
 	if !enabled {
 		return false
@@ -395,6 +416,7 @@ func (u *UI) Panel(x, y, w, h int) { u.PanelT(x, y, w, h, 0.66) }
 
 // PanelT — панель с заданной плотностью подкраски стекла (0.5…0.9).
 func (u *UI) PanelT(x, y, w, h int, tint float32) {
+	auditRect(float64(x), float64(y), float64(w), float64(h))
 	if u.on {
 		u.glassPanel(float32(x), float32(y), float32(w), float32(h), 24, tint)
 	} else {
@@ -547,6 +569,7 @@ func triangle(dst *ebiten.Image, x1, y1, x2, y2, x3, y3 float64, c color.Color) 
 
 // plate — плашка для уведомлений и подсказок: тёмное стекло с цветной кромкой (в плоском стиле — рамка).
 func (u *UI) plate(x, y, w, h float64, flat, rim color.RGBA) {
+	auditRect(x, y, w, h)
 	if u.on {
 		u.pill(float32(x), float32(y), float32(w), float32(h), 14, [4]float32{0.04, 0.055, 0.08, 0.88},
 			0.9, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 0.4)
@@ -558,6 +581,7 @@ func (u *UI) plate(x, y, w, h float64, flat, rim color.RGBA) {
 
 // card — карточка внутри панели: лёгкая светлая плашка (в плоском стиле — тёмная заливка).
 func (u *UI) card(x, y, w, h float64, rim color.RGBA, strong float32) {
+	auditRect(x, y, w, h)
 	if u.on {
 		u.pill(float32(x), float32(y), float32(w), float32(h), 16, [4]float32{1, 1, 1, 0.06 + 0.04*strong},
 			0.35+0.6*strong, [3]float32{float32(rim.R) / 255, float32(rim.G) / 255, float32(rim.B) / 255}, 1)
@@ -570,4 +594,64 @@ func (u *UI) card(x, y, w, h float64, rim color.RGBA, strong float32) {
 // rowHi — подсветка строки списка под курсором.
 func (u *UI) rowHi(x, y, w, h float64) {
 	fillRect(u.screen, x, y, w, h, color.RGBA{34, 34, 34, 34})
+}
+
+// Slider — горизонтальный ползунок 0…1; возвращает новое значение и признак изменения.
+func (u *UI) Slider(id string, x, y, w, h int, v float64) (float64, bool) {
+	const pad = 10 // от края до центра ручки
+	changed := false
+	if u.in.click && !u.in.consumed && u.mouseIn(x-4, y, w+8, h) {
+		u.in.consumed = true
+		u.drag = id
+	}
+	if u.drag == id {
+		if u.in.down {
+			nv := math.Max(0, math.Min(1, (float64(u.in.mx-x-pad))/float64(w-2*pad)))
+			if nv != v {
+				v, changed = nv, true
+			}
+		} else {
+			u.drag = ""
+		}
+	}
+	ty := float64(y + h/2)
+	kx := float64(x+pad) + v*float64(w-2*pad)
+	// дорожка и заполненная часть
+	if u.on {
+		u.pill(float32(x), float32(ty-3), float32(w), 6, 3, [4]float32{1, 1, 1, 0.16}, 0.3, [3]float32{1, 1, 1}, 0)
+		u.pill(float32(x), float32(ty-3), float32(kx-float64(x)), 6, 3, pillOn, 0.3, [3]float32{1, 1, 1}, 0)
+	} else {
+		fillRect(u.screen, float64(x), ty-3, float64(w), 6, colButton)
+		fillRect(u.screen, float64(x), ty-3, kx-float64(x), 6, colButtonOn)
+	}
+	r := 8.0
+	if u.drag == id || u.mouseIn(x, y, w, h) {
+		r = 9
+	}
+	disc(u.screen, kx, ty, r, color.RGBA{245, 240, 225, 255})
+	circle(u.screen, kx, ty, r, color.RGBA{0, 0, 0, 90}, 1)
+	return v, changed
+}
+
+// fitRow подбирает один кегль для подписей ряда кнопок шириной w каждая — чтобы в ряду не было букв разного размера.
+// Результат нужно присвоить u.rowSize на время рисования ряда и сбросить в 0.
+func fitRow(labels []string, w int, h int) float64 {
+	size := 14.0
+	if h < 22 {
+		size = 12
+	}
+	for size > 10 {
+		ok := true
+		for _, l := range labels {
+			if textWidth(l, size) > float64(w-8) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			break
+		}
+		size -= 0.5
+	}
+	return size
 }

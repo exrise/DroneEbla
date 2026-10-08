@@ -71,7 +71,10 @@ func buildingShape(bt *data.BuildingType) string {
 func drawBuildingIcon(dst imageDst, bt *data.BuildingType, cx, cy, s float64, c color.Color, filled bool) {
 	cx, cy = math.Round(cx), math.Round(cy)
 	h := s / 2
-	white := color.RGBA{245, 240, 225, 255}
+	var white color.Color = color.RGBA{245, 240, 225, 255}
+	if s < 8 {
+		white = c // на мелком значке белые детали не нужны — они превращаются в кашу
+	}
 	switch buildingShape(bt) {
 	case "diamond": // энергетика
 		if filled {

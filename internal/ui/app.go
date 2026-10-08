@@ -228,10 +228,12 @@ func (g *Game) resetInput() {
 // Draw — отрисовка и обработка интерфейса (непосредственный режим).
 func (g *Game) Draw(screen *ebiten.Image) {
 	callStats = struct{ rect, stroke, line, circle, disc, text, glyphs, tri int }{}
+	auditCont = image.Rectangle{}
 	t0 := time.Now()
 	defer func() { g.perf.drawMs = ema(g.perf.drawMs, float64(time.Since(t0).Microseconds())/1000) }()
 	g.ui.screen = screen
 	g.ui.W, g.ui.H = int(float64(screen.Bounds().Dx())/rs), int(float64(screen.Bounds().Dy())/rs)
+	g.ui.glassK = glassTintK(g.set.GlassOpacity)
 	g.fxInit()
 	screen.Fill(colPanel2)
 	if g.scene != sceneGame {

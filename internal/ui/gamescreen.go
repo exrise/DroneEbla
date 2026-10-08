@@ -253,6 +253,8 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	my2 := v.Side
 	en := 1 - my2
 	g.labels = g.labels[:0]
+	mapLineK = lineK(z) // на малом зуме контуры значков и кольца тоньше
+	defer func() { mapLineK = 1 }()
 
 	// Недавно захваченные тайлы: яркая подсветка, гаснет за 3 игровых часа.
 	for _, c := range v.Captures {
@@ -274,8 +276,9 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		} else {
 			col = color.RGBA{255, 60, 40, 255}
 		}
-		fillRect(dst, x0, y0, ts, ts, withAlpha(col, uint8(30+120*k)))
-		if age < 30 {
+		tileK := math.Max(0.3, math.Min(1, ts/4)) // тайл мельче 4 px — бледнее, чтобы полоса у фронта не забивала карту
+		fillRect(dst, x0, y0, ts, ts, withAlpha(col, uint8((30+120*k)*tileK)))
+		if age < 30 && ts >= 6 {
 			strokeRect(dst, x0, y0, ts, ts, withAlpha(col, 230), 1.5)
 		}
 	}
@@ -406,7 +409,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			if c.Type != "" {
 				label = g.bShort(c.Type)
 			}
-			s := math.Max(6, math.Min(13, z*4))
+			s := math.Max(4.5, math.Min(13, z*4))
 			if bt := g.cat.BuildingByID[c.Type]; bt != nil {
 				drawBuildingIcon(dst, bt, sx, sy, s, col, false)
 			} else {
@@ -421,12 +424,13 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			} else if c.Class != "" {
 				label = "техн."
 			}
-			s := math.Max(6, math.Min(10, z*3))
+			s := math.Max(4.5, math.Min(10, z*3))
 			sx, sy = math.Round(sx), math.Round(sy)
+			ring := math.Min(2.5, math.Max(1, s*0.25)) * mapLineK
 			diamond(dst, sx, sy, s, col)
-			diamond(dst, sx, sy, s-2.5, color.RGBA{245, 240, 225, a})
-			if ut := g.cat.UnitByID[c.Type]; ut != nil {
-				unitGlyph(dst, ut, sx, sy, (s-2.5)*0.55, col)
+			diamond(dst, sx, sy, s-ring, color.RGBA{245, 240, 225, a})
+			if ut := g.cat.UnitByID[c.Type]; ut != nil && s >= 7 {
+				unitGlyph(dst, ut, sx, sy, (s-ring)*0.55, col)
 			}
 		}
 		if z > 0.7 || (hov != nil && hov.id == c.ID) {
@@ -441,7 +445,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			continue
 		}
 		bt := g.cat.BuildingByID[b.Type]
-		s := math.Max(6, math.Min(14, z*4))
+		s := math.Max(4.5, math.Min(14, z*4))
 		col := sideColor(my2)
 		if b.Built < 1 {
 			strokeRect(dst, sx-s/2, sy-s/2, s, s, col, 1.5)
@@ -476,7 +480,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		}
 		ut := g.cat.UnitByID[un.Type]
 		col := sideColor(my2)
-		w, h := math.Max(10, math.Min(22, z*6)), math.Max(7, math.Min(14, z*4))
+		w, h := math.Max(7, math.Min(22, z*6)), math.Max(5, math.Min(14, z*4))
 		fillRect(dst, sx-w/2, sy-h/2, w, h, color.RGBA{245, 240, 225, 255})
 		strokeRect(dst, sx-w/2, sy-h/2, w, h, col, 2)
 		unitGlyph(dst, ut, sx, sy, h*0.32, col)
@@ -830,6 +834,7 @@ func fmtRate(v float64) string {
 func (g *Game) drawTopBar() {
 	u := &g.ui
 	v := g.view
+	auditRect(6, 5, float64(u.W-12), topH-10)
 	if u.on {
 		u.glassPanel(6, 5, float32(u.W-12), topH-10, 22, 0.7)
 	} else {

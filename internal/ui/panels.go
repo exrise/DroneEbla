@@ -109,11 +109,13 @@ func (g *Game) tabFront(x, y, w int) int {
 	y = g.header("Позиция: все направления", x, y)
 	bw := (w - 8) / 3
 	same := v.Posture[0] == v.Posture[1] && v.Posture[1] == v.Posture[2]
+	u.rowSize = fitRow(sim.PostureNames[:], bw, 26)
 	for p := 0; p < 3; p++ {
 		if u.ButtonState(x+p*(bw+4), y, bw, 26, sim.PostureNames[p], same && v.Posture[0] == p, true) {
 			g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p})
 		}
 	}
+	u.rowSize = 0
 	u.Tooltip(x, y, w, 26, postureTip)
 	y += 34
 	y = g.header("Главный удар", x, y)
@@ -143,11 +145,13 @@ func (g *Game) tabFront(x, y, w int) int {
 			g.alloc(d, 0.1)
 		}
 		y += 24
+		u.rowSize = fitRow(sim.PostureNames[:], bw, 22)
 		for p := 0; p < 3; p++ {
 			if u.ButtonState(x+p*(bw+4), y, bw, 22, sim.PostureNames[p], v.Posture[d] == p, true) {
 				g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p, Count: d + 1})
 			}
 		}
+		u.rowSize = 0
 		u.Tooltip(x, y, w, 22, "Позиция только на этом направлении. "+postureTip)
 		y += 28
 		y = g.kv("Личный состав, тыс.", fmt.Sprintf("%.1f", f.Men), x, y, w, colText)
