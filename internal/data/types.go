@@ -519,9 +519,13 @@ type AISide struct {
 	ReconStaleMin     float64            `json:"recon_stale_min"` // данные о цели старше — пора разведать
 	// SalvoCommit — доля нужного залпа, которую обязательно собрать до пуска (иначе ждём накопления запасов);
 	// SalvoHoldMin — за сколько минут ожидания требование ослабевает до 40%.
-	CoverPenalty float64 `json:"cover_penalty"` // насколько каждый известный канал ПВО у цели снижает её приоритет (по умолчанию 0,15)
-	SalvoCommit  float64 `json:"salvo_commit"`
-	SalvoHoldMin float64 `json:"salvo_hold_min"`
+	// UnitStrikeWeights — ценность вражеских юнитов как целей по виду (ad, radar, launcher, reb), UnitFreshMin — насколько свежей
+	// должна быть разведка о подвижной цели.
+	UnitStrikeWeights map[string]float64 `json:"unit_strike_weights"`
+	UnitFreshMin      float64            `json:"unit_fresh_min"`
+	CoverPenalty      float64            `json:"cover_penalty"` // насколько каждый известный канал ПВО у цели снижает её приоритет (по умолчанию 0,15)
+	SalvoCommit       float64            `json:"salvo_commit"`
+	SalvoHoldMin      float64            `json:"salvo_hold_min"`
 	// DecoyMunitions — приманки (запускаются вместе с залпом по цели под ПВО), DecoyPerChannel — штук на канал ПВО.
 	DecoyMunitions  []string `json:"decoy_munitions"`
 	DecoyPerChannel float64  `json:"decoy_per_channel"`

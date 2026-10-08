@@ -30,7 +30,8 @@ type plan struct {
 	tgt   *target
 	m     *data.MunitionType
 	count int
-	eta   float64 // минут полёта
+	eta   float64  // минут полёта
+	wps   []sim.Pt // путевые точки обхода известной ПВО (кроме цели)
 }
 
 // launchers собирает готовые пусковые стороны по View.
@@ -88,10 +89,25 @@ func (a *AI) adCover(v *sim.View, x, y float64) int {
 func (a *AI) targets(v *sim.View) []*target {
 	var out []*target
 	for _, c := range v.Contacts {
-		if c.Kind != 0 || c.Type == "" {
+		if c.Type == "" {
 			continue
 		}
-		wgt := a.cfg.StrikeWeights[c.Type]
+		var wgt float64
+		switch {
+		case c.Kind == 0:
+			wgt = a.cfg.StrikeWeights[c.Type]
+		case a.cfg.Smart && c.Kind == 1:
+			// Подвижные цели: ПВО, РЛС, пусковые — если разведка о них свежая.
+			ut := a.cat.UnitByID[c.Type]
+			fresh := a.cfg.UnitFreshMin
+			if fresh <= 0 {
+				fresh = 360
+			}
+			if ut == nil || c.Seen < 0 || v.Time-c.Seen > fresh {
+				continue
+			}
+			wgt = a.cfg.UnitStrikeWeights[ut.Kind]
+		}
 		if wgt <= 0 || (c.HP >= 0 && c.HP < 0.25) {
 			continue
 		}
@@ -192,6 +208,17 @@ func (a *AI) plan(w *sim.World, s source, tgts []*target, stock map[string]float
 				continue
 			}
 			sp := sim.StrikePlan{Source: s.id, Munition: id, Count: count, Target: sim.Pt{X: t.c.X, Y: t.c.Y}}
+			var wps []sim.Pt
+			if a.cfg.Smart && (m.Kind == "drone" || (m.Kind == "cruise" && m.Class != "high")) {
+				if r := a.route(s.x, s.y, t.c.X, t.c.Y); len(r) > 0 {
+					sp.Waypoints = r
+					if w.ValidateStrike(a.side, sp) == "" {
+						wps = r
+					} else {
+						sp.Waypoints = nil
+					}
+				}
+			}
 			if w.ValidateStrike(a.side, sp) != "" {
 				continue
 			}
@@ -199,9 +226,9 @@ func (a *AI) plan(w *sim.World, s source, tgts []*target, stock map[string]float
 			t.got += count
 			eta := 0.0
 			if m.SpeedKmh > 0 {
-				eta = dist(s.x, s.y, t.c.X, t.c.Y) / m.SpeedKmh * 60
+				eta = sim.PathLength(sim.Pt{X: s.x, Y: s.y}, append(append([]sim.Pt{}, wps...), sim.Pt{X: t.c.X, Y: t.c.Y})) / m.SpeedKmh * 60
 			}
-			return plan{src: s, tgt: t, m: m, count: count, eta: eta}, true
+			return plan{src: s, tgt: t, m: m, count: count, eta: eta, wps: wps}, true
 		}
 	}
 	return plan{}, false
@@ -277,6 +304,7 @@ func (a *AI) reconFailScore(now float64) float64 {
 // massStrike планирует массированные удары: залп по цели пускается, только когда собрано не меньше SalvoCommit
 // от нужного (иначе запасы копятся), а к цели под ПВО добавляются приманки, прилетающие одновременно.
 func (a *AI) massStrike(w *sim.World, v *sim.View, srcs []source, tgts []*target) {
+	a.zones = a.adZones(v)
 	commit := a.cfg.SalvoCommit
 	if commit <= 0 {
 		commit = 0.75
@@ -350,7 +378,7 @@ func (a *AI) massStrike(w *sim.World, v *sim.View, srcs []source, tgts []*target
 	for _, p := range plans {
 		delay := math.Min(90, maxETA[p.tgt]-p.eta)
 		err := a.cmd(w, sim.Command{
-			Kind: sim.CmdStrike, ID: p.src.id, Item: p.m.ID, Count: p.count,
+			Kind: sim.CmdStrike, ID: p.src.id, Item: p.m.ID, Count: p.count, Pts: p.wps,
 			X: p.tgt.c.X, Y: p.tgt.c.Y, Delay: math.Floor(delay),
 		})
 		if err == "" {
@@ -430,4 +458,77 @@ func contains(list []string, s string) bool {
 // если в среднем долетает лишь часть боеприпасов, залпы укрупняются (до 4 раз), пока не накопятся запасы.
 func (a *AI) reachScale() float64 {
 	return math.Max(1, math.Min(4, 0.5/math.Max(a.reachEMA, 0.1)))
+}
+
+// zone — круг поражения известного комплекса ПВО.
+type zone struct{ x, y, r float64 }
+
+// adZones собирает зоны известной ПВО противника (разведка не старше 12 часов).
+func (a *AI) adZones(v *sim.View) []zone {
+	var out []zone
+	for _, c := range v.Contacts {
+		if c.Kind != 1 || c.Type == "" || c.Seen < 0 || v.Time-c.Seen > 720 {
+			continue
+		}
+		ut := a.cat.UnitByID[c.Type]
+		if ut == nil || ut.Kind != "ad" || ut.RangeKm < 5 {
+			continue
+		}
+		out = append(out, zone{c.X, c.Y, ut.RangeKm * 0.9})
+	}
+	return out
+}
+
+// route строит путевые точки в обход известной ПВО: прямой маршрут, пересекающий зону, отодвигается за её край
+// (с запасом 12 км) на сторону с меньшим крюком. Зоны, накрывающие саму цель, не обходятся — туда приходится лететь.
+func (a *AI) route(sx, sy, tx, ty float64) []sim.Pt {
+	if len(a.zones) == 0 {
+		return nil
+	}
+	var zs []zone
+	for _, z := range a.zones {
+		if dist(z.x, z.y, tx, ty) > z.r && dist(z.x, z.y, sx, sy) > z.r {
+			zs = append(zs, z)
+		}
+	}
+	path := []sim.Pt{{X: sx, Y: sy}, {X: tx, Y: ty}}
+	for iter := 0; iter < 6; iter++ {
+		inserted := false
+		for seg := 0; seg+1 < len(path) && !inserted; seg++ {
+			p, q := path[seg], path[seg+1]
+			dx, dy := q.X-p.X, q.Y-p.Y
+			l := math.Hypot(dx, dy)
+			if l < 1 {
+				continue
+			}
+			ux, uy := dx/l, dy/l
+			for _, z := range zs {
+				// ближайшая к центру зоны точка отрезка
+				t := math.Max(0, math.Min(l, (z.x-p.X)*ux+(z.y-p.Y)*uy))
+				cx, cy := p.X+ux*t, p.Y+uy*t
+				if dist(cx, cy, z.x, z.y) >= z.r {
+					continue
+				}
+				off := z.r + 12
+				w1 := sim.Pt{X: z.x - uy*off, Y: z.y + ux*off}
+				w2 := sim.Pt{X: z.x + uy*off, Y: z.y - ux*off}
+				d1 := dist(p.X, p.Y, w1.X, w1.Y) + dist(w1.X, w1.Y, q.X, q.Y)
+				d2 := dist(p.X, p.Y, w2.X, w2.Y) + dist(w2.X, w2.Y, q.X, q.Y)
+				wp := w1
+				if d2 < d1 {
+					wp = w2
+				}
+				path = append(path[:seg+1], append([]sim.Pt{wp}, path[seg+1:]...)...)
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			break
+		}
+	}
+	if len(path) <= 2 {
+		return nil
+	}
+	return path[1 : len(path)-1]
 }
