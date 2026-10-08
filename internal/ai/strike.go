@@ -99,10 +99,18 @@ func (a *AI) targets(v *sim.View) []*target {
 			continue
 		}
 		cover := a.adCover(v, c.X, c.Y)
+		pen := 0.15
+		if a.cfg.Smart && a.cfg.CoverPenalty > 0 {
+			pen = a.cfg.CoverPenalty
+		}
+		need := math.Ceil(a.cfg.SalvoBase + a.cfg.SalvoPerChannel*float64(cover))
+		if a.cfg.Smart {
+			need = math.Ceil(need * a.reachScale())
+		}
 		out = append(out, &target{
 			c:     c,
-			score: wgt / (1 + 0.15*float64(cover)),
-			need:  int(math.Ceil(a.cfg.SalvoBase + a.cfg.SalvoPerChannel*float64(cover))),
+			score: wgt / (1 + pen*float64(cover)),
+			need:  int(need),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -129,6 +137,10 @@ func (a *AI) strikes(w *sim.World, v *sim.View) {
 	}
 	if len(tgts) > 12 {
 		tgts = tgts[:12]
+	}
+	if a.cfg.Smart {
+		a.massStrike(w, v, srcs, tgts)
+		return
 	}
 	stock := map[string]float64{}
 	for k, n := range v.Stocks {
@@ -211,11 +223,16 @@ func (a *AI) recon(w *sim.World, v *sim.View) {
 		return
 	}
 	var cands []sim.Contact
+	fails := a.reconFailScore(v.Time)
 	for _, c := range v.Contacts {
 		if c.Kind != 0 || c.Type == "" || a.cfg.StrikeWeights[c.Type] <= 0 {
 			continue
 		}
 		if t, ok := a.lastRecon[c.ID]; ok && v.Time-t < a.cfg.ReconStaleMin {
+			continue
+		}
+		// После потерь разведчиков не лезем под известную ПВО: данные не стоят сбитого дрона.
+		if a.cfg.Smart && fails >= 0.5 && a.adCover(v, c.X, c.Y) > 0 {
 			continue
 		}
 		if c.Seen < 0 || v.Time-c.Seen > a.cfg.ReconStaleMin {
@@ -250,4 +267,167 @@ func (a *AI) recon(w *sim.World, v *sim.View) {
 			}
 		}
 	}
+}
+
+// reconFailScore — «штраф» разведки: растёт с потерями, за каждые 6 игровых часов спадает на единицу.
+func (a *AI) reconFailScore(now float64) float64 {
+	return math.Max(0, a.reconFails-(now-a.reconFailAt)/360)
+}
+
+// massStrike планирует массированные удары: залп по цели пускается, только когда собрано не меньше SalvoCommit
+// от нужного (иначе запасы копятся), а к цели под ПВО добавляются приманки, прилетающие одновременно.
+func (a *AI) massStrike(w *sim.World, v *sim.View, srcs []source, tgts []*target) {
+	commit := a.cfg.SalvoCommit
+	if commit <= 0 {
+		commit = 0.75
+	}
+	hold := a.cfg.SalvoHoldMin
+	if hold <= 0 {
+		hold = 480
+	}
+	var plans []plan
+	for iter := 0; iter < 12; iter++ {
+		stock := map[string]float64{}
+		for k, n := range v.Stocks {
+			stock[k] = n
+		}
+		for _, t := range tgts {
+			t.got = 0
+		}
+		plans = plans[:0]
+		for _, s := range srcs {
+			if p, ok := a.plan(w, s, tgts, stock); ok {
+				plans = append(plans, p)
+			}
+		}
+		var bad *target
+		for _, t := range tgts {
+			if t.got == 0 {
+				continue
+			}
+			relax := 1.0
+			if since, ok := a.holdSince[t.c.ID]; ok {
+				relax = math.Max(0.4, 1-(v.Time-since)/hold)
+			}
+			if float64(t.got) < math.Ceil(commit*float64(t.need)*relax) {
+				bad = t
+				break
+			}
+		}
+		if bad == nil {
+			break
+		}
+		if _, ok := a.holdSince[bad.c.ID]; !ok {
+			a.holdSince[bad.c.ID] = v.Time
+		}
+		rest := tgts[:0:0]
+		for _, t := range tgts {
+			if t != bad {
+				rest = append(rest, t)
+			}
+		}
+		tgts = rest
+		plans = nil
+		if len(tgts) == 0 {
+			return
+		}
+	}
+	if len(plans) == 0 {
+		return
+	}
+	// Прилёт по одной цели — одновременно: ранние пуски задерживаем.
+	maxETA := map[*target]float64{}
+	used := map[uint32]int{}
+	var order []*target
+	for _, p := range plans {
+		if _, ok := maxETA[p.tgt]; !ok {
+			order = append(order, p.tgt)
+		}
+		maxETA[p.tgt] = math.Max(maxETA[p.tgt], p.eta)
+		used[p.src.id] += p.count
+	}
+	launched := map[*target]bool{}
+	for _, p := range plans {
+		delay := math.Min(90, maxETA[p.tgt]-p.eta)
+		err := a.cmd(w, sim.Command{
+			Kind: sim.CmdStrike, ID: p.src.id, Item: p.m.ID, Count: p.count,
+			X: p.tgt.c.X, Y: p.tgt.c.Y, Delay: math.Floor(delay),
+		})
+		if err == "" {
+			a.lastHit[p.tgt.c.ID] = v.Time
+			delete(a.holdSince, p.tgt.c.ID)
+			launched[p.tgt] = true
+		}
+	}
+	a.decoys(w, v, srcs, order, launched, maxETA, used)
+}
+
+// decoys добавляет к залпу по прикрытой цели приманки: они заставляют ПВО тратить каналы и ракеты.
+func (a *AI) decoys(w *sim.World, v *sim.View, srcs []source, order []*target, launched map[*target]bool, maxETA map[*target]float64, used map[uint32]int) {
+	if a.cfg.DecoyPerChannel <= 0 || len(a.cfg.DecoyMunitions) == 0 {
+		return
+	}
+	stock := map[string]float64{}
+	for k, n := range v.Stocks {
+		stock[k] = n
+	}
+	for _, t := range order {
+		if !launched[t] {
+			continue
+		}
+		cover := a.adCover(v, t.c.X, t.c.Y)
+		if cover < 2 {
+			continue
+		}
+		need := int(math.Ceil(a.cfg.DecoyPerChannel * float64(cover)))
+		sent := 0
+		for _, s := range srcs {
+			if sent >= need {
+				break
+			}
+			for _, id := range a.cfg.DecoyMunitions {
+				m := a.cat.MunitionByID[id]
+				if m == nil || stock[id] < 1 || !contains(s.munit, id) {
+					continue
+				}
+				avail := s.cap - used[s.id]
+				if avail < 1 {
+					continue
+				}
+				count := int(math.Min(math.Min(float64(avail), stock[id]), float64(need-sent)))
+				if count < 1 {
+					continue
+				}
+				sp := sim.StrikePlan{Source: s.id, Munition: id, Count: count, Target: sim.Pt{X: t.c.X, Y: t.c.Y}}
+				if w.ValidateStrike(a.side, sp) != "" {
+					continue
+				}
+				eta := 0.0
+				if m.SpeedKmh > 0 {
+					eta = dist(s.x, s.y, t.c.X, t.c.Y) / m.SpeedKmh * 60
+				}
+				delay := math.Floor(math.Max(0, math.Min(90, maxETA[t]-eta)))
+				if a.cmd(w, sim.Command{Kind: sim.CmdStrike, ID: s.id, Item: id, Count: count, X: t.c.X, Y: t.c.Y, Delay: delay}) == "" {
+					stock[id] -= float64(count)
+					used[s.id] += count
+					sent += count
+				}
+			}
+		}
+	}
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// reachScale — во сколько раз увеличить залп из-за того, что ПВО противника сильнее, чем думала разведка:
+// если в среднем долетает лишь часть боеприпасов, залпы укрупняются (до 4 раз), пока не накопятся запасы.
+func (a *AI) reachScale() float64 {
+	return math.Max(1, math.Min(4, 0.5/math.Max(a.reachEMA, 0.1)))
 }

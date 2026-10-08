@@ -4,6 +4,7 @@
 package ai
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"strconv"
@@ -22,6 +23,8 @@ type AI struct {
 
 	// OnCommand вызывается после каждого приказа (для тестов и отладки).
 	OnCommand func(c sim.Command, err string)
+	// Debug получает пояснения решений (для отладки и стенда); nil — молчит.
+	Debug func(format string, args ...any)
 
 	next map[string]float64 // следующее время запуска подсистемы, игровые минуты
 
@@ -33,6 +36,21 @@ type AI struct {
 	buildAt    int                // счётчик опорных точек для стройки
 	evSeen     uint64             // последнее разобранное событие журнала
 	reconPause float64            // до этого времени разведчиков не посылаем (был сбит)
+
+	// Состояние «умного» поведения.
+	peakMen     float64            // максимум людей на фронте за партию
+	trend       [3]float64         // сглаженный прирост тайлов по направлениям
+	postureAt   [3]float64         // когда направление в последний раз меняло позицию
+	noOffense   [3]float64         // до этого времени наступать на направлении нельзя (откатились)
+	defending   [3]bool            // направление в глухой обороне (гистерезис)
+	lastAlloc   []float64          // последнее отправленное распределение пополнений
+	lastFort    string             // последний набор укрепляемых тайлов
+	lastFortAt  float64            // когда его отправляли
+	mainAt      float64            // когда пересматривали главный удар
+	holdSince   map[uint32]float64 // цель → когда залп на неё начали копить
+	reconFails  float64            // «штраф» разведки: растёт при потерях, спадает со временем
+	reachEMA    float64            // доля долетевших боеприпасов (скользящая)
+	reconFailAt float64            // когда штраф обновляли
 }
 
 // New создаёт ИИ для стороны side. Если для стороны нет настроек, ИИ бездействует.
@@ -41,7 +59,7 @@ func New(cat *data.Catalog, side int) *AI {
 		side: side, cfg: cat.AI.Sides[data.SideKeys[side]], cat: cat,
 		rng:  rand.New(rand.NewSource(int64(7919 + side))),
 		next: map[string]float64{}, ordersDone: map[string]bool{},
-		lastHit: map[uint32]float64{}, lastMove: map[uint32]float64{}, lastRecon: map[uint32]float64{}, repairOff: map[uint32]bool{},
+		holdSince: map[uint32]float64{}, lastHit: map[uint32]float64{}, lastMove: map[uint32]float64{}, lastRecon: map[uint32]float64{}, repairOff: map[uint32]bool{},
 	}
 }
 
@@ -84,6 +102,12 @@ func (a *AI) Tick(w *sim.World) {
 	}
 }
 
+func (a *AI) debugf(format string, args ...any) {
+	if a.Debug != nil {
+		a.Debug(format, args...)
+	}
+}
+
 // cmd отдаёт приказ от имени ИИ.
 func (a *AI) cmd(w *sim.World, c sim.Command) string {
 	c.Side = a.side
@@ -112,8 +136,24 @@ func (a *AI) readEvents(v *sim.View) {
 			continue
 		}
 		a.evSeen = e.ID
+		if a.cfg.Smart && strings.HasPrefix(e.Text, "Итог удара (") && !strings.Contains(e.Text, "ложная") {
+			var got, sent int
+			if i := strings.Index(e.Text, "долетело "); i >= 0 {
+				if n, _ := fmt.Sscanf(e.Text[i:], "долетело %d из %d", &got, &sent); n == 2 && sent > 0 {
+					k := math.Min(0.3, float64(sent)/60)
+					a.reachEMA = a.reachEMA*(1-k) + float64(got)/float64(sent)*k
+				}
+			}
+		}
 		if strings.HasPrefix(e.Text, "Потерян разведчик") {
-			a.reconPause = v.Time + a.cfg.ReconStaleMin/2
+			if a.cfg.Smart {
+				// Каждая потеря удлиняет паузу: 6 ч, 12 ч, 24 ч… (штраф спадает со временем).
+				a.reconFails++
+				a.reconFailAt = v.Time
+				a.reconPause = v.Time + a.cfg.ReconStaleMin/2*math.Pow(2, math.Min(a.reconFails-1, 3))
+			} else {
+				a.reconPause = v.Time + a.cfg.ReconStaleMin/2
+			}
 		}
 	}
 }

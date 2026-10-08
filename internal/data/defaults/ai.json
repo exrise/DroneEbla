@@ -47,8 +47,8 @@
         "smerch_ua"
       ],
       "imports": [
-        "ua_imp_ammo",
         "ua_imp_elec",
+        "ua_imp_ammo",
         "ua_imp_fuel",
         "ua_imp_tb2"
       ],
@@ -60,27 +60,81 @@
         {
           "type": "dronesite",
           "max": 6,
-          "min_money": 250
+          "min_money": 300,
+          "healthy": true
         },
         {
           "type": "dronesite2",
           "max": 3,
-          "min_money": 700
+          "min_money": 800,
+          "healthy": true
+        },
+        {
+          "type": "dronesite3",
+          "max": 2,
+          "min_money": 2000,
+          "healthy": true
         },
         {
           "type": "drone_workshop",
           "max": 4,
-          "min_money": 300
+          "min_money": 350,
+          "healthy": true
         },
         {
           "type": "training_center",
           "max": 4,
-          "min_money": 200
+          "min_money": 250,
+          "healthy": true
+        },
+        {
+          "type": "electronics_plant",
+          "max": 16,
+          "min_money": 600,
+          "healthy": true
+        },
+        {
+          "type": "tpp",
+          "max": 28,
+          "min_money": 1000,
+          "healthy": true,
+          "when": "power_low"
+        },
+        {
+          "type": "substation",
+          "max": 26,
+          "min_money": 800,
+          "healthy": true,
+          "when": "power_low"
+        },
+        {
+          "type": "refinery",
+          "max": 12,
+          "min_money": 2000,
+          "healthy": true
+        },
+        {
+          "type": "steel_mill",
+          "max": 14,
+          "min_money": 2000,
+          "healthy": true
+        },
+        {
+          "type": "armor_plant",
+          "max": 5,
+          "min_money": 3000,
+          "healthy": true
+        },
+        {
+          "type": "missile_plant",
+          "max": 6,
+          "min_money": 3000,
+          "healthy": true
         }
       ],
-      "build_every_min": 120,
+      "build_every_min": 60,
       "prep_posture": 0,
-      "war_posture": 1,
+      "war_posture": 2,
       "fort_tiles": 4,
       "defense_pressure": 0.8,
       "strike_every_min": 20,
@@ -152,10 +206,31 @@
         "naval_base": 5
       },
       "ad_every_min": 30,
-      "ad_moves_max": 1,
-      "ad_move_cooldown_min": 240,
+      "ad_moves_max": 2,
+      "ad_move_cooldown_min": 120,
       "ad_move_max_km": 600,
-      "repair_min_weight": 4
+      "repair_min_weight": 4,
+      "smart": true,
+      "import_parallel": 10,
+      "build_per_cycle": 3,
+      "posture_dwell_min": 180,
+      "defense_tile_pressure": 0.12,
+      "main_every_min": 240,
+      "salvo_commit": 0.75,
+      "salvo_hold_min": 480,
+      "peak_men_frac": 0.9,
+      "contract_money": 3000,
+      "fleet_batch": 2,
+      "fleet": [
+        "osa:10",
+        "mfg_ua:12",
+        "idrone_ua2|idrone_ua:12",
+        "radar_ua:3",
+        "reb_ua2|reb_ua:4",
+        "neptune_launcher:3",
+        "sapsan_launcher:2"
+      ],
+      "cover_penalty": 0.3
     },
     "ru": {
       "protect": {
@@ -205,6 +280,7 @@
       "research": [
         "ru_fpv",
         "ru_geran2",
+        "ru_parallel_import",
         "ru_gerbera",
         "ru_mfg",
         "ru_idrone",
@@ -217,7 +293,6 @@
         "ru_s350",
         "ru_buk_m3",
         "ru_dprk",
-        "ru_parallel_import",
         "ru_geran4",
         "ru_zircon",
         "ru_reb2",
@@ -252,10 +327,10 @@
         "artillery"
       ],
       "imports": [
+        "ru_imp_elec",
         "ru_imp_shells",
-        "ru_imp_shahed",
         "ru_imp_kn23",
-        "ru_imp_elec"
+        "ru_imp_shahed"
       ],
       "import_reserve": 500,
       "import_below": 300,
@@ -265,25 +340,79 @@
         {
           "type": "dronesite",
           "max": 6,
-          "min_money": 300
+          "min_money": 300,
+          "healthy": true
         },
         {
           "type": "dronesite2",
           "max": 3,
-          "min_money": 800
+          "min_money": 800,
+          "healthy": true
+        },
+        {
+          "type": "dronesite3",
+          "max": 2,
+          "min_money": 2000,
+          "healthy": true
         },
         {
           "type": "drone_workshop",
           "max": 4,
-          "min_money": 350
+          "min_money": 350,
+          "healthy": true
         },
         {
           "type": "training_center",
           "max": 4,
-          "min_money": 250
+          "min_money": 250,
+          "healthy": true
+        },
+        {
+          "type": "electronics_plant",
+          "max": 16,
+          "min_money": 600,
+          "healthy": true
+        },
+        {
+          "type": "tpp",
+          "max": 28,
+          "min_money": 1000,
+          "healthy": true,
+          "when": "power_low"
+        },
+        {
+          "type": "substation",
+          "max": 26,
+          "min_money": 800,
+          "healthy": true,
+          "when": "power_low"
+        },
+        {
+          "type": "refinery",
+          "max": 12,
+          "min_money": 2000,
+          "healthy": true
+        },
+        {
+          "type": "steel_mill",
+          "max": 14,
+          "min_money": 2000,
+          "healthy": true
+        },
+        {
+          "type": "armor_plant",
+          "max": 5,
+          "min_money": 3000,
+          "healthy": true
+        },
+        {
+          "type": "missile_plant",
+          "max": 6,
+          "min_money": 3000,
+          "healthy": true
         }
       ],
-      "build_every_min": 120,
+      "build_every_min": 60,
       "prep_posture": 0,
       "war_posture": 2,
       "fort_tiles": 4,
@@ -303,7 +432,8 @@
         "geran4",
         "geran3",
         "geran2",
-        "shahed136"
+        "shahed136",
+        "smerch_ru"
       ],
       "salvo_base": 3,
       "salvo_per_channel": 2.5,
@@ -312,10 +442,37 @@
       "recon_every_min": 90,
       "recon_stale_min": 720,
       "ad_every_min": 30,
-      "ad_moves_max": 1,
-      "ad_move_cooldown_min": 240,
+      "ad_moves_max": 2,
+      "ad_move_cooldown_min": 120,
       "ad_move_max_km": 600,
-      "repair_min_weight": 4
+      "repair_min_weight": 4,
+      "smart": true,
+      "import_parallel": 10,
+      "build_per_cycle": 3,
+      "posture_dwell_min": 180,
+      "defense_tile_pressure": 0.12,
+      "main_every_min": 240,
+      "salvo_commit": 0.75,
+      "salvo_hold_min": 480,
+      "peak_men_frac": 0.9,
+      "contract_money": 3000,
+      "fleet_batch": 2,
+      "fleet": [
+        "pantsir_s2|pantsir:10",
+        "s400:6",
+        "s300:5",
+        "buk_m3|buk_ru:5",
+        "tor:4",
+        "radar_ru:4",
+        "reb_ru:3",
+        "mfg_ru:12",
+        "idrone_ru:8"
+      ],
+      "decoy_munitions": [
+        "gerbera"
+      ],
+      "decoy_per_channel": 2,
+      "cover_penalty": 0.3
     }
   }
 }

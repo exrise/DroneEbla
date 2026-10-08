@@ -74,21 +74,29 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 	if below <= 0 {
 		below = 300
 	}
-	pending := map[string]bool{}
+	pending := map[string]int{}
 	for _, d := range v.Deliveries {
-		pending[d.Item] = true
+		pending[d.Item]++
+	}
+	par := 1
+	if c.Smart && c.ImportParallel > 1 {
+		par = c.ImportParallel // деньги есть — закупки идут пачками, а не по одной в полдня
 	}
 	for _, id := range c.Imports {
 		for _, im := range a.cat.Sides[a.side].Imports {
-			if im.ID != id || pending[im.Item] || !w.ImportAvailable(a.side, im) {
+			if im.ID != id {
 				continue
 			}
-			if !a.needItem(v, im.Item, below) || money-w.ImportPrice(a.side, im) < c.ImportReserve {
-				continue
-			}
-			if a.cmd(w, sim.Command{Kind: sim.CmdImport, Item: im.ID}) == "" {
-				money -= w.ImportPrice(a.side, im)
-				pending[im.Item] = true
+			for pending[im.Item] < par && w.ImportAvailable(a.side, im) {
+				price := w.ImportPrice(a.side, im)
+				if !a.needItem(v, im, below, pending[im.Item]) || money-price < c.ImportReserve {
+					break
+				}
+				if a.cmd(w, sim.Command{Kind: sim.CmdImport, Item: im.ID}) != "" {
+					break
+				}
+				money -= price
+				pending[im.Item]++
 			}
 		}
 	}
@@ -98,7 +106,10 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 	for d := 0; d < 3; d++ {
 		men += v.Front[d].Men
 	}
-	if c.MobilizeBelow > 0 && men < c.MobilizeBelow {
+	a.peakMen = math.Max(a.peakMen, men)
+	if c.Smart {
+		a.mobilizeSmart(w, v, men, money)
+	} else if c.MobilizeBelow > 0 && men < c.MobilizeBelow {
 		for i, mb := range a.cat.Sides[a.side].Mobilization {
 			// Дорогую крайнюю меру — только при сильной нехватке.
 			if i > 0 && men > c.MobilizeBelow*0.6 {
@@ -117,15 +128,20 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 		a.cmd(w, sim.Command{Kind: sim.CmdPropaganda})
 	}
 
+	if c.Smart {
+		a.fleet(w, v, money)
+	}
 	a.build(w, v, money)
 }
 
-// needItem — нужна ли закупка предмета.
-func (a *AI) needItem(v *sim.View, item string, below float64) bool {
+// needItem — нужна ли закупка предмета (с учётом уже заказанных, но не прибывших партий).
+func (a *AI) needItem(v *sim.View, im data.ImportOffer, below float64, pending int) bool {
+	item := im.Item
+	incoming := float64(pending) * im.Amount
 	if len(item) > 4 && item[:4] == "res:" {
 		for i, k := range data.ResKeys {
 			if item == "res:"+k {
-				return v.Res[i] < below
+				return v.Res[i]+incoming < below
 			}
 		}
 		return false
@@ -136,7 +152,43 @@ func (a *AI) needItem(v *sim.View, item string, below float64) bool {
 			own++
 		}
 	}
-	return own < below/75 // для штучных предметов порог в десятки раз меньше
+	return own+incoming < below/75 // для штучных предметов порог в десятки раз меньше
+}
+
+// mobilizeSmart: дешёвые меры без потерь морали (контрактники, наёмники) используются, пока есть деньги и
+// фронт слабее своего максимума; тяжёлые — только при сильной нехватке людей.
+func (a *AI) mobilizeSmart(w *sim.World, v *sim.View, men, money float64) {
+	c := a.cfg
+	frac := c.PeakMenFrac
+	if frac <= 0 {
+		frac = 0.9
+	}
+	low := (c.MobilizeBelow > 0 && men < c.MobilizeBelow) || men < a.peakMen*frac
+	if !low {
+		return
+	}
+	for _, mb := range a.cat.Sides[a.side].Mobilization {
+		if w.MobilizationReady(a.side, mb) != "" {
+			continue
+		}
+		cheap := mb.Morale >= 0 && mb.Labor <= 0.001
+		switch {
+		case cheap:
+			if money-mb.Money < c.ImportReserve || (mb.Money > 0 && money < c.ContractMoney) {
+				continue
+			}
+		default:
+			// Крайние меры (удар по морали и выпуску): люди упали ниже 60% от максимума или ниже порога,
+			// либо фронт отступает, а людей меньше максимума.
+			losing := a.trend[0]+a.trend[1]+a.trend[2] < -3
+			if !(men < a.peakMen*0.6 || (c.MobilizeBelow > 0 && men < c.MobilizeBelow*0.6) || (losing && men < a.peakMen*0.95)) {
+				continue
+			}
+		}
+		if a.cmd(w, sim.Command{Kind: sim.CmdMobilize, Item: mb.ID}) == "" && !cheap {
+			return // тяжёлая мера — не больше одной за заход
+		}
+	}
 }
 
 // pickResearch выбирает следующее исследование.
@@ -165,6 +217,55 @@ func (a *AI) pickResearch(w *sim.World, v *sim.View) string {
 	return left[0].ID
 }
 
+// fleet держит парк юнитов (ПВО, РЭБ, РЛС…) на целевом уровне: разбитые комплексы заказываются заново.
+// Запись "новый|старый:N": N штук всех версий вместе (живых и ещё не поставленных).
+func (a *AI) fleet(w *sim.World, v *sim.View, money float64) {
+	if len(a.cfg.Fleet) == 0 || !a.due("fleet", v.Time, 30) {
+		return
+	}
+	have := map[string]int{}
+	for _, u := range v.Units {
+		have[u.Type]++
+	}
+	ordered := map[string]int{}
+	for _, o := range v.Orders {
+		if o.Remaining > 0 {
+			ordered[o.Item] += o.Remaining
+		} else if o.Remaining < 0 {
+			ordered[o.Item]++
+		}
+	}
+	batch := a.cfg.FleetBatch
+	if batch <= 0 {
+		batch = 2
+	}
+	for _, e := range a.cfg.Fleet {
+		spec, want := split(e)
+		alts := strings.Split(spec, "|")
+		best := ""
+		total := 0
+		for _, id := range alts {
+			total += have[id] + ordered[id]
+			if best == "" && v.Unlocked[id] {
+				best = id
+			}
+		}
+		if best == "" || total >= want || ordered[best] > 0 {
+			continue
+		}
+		a.cmd(w, sim.Command{Kind: sim.CmdOrderAdd, Item: best, Count: min(want-total, batch)})
+	}
+}
+
+// buildWhen — выполнено ли условие стройки.
+func (a *AI) buildWhen(v *sim.View, when string) bool {
+	switch when {
+	case "power_low":
+		return v.Power[0] < v.Power[1]*1.3 || v.Blackout > 0.03
+	}
+	return true
+}
+
 // build достраивает здания из списка конфига рядом с собственными объектами.
 func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 	if len(a.cfg.Build) == 0 || !a.due("build", v.Time, a.cfg.BuildEveryMin) {
@@ -172,8 +273,12 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 	}
 	var anchors []sim.Building
 	count := map[string]int{}
+	healthy := map[string]int{}
 	for _, b := range v.Buildings {
 		count[b.Type]++
+		if b.Built < 1 || b.HP >= b.MaxHP*0.5 {
+			healthy[b.Type]++ // целое или строящееся
+		}
 		if b.Built >= 1 && b.Type != "bridge" && b.Type != "oilfield" {
 			anchors = append(anchors, b)
 		}
@@ -181,8 +286,20 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 	if len(anchors) == 0 {
 		return
 	}
+	per := 1
+	if a.cfg.Smart && a.cfg.BuildPerCycle > 1 {
+		per = a.cfg.BuildPerCycle
+	}
+	built := 0
 	for _, bd := range a.cfg.Build {
-		if count[bd.Type] >= bd.Max || money < bd.MinMoney {
+		if !a.cfg.Smart && (bd.Healthy || bd.When != "") {
+			continue
+		}
+		have := count[bd.Type]
+		if bd.Healthy {
+			have = healthy[bd.Type]
+		}
+		if have >= bd.Max || money < bd.MinMoney || !a.buildWhen(v, bd.When) {
 			continue
 		}
 		for try := 0; try < 24; try++ {
@@ -195,8 +312,14 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 			}
 			if a.cmd(w, sim.Command{Kind: sim.CmdBuild, Item: bd.Type, X: x, Y: y}) == "" {
 				a.buildAt += try + 1
-				return
+				built++
+				count[bd.Type]++
+				healthy[bd.Type]++
+				break
 			}
+		}
+		if built >= per {
+			return
 		}
 	}
 }

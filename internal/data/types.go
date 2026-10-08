@@ -467,10 +467,17 @@ type AIBuild struct {
 	Type     string  `json:"type"`
 	Max      int     `json:"max"`       // сколько зданий такого типа держать
 	MinMoney float64 `json:"min_money"` // строить, только если денег не меньше
+	// Healthy — считать только целые (HP не ниже половины) здания: разрушенные заменяются новыми.
+	Healthy bool `json:"healthy"`
+	// When — условие: "" всегда, "power_low" — энергии не хватает или есть блэкаут.
+	When string `json:"when"`
 }
 
 // AISide — поведение ИИ за одну сторону.
 type AISide struct {
+	// Smart включает «умное» поведение (экономика с парком ПВО и стройкой, позиции по силам, массированные залпы с приманками);
+	// false — прежний простой бот (для сравнения и лёгкого уровня).
+	Smart bool `json:"smart"`
 	// Экономика.
 	Research        []string  `json:"research"`         // приоритет исследований; остальные — по стоимости
 	FundLevels      []float64 `json:"fund_levels"`      // порог денег для финансирования науки 1, 2, 3
@@ -482,12 +489,24 @@ type AISide struct {
 	PropagandaBelow float64   `json:"propaganda_below"` // кампания, если мораль ниже
 	Build           []AIBuild `json:"build"`
 	BuildEveryMin   float64   `json:"build_every_min"`
+	BuildPerCycle   int       `json:"build_per_cycle"` // сколько зданий строить за один заход (по умолчанию 1)
+	ImportParallel  int       `json:"import_parallel"` // сколько одинаковых закупок держать в пути одновременно
+	// Fleet — целевой парк юнитов: "новый|старый:N" — держать N штук (живых и заказанных); недостающее заказывается.
+	Fleet         []string `json:"fleet"`
+	FleetBatch    int      `json:"fleet_batch"`    // не больше стольких штук одной позиции в одном заказе
+	ContractMoney float64  `json:"contract_money"` // платную мобилизацию без потерь морали использовать, если денег больше
+	PeakMenFrac   float64  `json:"peak_men_frac"`  // мобилизовать, когда людей на фронте меньше этой доли от максимума
 	// Фронт.
 	PrepPosture int `json:"prep_posture"` // 0 оборона, 1 активная, 2 наступление
 	WarPosture  int `json:"war_posture"`
 	FortTiles   int `json:"fort_tiles"` // тайлов укреплять за раз
 	// DefensePressure — суммарное давление противника на направлении, выше которого оно уходит в оборону.
 	DefensePressure float64 `json:"defense_pressure"`
+	// PostureDwellMin — не менять позицию направления чаще; DefenseTilePressure — среднее давление на тайл,
+	// выше которого направление уходит в оборону (выходит при 60% от него); MainEveryMin — как часто пересматривать главный удар.
+	PostureDwellMin     float64 `json:"posture_dwell_min"`
+	DefenseTilePressure float64 `json:"defense_tile_pressure"`
+	MainEveryMin        float64 `json:"main_every_min"`
 	// Удары.
 	StrikeEveryMin    float64            `json:"strike_every_min"`
 	StrikeWeights     map[string]float64 `json:"strike_weights"`    // ценность целей по типу зданий
@@ -498,6 +517,14 @@ type AISide struct {
 	TargetCooldownMin float64            `json:"target_cooldown_min"`
 	ReconEveryMin     float64            `json:"recon_every_min"`
 	ReconStaleMin     float64            `json:"recon_stale_min"` // данные о цели старше — пора разведать
+	// SalvoCommit — доля нужного залпа, которую обязательно собрать до пуска (иначе ждём накопления запасов);
+	// SalvoHoldMin — за сколько минут ожидания требование ослабевает до 40%.
+	CoverPenalty float64 `json:"cover_penalty"` // насколько каждый известный канал ПВО у цели снижает её приоритет (по умолчанию 0,15)
+	SalvoCommit  float64 `json:"salvo_commit"`
+	SalvoHoldMin float64 `json:"salvo_hold_min"`
+	// DecoyMunitions — приманки (запускаются вместе с залпом по цели под ПВО), DecoyPerChannel — штук на канал ПВО.
+	DecoyMunitions  []string `json:"decoy_munitions"`
+	DecoyPerChannel float64  `json:"decoy_per_channel"`
 	// ПВО и ремонт.
 	Protect         map[string]float64 `json:"protect"` // ценность своих зданий для прикрытия
 	AdEveryMin      float64            `json:"ad_every_min"`
