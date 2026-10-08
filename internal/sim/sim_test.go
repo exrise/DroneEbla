@@ -1409,3 +1409,36 @@ func TestMercenaries(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+// Победа Украины: тайлы суши, окружённые морем (косы в сетке карты), фронт захватить не может —
+// они не должны мешать освобождению всей страны (партия, где Россия держала 5 таких тайлов в Крыму, не заканчивалась).
+func TestUkraineVictoryIgnoresUnreachableTiles(t *testing.T) {
+	w := newTestWorld(t)
+	w.Time = w.PrepEnd + 10
+	var isolated, reachable int = -1, -1
+	for i, c := range w.m.Country {
+		if c != 1 || w.m.Terrain[i] != 1 {
+			continue
+		}
+		w.Owner[i] = 2
+		if w.attackableByLand(i) {
+			reachable = i
+		} else {
+			isolated = i
+		}
+	}
+	if isolated < 0 || reachable < 0 {
+		t.Skip("на карте нет изолированных тайлов для проверки")
+	}
+	w.Owner[isolated] = 1
+	w.checkVictory()
+	if w.Winner != data.UA {
+		t.Fatalf("Россия держит только недостижимый тайл — должна быть победа Украины, а победитель %d (%s)", w.Winner, w.WinReason)
+	}
+	w.Winner, w.WinReason = -1, ""
+	w.Owner[reachable] = 1
+	w.checkVictory()
+	if w.Winner != -1 {
+		t.Fatalf("Россия держит достижимый тайл — победы быть не должно, а победитель %d", w.Winner)
+	}
+}

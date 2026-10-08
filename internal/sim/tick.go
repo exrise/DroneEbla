@@ -113,12 +113,25 @@ func (w *World) checkVictory() {
 		w.WinReason = "Киев взят"
 		return
 	}
-	// Украина: все территории, включая Крым.
+	// Украина: все территории, включая Крым. Тайлы суши, окружённые морем со всех четырёх сторон
+	// (узкие косы вроде Арабатской стрелки в сетке карты), фронт захватить не может — они не мешают.
 	for i, c := range w.m.Country {
-		if c == 1 && w.m.Terrain[i] == 1 && w.Owner[i] == 1 {
+		if c == 1 && w.m.Terrain[i] == 1 && w.Owner[i] == 1 && w.attackableByLand(i) {
 			return
 		}
 	}
 	w.Winner = data.UA
 	w.WinReason = "Все территории Украины, включая Крым, освобождены"
+}
+
+// attackableByLand — есть ли у тайла сосед-суша (участвующий в войне), с которого его можно атаковать:
+// фронт работает по четырём соседям, поэтому тайл, окружённый морем, захватить нельзя.
+func (w *World) attackableByLand(i int) bool {
+	ok := false
+	w.neighbors4(i, func(j int) {
+		if w.m.Terrain[j] == 1 && (w.m.Country[j] == 1 || w.m.Country[j] == 2) {
+			ok = true
+		}
+	})
+	return ok
 }
