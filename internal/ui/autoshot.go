@@ -319,6 +319,7 @@ func (g *Game) autoPerf() {
 		runtime.ReadMemStats(&ms)
 		var di ebiten.DebugInfo
 		ebiten.ReadDebugInfo(&di)
+		fmt.Printf("  примитивы за кадр: прямоуг. %d+%d, линий %d, колец %d, кругов %d, треуг. %d, строк текста %d (%d симв.)\n", callStats.rect, callStats.stroke, callStats.line, callStats.circle, callStats.disc, callStats.tri, callStats.text, callStats.glyphs)
 		fmt.Printf("%s: кадр %.1f мс, update %.1f мс | куча %d МБ, ОС %d МБ, сборок %d, шрифтов %d+%d, плиток %d, видеопамять %d МБ | rs %.2f\n",
 			name, g.perf.drawMs, g.perf.updMs, ms.HeapAlloc>>20, ms.Sys>>20, ms.NumGC, len(faces), len(boldFaces), g.rend.tiles.count(), di.TotalGPUImageMemoryUsageInBytes>>20, rs)
 	}
@@ -327,11 +328,11 @@ func (g *Game) autoPerf() {
 		a.mark = a.frame
 		a.step = 1
 	case 1:
-		if a.frame-a.mark == 120 {
-			report("меню, 120 кадров")
+		if a.frame-a.mark == 60 {
+			report("меню, 60 кадров")
 		}
-		if a.frame-a.mark == 300 {
-			report("меню, 300 кадров")
+		if a.frame-a.mark == 100 {
+			report("меню, 100 кадров")
 			g.startGame(netplay.NewSandbox(sim.New(g.cat, g.m, true), 0))
 			a.mark = a.frame
 			a.step = 2

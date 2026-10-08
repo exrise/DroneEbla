@@ -156,6 +156,9 @@ func (u *UI) blockUI(x, y, w, h int) {
 // текст и линии остаются чёткими (а не растягиваются из маленького кадра).
 var rs = 1.0
 
+// callStats — сколько примитивов нарисовано за кадр (для оверлея F3 и замеров).
+var callStats struct{ rect, stroke, line, circle, disc, text, glyphs, tri int }
+
 // px переводит логическую координату в физическую.
 func px(v float64) float32 { return float32(v * rs) }
 
@@ -163,11 +166,13 @@ func px(v float64) float32 { return float32(v * rs) }
 func snap(v float64) float32 { return float32(math.Round(v * rs)) }
 
 func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {
+	callStats.rect++
 	x0, y0, x1, y1 := snap(x), snap(y), snap(x+w), snap(y+h)
 	vector.FillRect(dst, x0, y0, x1-x0, y1-y0, c, false)
 }
 
 func strokeRect(dst *ebiten.Image, x, y, w, h float64, c color.Color, t float32) {
+	callStats.stroke++
 	x0, y0, x1, y1 := snap(x), snap(y), snap(x+w), snap(y+h)
 	vector.StrokeRect(dst, x0, y0, x1-x0, y1-y0, float32(math.Max(1, math.Round(float64(t)*rs))), c, false)
 }
@@ -179,6 +184,7 @@ func offscreen(dst *ebiten.Image, minX, minY, maxX, maxY, pad float64) bool {
 }
 
 func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
+	callStats.line++
 	if offscreen(dst, math.Min(x0, x1)*rs, math.Min(y0, y1)*rs, math.Max(x0, x1)*rs, math.Max(y0, y1)*rs, float64(t)*rs+2) {
 		return
 	}
@@ -186,6 +192,7 @@ func line(dst *ebiten.Image, x0, y0, x1, y1 float64, c color.Color, t float32) {
 }
 
 func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
+	callStats.circle++
 	// Кольцо, которое не пересекает изображение: целиком снаружи или экран целиком внутри кольца.
 	cx, cy, pr, pt := x*rs, y*rs, r*rs, float64(t)*rs+2
 	if offscreen(dst, cx-pr, cy-pr, cx+pr, cy+pr, pt) {
@@ -203,11 +210,14 @@ func circle(dst *ebiten.Image, x, y, r float64, c color.Color, t float32) {
 }
 
 func disc(dst *ebiten.Image, x, y, r float64, c color.Color) {
+	callStats.disc++
 	vector.FillCircle(dst, px(x), px(y), px(r), c, true)
 }
 
 // drawText рисует строку; align: 0 влево, 1 по центру, 2 вправо.
 func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
+	callStats.text++
+	callStats.glyphs += len(s)
 	f := face(size)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
@@ -222,6 +232,8 @@ func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.C
 }
 
 func drawBold(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
+	callStats.text++
+	callStats.glyphs += len(s)
 	f := boldFace(size)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(math.Round(x*rs), math.Round(y*rs))
@@ -517,6 +529,7 @@ var whitePix = func() *ebiten.Image {
 
 // triangle — заливка треугольника (без сглаживания, пакетно).
 func triangle(dst *ebiten.Image, x1, y1, x2, y2, x3, y3 float64, c color.Color) {
+	callStats.tri++
 	r, g, b, a := c.RGBA()
 	cr, cg, cb, ca := float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff
 	vs := []ebiten.Vertex{

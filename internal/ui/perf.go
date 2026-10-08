@@ -78,6 +78,7 @@ func (g *Game) drawPerf() {
 		fmt.Sprintf("FPS %.0f  TPS %.0f   Draw %.1f мс  Update %.1f мс", ebiten.ActualFPS(), ebiten.ActualTPS(), g.perf.drawMs, g.perf.updMs),
 		fmt.Sprintf("кадр %d×%d  интерфейс %.2f×  DPI %.2f", b.Dx(), b.Dy(), rs, g.dsf),
 		fmt.Sprintf("куча Go %d МБ  выделено у ОС %d МБ  сборок мусора %d", ms.HeapAlloc>>20, ms.Sys>>20, ms.NumGC),
+		fmt.Sprintf("примитивов за кадр: прямоуг. %d+%d, линий %d, колец %d, кругов %d, треуг. %d, строк текста %d (%d симв.)", callStats.rect, callStats.stroke, callStats.line, callStats.circle, callStats.disc, callStats.tri, callStats.text, callStats.glyphs),
 		fmt.Sprintf("шрифтов в кэше %d+%d  плиток карты %d", len(faces), len(boldFaces), g.rend.tiles.count()),
 	}
 	var di ebiten.DebugInfo
