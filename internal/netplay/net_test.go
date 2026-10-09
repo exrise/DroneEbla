@@ -348,6 +348,9 @@ func TestHostWithBot(t *testing.T) {
 	if !h.Lobby().Bots[data.UA] {
 		t.Fatal("бота убрали во время партии")
 	}
+	if s := h.Status(); s != "" {
+		t.Fatalf("за стороной с ботом пауза не нужна: %q", s)
+	}
 	// Бот расставляет резерв и нажимает «Готово».
 	waitFor(t, "бот готов", func() bool {
 		h.mu.Lock()

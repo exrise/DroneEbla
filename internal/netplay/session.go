@@ -625,7 +625,7 @@ func (h *Host) Status() string {
 	defer h.mu.Unlock()
 	if h.network && h.started {
 		for side := 0; side < 2; side++ {
-			if h.humans(side) == 0 {
+			if !h.present(side) {
 				return fmt.Sprintf("За сторону «%s» никого нет — пауза до возвращения игроков", data.SideNames[side])
 			}
 		}
