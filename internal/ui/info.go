@@ -256,10 +256,13 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 		if ut.Interceptor != "" {
 			n := v.Stocks[ut.Interceptor]
 			c := colText
-			if n < 20 {
+			if thr := v.LowInterceptor[ut.Interceptor]; n <= thr {
 				c = colBad
 			}
 			y = g.kv("Ракеты ("+g.cat.MunitionByID[ut.Interceptor].Short+")", fmt.Sprintf("%.0f на складе", n), x, y, w, c)
+			if n < 1 && un.Ready < 1 {
+				y = g.para("Нет ракет: комплекс не стреляет. Закажите ракеты в госзаказе или включите автозаказ в «Арсенале».", x, y, w, colBad)
+			}
 		} else {
 			y = g.kv("Боеприпасы", "общий запас", x, y, w, colText)
 		}
@@ -305,12 +308,31 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 	}
 }
 
+// sourceBusy — почему пусковая сейчас не может стрелять ("" — может).
+func (g *Game) sourceBusy(src uint32) string {
+	if un := g.findUnit(src); un != nil {
+		switch {
+		case un.Reload > 0:
+			return fmt.Sprintf("Перезарядка: ещё %s", fmtMin(un.Reload))
+		case un.State != sim.UnitDeployed:
+			return "Не развёрнута: сначала дождитесь развёртывания"
+		}
+	}
+	return ""
+}
+
 // launchButtons — выбор боеприпаса для удара.
 func (g *Game) launchButtons(src uint32, x, y, w int, note string) {
 	u := &g.ui
 	v := g.view
 	if note != "" {
 		drawText(u.screen, note, float64(x), float64(y), 13, colDim, 0)
+		y += 20
+	}
+	// Пусковая на перезарядке или не развёрнута: кнопки выключены, причина написана.
+	busy := g.sourceBusy(src)
+	if busy != "" {
+		drawText(u.screen, busy, float64(x), float64(y), 13, colWarn, 0)
 		y += 20
 	}
 	opts := g.launchOptions(src)
@@ -326,7 +348,7 @@ func (g *Game) launchButtons(src uint32, x, y, w int, note string) {
 		if m.Kind == "recon" {
 			verb = "Разведка"
 		}
-		if u.ButtonState(x, y, w, 24, verb+": "+lbl, false, n >= 1 && v.War) {
+		if u.ButtonState(x, y, w, 24, verb+": "+lbl, false, n >= 1 && v.War && busy == "") {
 			g.mode = modeStrike
 			g.strike = strikePlan{Source: src, Munition: id, Count: 1}
 		}
@@ -547,7 +569,11 @@ func (g *Game) drawStrikePanel() {
 		g.strike = strikePlan{}
 		return
 	}
-	can := len(g.strike.Pts) > 0 && l <= rng && blocked == ""
+	busy := g.sourceBusy(g.strike.Source)
+	if busy != "" {
+		drawText(u.screen, busy, float64(px), float64(py-18), 13, colWarn, 2)
+	}
+	can := len(g.strike.Pts) > 0 && l <= rng && blocked == "" && busy == ""
 	if u.ButtonState(px+pw/2+4, py, pw/2-4, 30, "Пуск! (F)", false, can) {
 		g.confirmStrike()
 	}
@@ -567,6 +593,10 @@ func (g *Game) confirmStrike() {
 	}
 	if c := g.strikeBlocked(); c != "" {
 		g.toast("Маршрут проходит через закрытое воздушное пространство: " + c)
+		return
+	}
+	if b := g.sourceBusy(g.strike.Source); b != "" {
+		g.toast(b)
 		return
 	}
 	target := pts[len(pts)-1]

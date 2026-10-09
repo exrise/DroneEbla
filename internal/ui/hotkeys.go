@@ -129,6 +129,10 @@ func (g *Game) strikeHotkey() {
 		g.toast("Удары доступны после начала войны")
 		return
 	}
+	if b := g.sourceBusy(g.sel.ID); b != "" {
+		g.toast(b)
+		return
+	}
 	for _, id := range g.launchOptions(g.sel.ID) {
 		if v.Stocks[id] >= 1 {
 			g.mode = modeStrike

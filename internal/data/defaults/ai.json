@@ -214,6 +214,7 @@
         [[23.5, 51.3], [22.9, 52.3], [22.9, 53.8], [23.0, 54.8], [23.2, 55.6], [24.2, 56.6], [24.4, 57.5], [25.9, 58.5], [26.5, 59.3]]
       ],
       "smart": true,
+      "sell_above": {"fuel": 8000, "steel": 6000},
       "import_parallel": 10,
       "build_per_cycle": 3,
       "posture_dwell_min": 180,
@@ -457,6 +458,7 @@
       "ad_move_max_km": 600,
       "repair_min_weight": 4,
       "smart": true,
+      "sell_above": {"fuel": 8000, "steel": 6000},
       "import_parallel": 10,
       "build_per_cycle": 3,
       "posture_dwell_min": 180,

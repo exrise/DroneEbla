@@ -3,6 +3,7 @@ package netplay
 import (
 	"encoding/json"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -353,4 +354,50 @@ func TestHostWithBot(t *testing.T) {
 		defer h.mu.Unlock()
 		return w.Sides[data.UA].Ready
 	})
+}
+
+// Обрыв связи: клиент сам переподключается, возвращается на свою сторону, а хост пишет причину.
+func TestClientReconnect(t *testing.T) {
+	cat, _ := data.Load("")
+	m, _ := world.Load()
+	w := sim.New(cat, m, false)
+	hash := DataHash("")
+	h, err := NewHost(w, data.RU, 27997, hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	cl, err := Connect("127.0.0.1:27997", hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cl.Close()
+	cl.PickSide(data.UA)
+	waitFor(t, "выбор стороны", func() bool { return cl.Side() == data.UA })
+	h.StartGame()
+	waitFor(t, "первое представление", func() bool { return cl.View() != nil })
+	oldID := cl.id
+	cl.k.c.Close() // обрыв
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		cl.mu.Lock()
+		id := cl.id
+		cl.mu.Unlock()
+		if id != oldID && cl.Side() == data.UA {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if cl.Side() != data.UA {
+		t.Fatalf("после обрыва клиент не вернулся на сторону; статус: %q", cl.Status())
+	}
+	found := false
+	for _, s := range h.Messages() {
+		if strings.Contains(s, "отключился") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("хост не сообщил об отключении с причиной")
+	}
 }

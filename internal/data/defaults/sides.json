@@ -81,8 +81,8 @@
     ],
     "imports": [
       {"id": "ru_imp_shahed", "name": "Шахеды из Ирана (×20)", "item": "shahed136", "amount": 20, "money": 70, "delay_h": 12},
-      {"id": "ru_imp_elec", "name": "Электроника (параллельный импорт, ×30)", "item": "res:electronics", "amount": 30, "money": 80, "delay_h": 12, "requires": "ru_parallel_import"},
-      {"id": "ru_imp_shells", "name": "Снаряды из КНДР (×400)", "item": "res:ammo", "amount": 400, "money": 90, "delay_h": 24, "requires": "ru_dprk"},
+      {"id": "ru_imp_elec", "name": "Электроника (параллельный импорт, ×30)", "item": "res:electronics", "amount": 30, "money": 80, "delay_h": 12, "auto_below": 60, "requires": "ru_parallel_import"},
+      {"id": "ru_imp_shells", "name": "Снаряды из КНДР (×400)", "item": "res:ammo", "amount": 400, "money": 90, "delay_h": 24, "auto_below": 400, "requires": "ru_dprk"},
       {"id": "ru_imp_kn23", "name": "Ракеты KN-23 (×6)", "item": "kn23", "amount": 6, "money": 90, "delay_h": 36, "requires": "ru_dprk"}
     ],
     "aid": [],
@@ -179,9 +179,9 @@
       "mfg_ua", "radar_ua", "reb_ua", "rtr_ua", "smerch_ua", "osa", "m_9m33", "m_aam_ua"
     ],
     "imports": [
-      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8},
-      {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24},
-      {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6},
+      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8, "auto_below": 60},
+      {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24, "auto_below": 300},
+      {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6, "auto_below": 300},
       {"id": "ua_imp_tb2", "name": "Bayraktar TB2 (×4)", "item": "tb2", "amount": 4, "money": 60, "delay_h": 24, "limit": 5}
     ],
     "airspace": [
@@ -211,6 +211,9 @@
       {"id": "aid_atacms", "name": "ATACMS", "at_hour": 135, "items": {"atacms": 20, "gmlrs": 200}, "morale": 2},
       {"id": "aid_patriot2", "name": "Второй Patriot", "at_hour": 160, "min_morale": 40, "items": {"patriot": 1, "m_pac3": 40}, "morale": 3},
       {"id": "aid_money3", "name": "Кредит ЕС", "at_hour": 180, "items": {"res:money": 1000}, "morale": 2},
+      {"id": "aid_ad_recovery1", "name": "Замена ПВО: С-300 от союзников", "at_hour": 48, "min_ad_loss": 0.4, "items": {"s300ps": 3, "m_5v55": 60}, "morale": 2},
+      {"id": "aid_ad_recovery2", "name": "Замена ПВО: Бук-М1", "at_hour": 48, "min_ad_loss": 0.4, "items": {"buk_ua": 3, "m_9m38": 60}, "morale": 2},
+      {"id": "aid_ad_recovery3", "name": "Замена ПВО: вторая партия", "at_hour": 120, "min_ad_loss": 0.6, "items": {"s300ps": 2, "buk_ua": 2, "m_5v55": 60, "m_9m38": 60}, "morale": 2},
       {"id": "mis_crimea_bridge", "name": "Награда: Крымский мост", "title": "Разрушить Крымский мост",
        "hint": "Выведите из строя Крымский мост. Награда: ATACMS и Storm Shadow.",
        "mission": {"kind": "disable_building", "target": "Крымский мост"},

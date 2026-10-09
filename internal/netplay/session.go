@@ -25,7 +25,7 @@ import (
 )
 
 // Version — версия протокола.
-const Version = 9
+const Version = 10
 
 // DefaultPort — порт по умолчанию.
 const DefaultPort = 27015
@@ -132,7 +132,7 @@ func newConn(c net.Conn) *conn {
 func (k *conn) send(m *Msg) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	k.c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	k.c.SetWriteDeadline(time.Now().Add(30 * time.Second))
 	if err := k.enc.Encode(m); err != nil {
 		return err
 	}
@@ -271,6 +271,7 @@ func (h *Host) accept() {
 		if err != nil {
 			return
 		}
+		keepAlive(c)
 		k := newConn(c)
 		c.SetReadDeadline(time.Now().Add(10 * time.Second))
 		m, err := k.recv()
@@ -420,8 +421,12 @@ func (h *Host) readPlayer(p *player) {
 					break
 				}
 			}
-			h.note(fmt.Sprintf("Игрок %d отключился", p.id))
-			h.msgs = append(h.msgs, fmt.Sprintf("Игрок %d отключился", p.id))
+			why := "соединение закрыто"
+			if err != io.EOF {
+				why = err.Error()
+			}
+			h.note(fmt.Sprintf("Игрок %d отключился: %s", p.id, why))
+			h.msgs = append(h.msgs, fmt.Sprintf("Игрок %d отключился (%s)", p.id, why))
 			h.mu.Unlock()
 			p.k.c.Close()
 			h.broadcastLobby(-1)
@@ -708,6 +713,48 @@ type Client struct {
 	msgs   []string
 	status string
 	closed bool
+	addr   string // адрес хоста для переподключения
+	hash   string
+	// lastSide — сторона, за которую играли до обрыва (-1 — не выбирали).
+	lastSide int
+}
+
+// keepAlive включает TCP keep-alive: обрыв связи замечается за десятки секунд, а не часы.
+func keepAlive(c net.Conn) {
+	if tc, ok := c.(*net.TCPConn); ok {
+		tc.SetKeepAlive(true)
+		tc.SetKeepAlivePeriod(15 * time.Second)
+	}
+}
+
+// handshake устанавливает соединение с хостом и возвращает его и номер игрока.
+func handshake(addr, dataHash string) (*conn, int, error) {
+	c, err := net.DialTimeout("tcp", addr, 8*time.Second)
+	if err != nil {
+		return nil, 0, err
+	}
+	keepAlive(c)
+	k := newConn(c)
+	if err := k.send(&Msg{Hello: &Hello{Version: Version, DataHash: dataHash}}); err != nil {
+		c.Close()
+		return nil, 0, err
+	}
+	c.SetReadDeadline(time.Now().Add(10 * time.Second))
+	m, err := k.recv()
+	c.SetReadDeadline(time.Time{})
+	if err != nil {
+		c.Close()
+		return nil, 0, err
+	}
+	if m.Welcome == nil {
+		c.Close()
+		return nil, 0, fmt.Errorf("неожиданный ответ хоста")
+	}
+	if m.Welcome.Error != "" {
+		c.Close()
+		return nil, 0, fmt.Errorf("%s", m.Welcome.Error)
+	}
+	return k, m.Welcome.ID, nil
 }
 
 // Connect подключается к хосту.
@@ -715,48 +762,31 @@ func Connect(addr string, dataHash string) (*Client, error) {
 	if !strings.Contains(addr, ":") {
 		addr = fmt.Sprintf("%s:%d", addr, DefaultPort)
 	}
-	c, err := net.DialTimeout("tcp", addr, 8*time.Second)
+	k, id, err := handshake(addr, dataHash)
 	if err != nil {
 		return nil, err
 	}
-	k := newConn(c)
-	if err := k.send(&Msg{Hello: &Hello{Version: Version, DataHash: dataHash}}); err != nil {
-		c.Close()
-		return nil, err
-	}
-	c.SetReadDeadline(time.Now().Add(10 * time.Second))
-	m, err := k.recv()
-	c.SetReadDeadline(time.Time{})
-	if err != nil {
-		c.Close()
-		return nil, err
-	}
-	if m.Welcome == nil {
-		c.Close()
-		return nil, fmt.Errorf("неожиданный ответ хоста")
-	}
-	if m.Welcome.Error != "" {
-		c.Close()
-		return nil, fmt.Errorf("%s", m.Welcome.Error)
-	}
-	cl := &Client{k: k, id: m.Welcome.ID, status: "Лобби"}
+	cl := &Client{k: k, id: id, status: "Лобби", addr: addr, hash: dataHash, lastSide: -1}
 	go cl.read()
 	return cl, nil
 }
 
+// Попытки переподключения после обрыва связи.
+const (
+	reconnectTries = 5
+	reconnectPause = 2 * time.Second
+)
+
 func (cl *Client) read() {
 	for {
-		m, err := cl.k.recv()
+		cl.mu.Lock()
+		k := cl.k
+		cl.mu.Unlock()
+		m, err := k.recv()
 		if err != nil {
-			cl.mu.Lock()
-			if !cl.closed {
-				if err == io.EOF {
-					cl.status = "Хост завершил игру"
-				} else {
-					cl.status = "Связь с хостом потеряна: " + err.Error()
-				}
+			if cl.reconnect(err) {
+				continue
 			}
-			cl.mu.Unlock()
 			return
 		}
 		cl.mu.Lock()
@@ -776,12 +806,79 @@ func (cl *Client) read() {
 		}
 		if m.Lobby != nil {
 			cl.lobby = m.Lobby
+			if s := m.Lobby.Me().Side; s >= 0 {
+				cl.lastSide = s
+			}
 		}
 		if m.Notice != "" {
 			cl.msgs = append(cl.msgs, m.Notice)
 		}
 		cl.mu.Unlock()
 	}
+}
+
+// reconnect пытается вернуться в игру после обрыва: заново подключается и занимает прежнюю сторону.
+// Возвращает false, если клиент закрыт или хост недоступен (статус с причиной остаётся на экране).
+func (cl *Client) reconnect(cause error) bool {
+	cl.mu.Lock()
+	if cl.closed {
+		cl.mu.Unlock()
+		return false
+	}
+	addr, hash, side := cl.addr, cl.hash, cl.lastSide
+	cl.mu.Unlock()
+	why := "связь с хостом потеряна: " + cause.Error()
+	if cause == io.EOF {
+		why = "хост закрыл соединение"
+	}
+	if addr == "" {
+		cl.setStatus(capFirst(why))
+		return false
+	}
+	for n := 1; n <= reconnectTries; n++ {
+		cl.setStatus(fmt.Sprintf("%s. Переподключение… %d/%d", capFirst(why), n, reconnectTries))
+		time.Sleep(reconnectPause)
+		cl.mu.Lock()
+		closed := cl.closed
+		cl.mu.Unlock()
+		if closed {
+			return false
+		}
+		k, id, err := handshake(addr, hash)
+		if err != nil {
+			why = "не удалось переподключиться: " + err.Error()
+			continue
+		}
+		cl.mu.Lock()
+		if cl.closed {
+			cl.mu.Unlock()
+			k.c.Close()
+			return false
+		}
+		cl.k, cl.id = k, id
+		cl.msgs = append(cl.msgs, "Связь восстановлена")
+		cl.mu.Unlock()
+		if side >= 0 {
+			go k.send(&Msg{Pick: &Pick{Side: side}})
+		}
+		return true
+	}
+	cl.setStatus(capFirst(why))
+	return false
+}
+
+func (cl *Client) setStatus(s string) {
+	cl.mu.Lock()
+	cl.status = s
+	cl.mu.Unlock()
+}
+
+func capFirst(s string) string {
+	r := []rune(s)
+	if len(r) == 0 {
+		return s
+	}
+	return strings.ToUpper(string(r[0])) + string(r[1:])
 }
 
 func (cl *Client) View() *sim.View {
@@ -795,8 +892,11 @@ func (cl *Client) Send(c sim.Command) {
 		return
 	}
 	c.Side = cl.Side()
+	cl.mu.Lock()
+	k := cl.k
+	cl.mu.Unlock()
 	go func() {
-		if err := cl.k.send(&Msg{Cmd: &c}); err != nil {
+		if err := k.send(&Msg{Cmd: &c}); err != nil {
 			cl.mu.Lock()
 			cl.msgs = append(cl.msgs, "Не удалось отправить приказ: "+err.Error())
 			cl.mu.Unlock()
@@ -830,7 +930,10 @@ func (cl *Client) Lobby() *LobbyState {
 
 // PickSide просит хост перевести игрока на сторону side.
 func (cl *Client) PickSide(side int) {
-	go cl.k.send(&Msg{Pick: &Pick{Side: side}})
+	cl.mu.Lock()
+	k := cl.k
+	cl.mu.Unlock()
+	go k.send(&Msg{Pick: &Pick{Side: side}})
 }
 
 func (cl *Client) StartGame()    {}
@@ -851,8 +954,9 @@ func (cl *Client) Status() string {
 func (cl *Client) Close() {
 	cl.mu.Lock()
 	cl.closed = true
+	k := cl.k
 	cl.mu.Unlock()
-	cl.k.c.Close()
+	k.c.Close()
 }
 
 // NewWorld — удобная обёртка для создания партии.

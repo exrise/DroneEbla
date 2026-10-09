@@ -125,6 +125,18 @@ func (sd *Side) ensure(n int) {
 	if sd.MissionFail == nil {
 		sd.MissionFail = map[string]bool{}
 	}
+	if sd.KeepStock == nil {
+		sd.KeepStock = map[string]bool{}
+	}
+	if sd.LowAlert == nil {
+		sd.LowAlert = map[string]int{}
+	}
+	if sd.AutoImport == nil {
+		sd.AutoImport = map[string]bool{}
+	}
+	if sd.AutoImportAt == nil {
+		sd.AutoImportAt = map[string]float64{}
+	}
 	if sd.AirOpen == nil {
 		sd.AirOpen = map[string]bool{}
 	}

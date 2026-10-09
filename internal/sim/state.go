@@ -191,61 +191,66 @@ type Capture struct {
 
 // Side — состояние стороны.
 type Side struct {
-	Res         data.Res
-	Rates       data.Res
-	Morale      float64
-	People      float64
-	LaborLoss   float64
-	Stocks      map[string]float64
-	Storage     data.FrontPool
-	Front       [3]Direction
-	Alloc       [3]float64
-	Posture     int    // устарело: позиция всего фронта (старые сохранения)
-	PostureDir  [3]int // позиция по направлениям
-	PostureSet  bool   // PostureDir заполнена (иначе мигрируем из Posture)
-	HasMain     bool
-	MainX       float64
-	MainY       float64
-	Orders      []Order
-	Capacity    map[string]float64
-	Unlocked    map[string]bool
-	Researched  map[string]bool
-	Research    string
-	Progress    map[string]float64
-	Bonus       map[string]float64 // очки трофеев и опыта по веткам
-	ResRate     float64
-	ResFund     int
-	AgentFund   bool
-	AgentTimer  float64
-	Effects     map[string]float64
-	Deliveries  []Delivery
-	ImportCount map[string]int
-	AidDone     map[string]bool
-	MobUsed     map[string]int
-	MobReady    map[string]float64
-	PropReady   float64              // время, с которого доступна следующая кампания
-	MoraleHist  map[string][]float64 // время недавних успехов по видам (убывающая отдача)
-	CitySeen    map[int]int          // сколько раз сторона брала город
-	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
-	MissionFail map[string]bool      // задания, которые уже не выполнить
-	AirOpen     map[string]bool      // открытые для ударов стороны пакеты воздушного пространства
-	SanctionOn  map[string]bool      // введённые против стороны пакеты санкций
-	SanctionAt  map[string]float64   // когда введён пакет (игровые минуты)
-	Posts       []Post               // отложенные подтверждения прилётов в соцсетях
-	Reserve     map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
-	Hints       []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
-	Ready       bool                 // расстановка завершена
-	Known       map[uint32]*Contact
-	SeenAt      []float32 // время последнего наблюдения тайла
-	Events      []Event
-	Speed       int
-	Pausing     bool
-	PauseLeft   float64
-	LossAcc     float64
-	Blackout    float64 // доля населения без света
-	RegionPower map[int]float64
-	Power       [2]float64 // генерация, потребление
-	Income      float64
+	Res          data.Res
+	Rates        data.Res
+	Morale       float64
+	People       float64
+	LaborLoss    float64
+	Stocks       map[string]float64
+	Storage      data.FrontPool
+	Front        [3]Direction
+	Alloc        [3]float64
+	Posture      int    // устарело: позиция всего фронта (старые сохранения)
+	PostureDir   [3]int // позиция по направлениям
+	PostureSet   bool   // PostureDir заполнена (иначе мигрируем из Posture)
+	HasMain      bool
+	MainX        float64
+	MainY        float64
+	Orders       []Order
+	Capacity     map[string]float64
+	Unlocked     map[string]bool
+	Researched   map[string]bool
+	Research     string
+	Progress     map[string]float64
+	Bonus        map[string]float64 // очки трофеев и опыта по веткам
+	ResRate      float64
+	ResFund      int
+	AgentFund    bool
+	AgentTimer   float64
+	Effects      map[string]float64
+	Deliveries   []Delivery
+	ImportCount  map[string]int
+	AidDone      map[string]bool
+	MobUsed      map[string]int
+	MobReady     map[string]float64
+	PropReady    float64              // время, с которого доступна следующая кампания
+	MoraleHist   map[string][]float64 // время недавних успехов по видам (убывающая отдача)
+	CitySeen     map[int]int          // сколько раз сторона брала город
+	MissionSeen  map[string][]uint32  // задание → здания, уже засчитанные в прогресс
+	MissionFail  map[string]bool      // задания, которые уже не выполнить
+	StartAD      int                  // число комплексов тяжёлой ПВО на начало войны (для помощи «замена ПВО»)
+	KeepStock    map[string]bool      // автозаказ ЗУР: держать запас (id боеприпаса)
+	LowAlert     map[string]int       // предупреждения о запасе ЗУР: 1 — мало, 2 — кончились
+	AutoImport   map[string]bool      // включена автозакупка предложения (по id)
+	AutoImportAt map[string]float64   // когда автозакупка срабатывала в последний раз
+	AirOpen      map[string]bool      // открытые для ударов стороны пакеты воздушного пространства
+	SanctionOn   map[string]bool      // введённые против стороны пакеты санкций
+	SanctionAt   map[string]float64   // когда введён пакет (игровые минуты)
+	Posts        []Post               // отложенные подтверждения прилётов в соцсетях
+	Reserve      map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
+	Hints        []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
+	Ready        bool                 // расстановка завершена
+	Known        map[uint32]*Contact
+	SeenAt       []float32 // время последнего наблюдения тайла
+	Events       []Event
+	Speed        int
+	Pausing      bool
+	PauseLeft    float64
+	LossAcc      float64
+	Blackout     float64 // доля населения без света
+	RegionPower  map[int]float64
+	Power        [2]float64 // генерация, потребление
+	Income       float64
 }
 
 // World — всё состояние партии.

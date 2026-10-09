@@ -82,6 +82,9 @@ type View struct {
 	EnemyPower         []EnemyRegionPower
 	EnemyGen, EnemyUse float64
 	Missions           []MissionView
+	KeepStock          map[string]bool    // автозаказ ЗУР включён
+	LowInterceptor     map[string]float64 // порог «мало ЗУР» по видам ракет, которыми стреляют комплексы стороны
+	AutoImport         map[string]bool    // включённые автозакупки
 	AirOpen            map[uint8]bool     // страны, небо которых открыто для ударов стороны
 	Airspace           []AirspaceView     // пакеты открытия неба стороны
 	Sanctions          []SanctionView     // санкции против стороны
@@ -124,7 +127,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		Research: sd.Research, Progress: copyMap(sd.Progress), Bonus: copyMap(sd.Bonus),
 		ResRate: sd.ResRate, ResFund: sd.ResFund, AgentFund: sd.AgentFund,
 		Effects: copyMap(sd.Effects), Deliveries: append([]Delivery{}, sd.Deliveries...),
-		ImportCount: copyInt(sd.ImportCount), AidDone: copyBool(sd.AidDone),
+		ImportCount: copyInt(sd.ImportCount), AidDone: copyBool(sd.AidDone), AutoImport: copyBool(sd.AutoImport), KeepStock: copyBool(sd.KeepStock), LowInterceptor: w.lowThresholds(s),
 		MobUsed: copyInt(sd.MobUsed), MobReady: copyMap(sd.MobReady), PropReady: sd.PropReady,
 		RegionPower: map[int]float64{},
 	}

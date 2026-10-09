@@ -401,10 +401,41 @@ func (g *Game) tabArsenal(x, y, w int) int {
 		}
 		n := v.Stocks[m.ID]
 		c := colText
-		if n < 20 {
+		thr := v.LowInterceptor[m.ID]
+		val := fmt.Sprintf("%.0f", n)
+		switch {
+		case thr > 0 && n < 1:
+			c, val = colBad, "нет"
+		case thr > 0 && n <= thr:
 			c = colBad
+		case n < 20:
+			c = colWarn
 		}
-		y = g.clickRow(m.Name, fmt.Sprintf("%.0f", n), x, y, w, c, "int:"+m.ID, func() []cand { return g.interceptorUnits(m.ID) })
+		y = g.clickRow(m.Name, val, x, y, w, c, "int:"+m.ID, func() []cand { return g.interceptorUnits(m.ID) })
+	}
+	// Автозаказ ЗУР: когда запас ниже порога, партия сама встаёт в госзаказ.
+	keys := make([]string, 0, len(v.LowInterceptor))
+	for id := range v.LowInterceptor {
+		keys = append(keys, id)
+	}
+	sort.Strings(keys)
+	if len(keys) > 0 {
+		y += 4
+		y = g.para("Автозаказ: когда запас ЗУР упадёт до порога, партия встанет в госзаказ сама.", x, y, w, colDim)
+		for _, id := range keys {
+			m := g.cat.MunitionByID[id]
+			on := v.KeepStock[id]
+			lbl := fmt.Sprintf("Держать запас %s (≤ %.0f)", m.Short, v.LowInterceptor[id])
+			if g.ui.ButtonState(x, y, w, 26, lbl, on, true) {
+				k := 1
+				if on {
+					k = 0
+				}
+				g.sess.Send(sim.Command{Kind: sim.CmdKeepStock, Item: id, Int: k})
+			}
+			g.ui.Tooltip(x, y, w, 26, m.Name+": при запасе не больше порога в госзаказ добавляется партия ЗУР.")
+			y += 30
+		}
 	}
 	y += 8
 	y = g.header("Авиация", x, y)
@@ -673,11 +704,65 @@ func (g *Game) tabImport(x, y, w int) int {
 		if im.Requires != "" && !v.Researched[im.Requires] {
 			info = "требует: " + g.cat.TechByID[v.Side][im.Requires].Name
 		}
-		drawText(u.screen, info, float64(x), float64(y), 12, colDim, 0)
-		if u.ButtonState(x+w-90, y-16, 90, 26, "Купить", false, ok && v.Res[data.ResMoney] >= price) {
-			g.sess.Send(sim.Command{Kind: sim.CmdImport, Item: im.ID})
+		drawText(u.screen, info, float64(x), float64(y), 13, colDim, 0)
+		y += 20
+		// Купить один раз, пачкой ×5 и ×10 (покупается столько, на сколько хватает денег) и автозакупка по порогу.
+		afford := ok && v.Res[data.ResMoney] >= price
+		bx := x
+		for _, n := range []int{1, 5, 10} {
+			lbl := "Купить"
+			bw := 84
+			if n > 1 {
+				lbl, bw = fmt.Sprintf("×%d", n), 52
+			}
+			if u.ButtonState(bx, y, bw, 26, lbl, false, afford) {
+				g.sess.Send(sim.Command{Kind: sim.CmdImport, Item: im.ID, Count: n})
+			}
+			bx += bw + 6
 		}
-		y += 24
+		if im.AutoBelow > 0 {
+			if u.ButtonState(bx, y, w-(bx-x), 26, fmt.Sprintf("Авто: ниже %.0f", im.AutoBelow), v.AutoImport[im.ID], ok) {
+				on := 1
+				if v.AutoImport[im.ID] {
+					on = 0
+				}
+				g.sess.Send(sim.Command{Kind: sim.CmdAutoImport, Item: im.ID, Int: on})
+			}
+			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %.0f). Включено — повторное нажатие выключает.", im.AutoBelow, g.cat.Rules.AutoImportReserve+price))
+		}
+		y += 34
+	}
+	y += 6
+	y = g.header("Продажа излишков", x, y)
+	y = g.para(fmt.Sprintf("Топливо и сталь можно продать за деньги по невыгодному курсу; остаток %.0f не трогается.", g.cat.Rules.SellKeepMin), x, y, w, colDim)
+	for _, k := range []string{"fuel", "steel"} {
+		rate := g.cat.Rules.SellRate[k]
+		idx := 0
+		for i, rk := range data.ResKeys {
+			if rk == k {
+				idx = i
+			}
+		}
+		have := v.Res[idx]
+		room := math.Max(0, have-g.cat.Rules.SellKeepMin)
+		drawText(u.screen, fmt.Sprintf("%s: %.0f (можно продать %.0f по %.2f)", data.ResNames[idx], have, room, rate), float64(x), float64(y), 13, colText, 0)
+		y += 20
+		bx := x
+		for _, n := range []int{500, 2000, 0} {
+			lbl := fmt.Sprintf("%d", n)
+			if n == 0 {
+				lbl = "Всё лишнее"
+			}
+			bw := 70
+			if n == 0 {
+				bw = 110
+			}
+			if u.ButtonState(bx, y, bw, 26, lbl, false, room >= 1) {
+				g.sess.Send(sim.Command{Kind: sim.CmdSell, Item: "res:" + k, Count: n})
+			}
+			bx += bw + 6
+		}
+		y += 34
 	}
 	y += 6
 	y = g.header("В пути", x, y)

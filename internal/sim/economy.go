@@ -707,8 +707,13 @@ func (w *World) deliveries(s int) {
 	if !w.War() {
 		return
 	}
+	if sd.StartAD == 0 {
+		sd.StartAD = w.heavyAD(s)
+	}
 	w.sanctionsTick(s)
 	w.airspaceTick(s)
+	w.autoImportTick(s)
+	w.interceptorStocks(s)
 	h := w.HoursSinceWar()
 	for _, a := range w.cat.Sides[s].Aid {
 		if a.Mission != nil {
@@ -722,6 +727,9 @@ func (w *World) deliveries(s int) {
 			continue
 		}
 		if a.NeedKyiv && w.kyiv >= 0 && w.OwnerSide(w.kyiv) != s {
+			continue
+		}
+		if a.MinADLoss > 0 && w.adLoss(s) < a.MinADLoss {
 			continue
 		}
 		w.grantAid(s, a, "Пакет помощи: ")

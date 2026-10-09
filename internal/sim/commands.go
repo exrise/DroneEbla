@@ -3,6 +3,7 @@ package sim
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/world"
@@ -42,6 +43,9 @@ const (
 	CmdResFund    = "research_fund"
 	CmdAgentFund  = "agent_fund"
 	CmdImport     = "import"
+	CmdAutoImport = "auto_import"
+	CmdKeepStock  = "keep_stock"
+	CmdSell       = "sell"
 	CmdMobilize   = "mobilize"
 	CmdAlloc      = "alloc"
 	CmdPosture    = "posture"
@@ -175,7 +179,17 @@ func (w *World) apply(c Command) string {
 	case CmdAgentFund:
 		sd.AgentFund = c.Int != 0
 	case CmdImport:
-		return w.buyImport(s, c.Item)
+		return w.buyImport(s, c.Item, c.Count)
+	case CmdKeepStock:
+		m := w.cat.MunitionByID[c.Item]
+		if m == nil || m.Kind != "interceptor" || data.SideIndex(m.Side) != s {
+			return "Это не ваша зенитная ракета"
+		}
+		sd.KeepStock[c.Item] = c.Int != 0
+	case CmdSell:
+		return w.sell(s, c.Item, c.Count)
+	case CmdAutoImport:
+		return w.setAutoImport(s, c.Item, c.Int != 0)
 	case CmdMobilize:
 		return w.mobilize(s, c.Item)
 	case CmdAlloc:
@@ -307,8 +321,13 @@ func (w *World) ImportPrice(s int, im data.ImportOffer) float64 {
 	return im.Money * (1 - w.Sides[s].eff("import_discount")) * (1 + w.Sanction(s, "import_cost"))
 }
 
-func (w *World) buyImport(s int, id string) string {
+// buyImport заказывает закупку n раз (n < 1 — один раз); берёт столько, на сколько хватает денег и лимита.
+func (w *World) buyImport(s int, id string, n int) string {
 	sd := w.Sides[s]
+	if n < 1 {
+		n = 1
+	}
+	n = min(n, 50)
 	for _, im := range w.cat.Sides[s].Imports {
 		if im.ID != id {
 			continue
@@ -317,20 +336,75 @@ func (w *World) buyImport(s int, id string) string {
 			return "Закупка недоступна"
 		}
 		if w.Cheat {
-			w.deliver(s, im.Item, im.Amount, "")
+			w.deliver(s, im.Item, im.Amount*float64(n), "")
 			return ""
 		}
 		price := w.ImportPrice(s, im)
-		if sd.Res[data.ResMoney] < price {
+		bought := 0
+		for bought < n && w.ImportAvailable(s, im) && sd.Res[data.ResMoney] >= price {
+			sd.Res[data.ResMoney] -= price
+			sd.ImportCount[im.ID]++
+			sd.Deliveries = append(sd.Deliveries, Delivery{Name: im.Name, Item: im.Item, Amount: im.Amount, At: w.Time + im.DelayH*60})
+			bought++
+		}
+		if bought == 0 {
 			return fmt.Sprintf("Нужно %.0f денег", price)
 		}
-		sd.Res[data.ResMoney] -= price
-		sd.ImportCount[im.ID]++
-		sd.Deliveries = append(sd.Deliveries, Delivery{Name: im.Name, Item: im.Item, Amount: im.Amount, At: w.Time + im.DelayH*60})
-		w.Log(s, 0, fmt.Sprintf("Заказано: %s, прибудет через %s", im.Name, fmtHours(im.DelayH)))
+		if bought == 1 {
+			w.Log(s, 0, fmt.Sprintf("Заказано: %s, прибудет через %s", im.Name, fmtHours(im.DelayH)))
+		} else {
+			w.Log(s, 0, fmt.Sprintf("Заказано %d×: %s, прибудет через %s", bought, im.Name, fmtHours(im.DelayH)))
+		}
 		return ""
 	}
 	return "Нет такой закупки"
+}
+
+// setAutoImport включает или выключает автозакупку предложения id (только ресурсы с порогом auto_below).
+func (w *World) setAutoImport(s int, id string, on bool) string {
+	for _, im := range w.cat.Sides[s].Imports {
+		if im.ID != id {
+			continue
+		}
+		if im.AutoBelow <= 0 {
+			return "Для этой закупки автозакупка недоступна"
+		}
+		w.Sides[s].AutoImport[id] = on
+		return ""
+	}
+	return "Нет такой закупки"
+}
+
+// autoImportTick — автозакупка: ресурс ниже порога, партии этого вида в пути нет, деньги выше резерва.
+func (w *World) autoImportTick(s int) {
+	sd := w.Sides[s]
+	r := w.cat.Rules
+	for _, im := range w.cat.Sides[s].Imports {
+		if !sd.AutoImport[im.ID] || im.AutoBelow <= 0 || !strings.HasPrefix(im.Item, "res:") {
+			continue
+		}
+		if w.Time-sd.AutoImportAt[im.ID] < r.AutoImportEveryMin || !w.ImportAvailable(s, im) {
+			continue
+		}
+		have := 0.0
+		for i, k := range data.ResKeys {
+			if im.Item == "res:"+k {
+				have = sd.Res[i]
+			}
+		}
+		pending := false
+		for _, d := range sd.Deliveries {
+			if d.Item == im.Item {
+				pending = true
+			}
+		}
+		price := w.ImportPrice(s, im)
+		if pending || have >= im.AutoBelow || sd.Res[data.ResMoney] < price+r.AutoImportReserve {
+			continue
+		}
+		sd.AutoImportAt[im.ID] = w.Time
+		w.buyImport(s, im.ID, 1)
+	}
 }
 
 // MobilizationReady — можно ли объявить.

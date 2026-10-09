@@ -88,6 +88,15 @@ func Load(override string) (*Catalog, error) {
 	if len(r.PlacementKinds) == 0 {
 		r.PlacementKinds = []string{"ad", "radar", "reb", "rtr", "launcher"}
 	}
+	if r.LowInterceptor <= 0 {
+		r.LowInterceptor, r.KeepStockBatch, r.SellKeepMin = 20, 20, 1000
+	}
+	if len(r.SellRate) == 0 {
+		r.SellRate = map[string]float64{"fuel": 0.04, "steel": 0.06}
+	}
+	if r.AutoImportReserve <= 0 {
+		r.AutoImportReserve, r.AutoImportEveryMin = 300, 30
+	}
 	if r.RailKmh <= 0 {
 		r.RailKmh, r.RailBoardMin, r.RailAlightMin, r.RailStationTiles = 110, 20, 10, 2
 	}

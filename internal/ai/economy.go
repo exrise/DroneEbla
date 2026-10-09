@@ -101,6 +101,17 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 		}
 	}
 
+	// Излишки топлива и стали (умный режим): продаём за деньги, пока не остался разумный запас.
+	if c.Smart {
+		for k, above := range c.SellAbove {
+			for i, rk := range data.ResKeys {
+				if rk == k && v.Res[i] > above {
+					a.cmd(w, sim.Command{Kind: sim.CmdSell, Item: "res:" + k})
+				}
+			}
+		}
+	}
+
 	// Мобилизация, когда на фронте не хватает людей.
 	men := 0.0
 	for d := 0; d < 3; d++ {

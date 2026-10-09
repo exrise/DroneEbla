@@ -1734,3 +1734,105 @@ func TestRailCutDuringTrip(t *testing.T) {
 		t.Fatalf("юнит остановился в %.0f км от цели", dist(u.X, u.Y, b.X, b.Y))
 	}
 }
+
+// Закупка пачкой, автозакупка, продажа излишков, предупреждение о ЗУР и автозаказ, замена ПВО.
+func TestStocksAndImports(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	ru.Res[data.ResMoney] = 1000
+	ru.Researched["ru_parallel_import"] = true
+	before := len(ru.Deliveries)
+	if e := w.Apply(Command{Kind: CmdImport, Side: data.RU, Item: "ru_imp_elec", Count: 5}); e != "" {
+		t.Fatal(e)
+	}
+	price := w.ImportPrice(data.RU, data.ImportOffer{Money: 80})
+	if len(ru.Deliveries) != before+5 || math.Abs(ru.Res[data.ResMoney]-(1000-5*price)) > 0.01 {
+		t.Fatalf("пачка: %d поставок, денег %.0f", len(ru.Deliveries)-before, ru.Res[data.ResMoney])
+	}
+	// Денег хватает на меньше, чем просили: покупается сколько можно.
+	ru.Res[data.ResMoney] = price*2 + 1
+	n := len(ru.Deliveries)
+	w.Apply(Command{Kind: CmdImport, Side: data.RU, Item: "ru_imp_elec", Count: 10})
+	if len(ru.Deliveries) != n+2 {
+		t.Fatalf("пачка на остаток денег: %d вместо 2", len(ru.Deliveries)-n)
+	}
+	// Автозакупка: электроника ниже порога, деньги выше резерва.
+	ru.Deliveries = nil
+	ru.Res[data.ResElectronics] = 10
+	ru.Res[data.ResMoney] = 5000
+	if e := w.Apply(Command{Kind: CmdAutoImport, Side: data.RU, Item: "ru_imp_elec", Int: 1}); e != "" {
+		t.Fatal(e)
+	}
+	w.autoImportTick(data.RU)
+	if len(ru.Deliveries) != 1 {
+		t.Fatalf("автозакупка не сработала: %d поставок", len(ru.Deliveries))
+	}
+	w.autoImportTick(data.RU) // партия уже в пути
+	if len(ru.Deliveries) != 1 {
+		t.Fatal("автозакупка заказывает второй раз, пока первая в пути")
+	}
+	// Продажа излишков.
+	ru.Res[data.ResFuel] = 5000
+	m0 := ru.Res[data.ResMoney]
+	if e := w.Apply(Command{Kind: CmdSell, Side: data.RU, Item: "res:fuel", Count: 0}); e != "" {
+		t.Fatal(e)
+	}
+	if math.Abs(ru.Res[data.ResFuel]-w.cat.Rules.SellKeepMin) > 1 || ru.Res[data.ResMoney] <= m0 {
+		t.Fatalf("после продажи топлива %.0f, деньги %.0f→%.0f", ru.Res[data.ResFuel], m0, ru.Res[data.ResMoney])
+	}
+	if e := w.Apply(Command{Kind: CmdSell, Side: data.RU, Item: "res:ammo"}); e == "" {
+		t.Fatal("боеприпасы продавать нельзя")
+	}
+	// ЗУР: предупреждение один раз, потом кончились, автозаказ.
+	ru.Unlocked["m_48n6"] = true
+	logCount := func(sub string) int {
+		c := 0
+		for _, e := range w.BuildView(data.RU, 0).Events {
+			if strings.Contains(e.Text, sub) {
+				c++
+			}
+		}
+		return c
+	}
+	ru.Stocks["m_48n6"] = 10
+	w.interceptorStocks(data.RU)
+	w.interceptorStocks(data.RU)
+	if logCount("Заканчиваются ракеты") != 1 {
+		t.Fatalf("предупреждение о малом запасе пришло %d раз", logCount("Заканчиваются ракеты"))
+	}
+	ru.Stocks["m_48n6"] = 0
+	w.Apply(Command{Kind: CmdKeepStock, Side: data.RU, Item: "m_48n6", Int: 1})
+	w.interceptorStocks(data.RU)
+	w.interceptorStocks(data.RU)
+	if logCount("Кончились ракеты") != 1 {
+		t.Fatal("предупреждение «кончились» не пришло ровно один раз")
+	}
+	has := 0
+	for _, o := range ru.Orders {
+		if o.Item == "m_48n6" {
+			has++
+		}
+	}
+	if has != 1 {
+		t.Fatalf("автозаказ ЗУР: %d позиций в госзаказе", has)
+	}
+	// Украина теряет ПВО — приходит замена.
+	ua := w.Sides[data.UA]
+	lost := 0
+	for id, u := range w.Units {
+		if u.Side == data.UA {
+			if ut := w.cat.UnitByID[u.Type]; ut.Kind == "ad" && ut.Interceptor != "" && ut.Cost["money"] >= 100 {
+				delete(w.Units, id)
+				lost++
+			}
+		}
+	}
+	if lost < 5 || w.adLoss(data.UA) < 0.9 {
+		t.Fatalf("потеряно %d комплексов, доля %.2f", lost, w.adLoss(data.UA))
+	}
+	run(w, 49*60)
+	if !ua.AidDone["aid_ad_recovery1"] {
+		t.Fatal("замена ПВО не пришла после потери парка")
+	}
+}

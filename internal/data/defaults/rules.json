@@ -52,6 +52,8 @@
   "aircraft_loss": 0.03,
   "placement_kinds": ["ad", "radar", "reb", "rtr", "launcher"],
   "placement_buildings": ["training_center"],
+  "low_interceptor": 20, "keep_stock_batch": 20, "sell_keep_min": 1000, "sell_rate": {"fuel": 0.04, "steel": 0.06},
+  "auto_import_reserve": 300, "auto_import_every_min": 30,
   "rail_kmh": 110, "rail_board_min": 20, "rail_alight_min": 10, "rail_station_tiles": 2,
   "morale_gain_ref": 50,
   "morale_gain_floor": 0.15,

@@ -211,25 +211,27 @@ type TechLine struct {
 
 // ImportOffer — закупка за рубежом.
 type ImportOffer struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Item     string  `json:"item"`   // id боеприпаса/юнита/снаряжения или ресурс res:<ключ>
-	Amount   float64 `json:"amount"` // количество за одну покупку
-	Money    float64 `json:"money"`
-	DelayH   float64 `json:"delay_h"`
-	Limit    int     `json:"limit"`    // максимум покупок (0 — без лимита)
-	Requires string  `json:"requires"` // технология, после которой предложение доступно
-	Removes  string  `json:"removes"`  // технология, после которой предложение исчезает
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Item      string  `json:"item"`   // id боеприпаса/юнита/снаряжения или ресурс res:<ключ>
+	Amount    float64 `json:"amount"` // количество за одну покупку
+	Money     float64 `json:"money"`
+	DelayH    float64 `json:"delay_h"`
+	Limit     int     `json:"limit"`      // максимум покупок (0 — без лимита)
+	AutoBelow float64 `json:"auto_below"` // для ресурсов: порог, ниже которого работает автозакупка (0 — автозакупки нет)
+	Requires  string  `json:"requires"`   // технология, после которой предложение доступно
+	Removes   string  `json:"removes"`    // технология, после которой предложение исчезает
 }
 
 // AidPackage — пакет помощи.
 type AidPackage struct {
 	ID        string             `json:"id"`
 	Name      string             `json:"name"`
-	AtHour    float64            `json:"at_hour"`    // через сколько игровых часов после начала войны
-	MinMorale float64            `json:"min_morale"` // условие: мораль не ниже
-	NeedKyiv  bool               `json:"need_kyiv"`  // условие: Киев удержан
-	Items     map[string]float64 `json:"items"`      // id → количество (res:<ключ> для ресурсов)
+	AtHour    float64            `json:"at_hour"`     // через сколько игровых часов после начала войны
+	MinMorale float64            `json:"min_morale"`  // условие: мораль не ниже
+	NeedKyiv  bool               `json:"need_kyiv"`   // условие: Киев удержан
+	MinADLoss float64            `json:"min_ad_loss"` // условие: потеряна не менее этой доли стартового парка тяжёлой ПВО (0 — без условия)
+	Items     map[string]float64 `json:"items"`       // id → количество (res:<ключ> для ресурсов)
 	Morale    float64            `json:"morale"`
 	Title     string             `json:"title"`   // задание: заголовок (если пакет выдаётся за задание)
 	Hint      string             `json:"hint"`    // задание: пояснение
@@ -420,6 +422,12 @@ type Rules struct {
 	MoraleRepelMin      int                `json:"morale_repel_min"`       // минимальный размер такого удара
 	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
 	PlacementKinds      []string           `json:"placement_kinds"`        // виды юнитов, которые игрок сам расставляет перед стартом
+	LowInterceptor      float64            `json:"low_interceptor"`        // запас ЗУР, при котором приходит предупреждение (не меньше 4 магазинов самого заряженного комплекса)
+	KeepStockBatch      int                `json:"keep_stock_batch"`       // размер партии автозаказа ЗУР
+	SellKeepMin         float64            `json:"sell_keep_min"`          // продажа излишков не трогает этот остаток ресурса
+	SellRate            map[string]float64 `json:"sell_rate"`              // курс продажи излишков: ключ ресурса → денег за единицу
+	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
+	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение
 	RailKmh             float64            `json:"rail_kmh"`               // скорость юнита в эшелоне по ж/д, км/ч
 	RailBoardMin        float64            `json:"rail_board_min"`         // погрузка на станции, мин
 	RailAlightMin       float64            `json:"rail_alight_min"`        // выгрузка, мин
@@ -536,6 +544,8 @@ type AISide struct {
 	FleetBatch    int      `json:"fleet_batch"`    // не больше стольких штук одной позиции в одном заказе
 	ContractMoney float64  `json:"contract_money"` // платную мобилизацию без потерь морали использовать, если денег больше
 	PeakMenFrac   float64  `json:"peak_men_frac"`  // мобилизовать, когда людей на фронте меньше этой доли от максимума
+	// SellAbove — умный режим продаёт излишки ресурса (ключ: fuel, steel), когда запас выше порога.
+	SellAbove map[string]float64 `json:"sell_above"`
 	// Corridors — цепочки путевых точек [lon, lat] над открытым небом соседних стран (запад → север):
 	// ИИ летит по ним, когда прямой маршрут закрыт или не долетает.
 	Corridors [][][2]float64 `json:"corridors"`
