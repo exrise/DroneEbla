@@ -3,6 +3,9 @@ package sim
 import (
 	"fmt"
 	"math"
+
+	"github.com/exrise/droneebla/internal/data"
+	"github.com/exrise/droneebla/internal/world"
 )
 
 func dist(ax, ay, bx, by float64) float64 { return math.Hypot(ax-bx, ay-by) }
@@ -41,27 +44,48 @@ func (b *Building) Operational() bool { return b.Built >= 1 && b.HP > b.MaxHP*0.
 // Frac — доля HP для интерфейса.
 func (b *Building) Frac() float64 { return b.frac() }
 
-// TileDir — направление фронта для тайла.
+// TileDir — направление фронта для тайла (Киев, Харьков, Донбасс, Крым): ближайшая опорная точка.
 func (w *World) TileDir(i int) int {
-	ty := i / w.m.W
-	_, lat := w.m.Unproject(0, (float64(ty)+0.5)*w.m.TileKm)
-	return latDir(lat)
+	if w.dirMap == nil {
+		w.buildDirMap()
+	}
+	return int(w.dirMap[i])
 }
 
-func latDir(lat float64) int {
-	switch {
-	case lat >= 49.8:
-		return 0
-	case lat <= 47.6:
-		return 2
+// buildDirMap раскладывает карту по направлениям (диаграмма Вороного по опорным точкам rules.directions).
+func (w *World) buildDirMap() {
+	anchors := w.cat.Rules.Directions
+	pts := make([]Pt, len(anchors))
+	for k, a := range anchors {
+		pts[k].X, pts[k].Y = w.m.Project(a.Lon, a.Lat)
 	}
-	return 1
+	w.dirMap = make([]uint8, w.m.W*w.m.H)
+	for i := range w.dirMap {
+		cx, cy := w.m.TileCenter(i%w.m.W, i/w.m.W)
+		w.dirMap[i] = uint8(nearestPt(pts, cx, cy))
+	}
+	w.dirPts = pts
+}
+
+func nearestPt(pts []Pt, x, y float64) int {
+	best, bd := 0, math.Inf(1)
+	for k, p := range pts {
+		if d := dist(x, y, p.X, p.Y); d < bd {
+			best, bd = k, d
+		}
+	}
+	return best
 }
 
 // PointDir — направление для точки.
 func (w *World) PointDir(x, y float64) int {
-	_, lat := w.m.Unproject(x, y)
-	return latDir(lat)
+	if w.dirMap == nil {
+		w.buildDirMap()
+	}
+	if i := w.tileOf(x, y); i >= 0 {
+		return int(w.dirMap[i])
+	}
+	return nearestPt(w.dirPts, x, y)
 }
 
 // tileOf — индекс тайла точки или -1.
@@ -112,4 +136,13 @@ func (b *Building) scale() float64 {
 		return 1
 	}
 	return b.Scale
+}
+
+// DirAt — направление фронта для точки по карте и опорным точкам (для интерфейса, не зависит от состояния мира).
+func DirAt(m *world.MapData, anchors []data.DirAnchor, x, y float64) int {
+	pts := make([]Pt, len(anchors))
+	for k, a := range anchors {
+		pts[k].X, pts[k].Y = m.Project(a.Lon, a.Lat)
+	}
+	return nearestPt(pts, x, y)
 }

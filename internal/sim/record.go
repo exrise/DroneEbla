@@ -154,13 +154,13 @@ func (w *World) recSnapshot() {
 		for i, k := range data.ResKeys {
 			res[k] = math.Round(sd.Res[i])
 		}
-		front := make([]map[string]any, 3)
-		for d := 0; d < 3; d++ {
-			f := sd.Front[d]
+		front := make([]map[string]any, NumDir)
+		for d := 0; d < NumDir; d++ {
+			f := sd.Dirs[d]
 			front[d] = map[string]any{
 				"men": r1(f.Men), "armor": r1(f.Armor), "art": r1(f.Artillery), "fpv": r1(f.FPV), "fpv_pow": r1(f.FPVPow),
 				"power": r1(w.dirPower(s, d)), "supply": r1(f.Supply * 100), "tiles": f.Tiles, "losses": r1(f.Losses),
-				"posture": sd.PostureDir[d], "alloc": r1(sd.Alloc[d] * 100),
+				"posture": sd.DirPosture[d], "alloc": r1(sd.DirAlloc[d] * 100),
 			}
 		}
 		stocks := map[string]float64{}

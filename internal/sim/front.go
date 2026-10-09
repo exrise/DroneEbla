@@ -36,7 +36,7 @@ func (w *World) FrontTiles(s int) []int { return w.frontT[s] }
 // dirPower — боевая мощь пула направления (без снабжения).
 func (w *World) dirPower(s, d int) float64 {
 	sd := w.Sides[s]
-	f := sd.Front[d]
+	f := sd.Dirs[d]
 	art := f.Artillery * 0.05
 	if sd.Res[data.ResAmmo] < 1 {
 		art *= 0.2
@@ -129,11 +129,11 @@ func (w *World) front(dtMin float64) {
 	w.updateFrontTiles()
 
 	// Центры направлений и плотность сил.
-	var dens [2][3]float64
+	var dens [2][NumDir]float64
 	for s := 0; s < 2; s++ {
 		sd := w.Sides[s]
-		var cnt [3]int
-		var sx, sy [3]float64
+		var cnt [NumDir]int
+		var sx, sy [NumDir]float64
 		for _, i := range w.frontT[s] {
 			d := w.TileDir(i)
 			cnt[d]++
@@ -141,8 +141,8 @@ func (w *World) front(dtMin float64) {
 			sx[d] += cx
 			sy[d] += cy
 		}
-		for d := 0; d < 3; d++ {
-			f := &sd.Front[d]
+		for d := 0; d < NumDir; d++ {
+			f := &sd.Dirs[d]
 			f.Tiles = cnt[d]
 			f.Supply = w.supply(s, d)
 			if cnt[d] > 0 {
@@ -181,7 +181,7 @@ func (w *World) front(dtMin float64) {
 		}
 		for _, i := range w.frontT[s] {
 			d := w.TileDir(i)
-			attK := attKs[sd.PostureDir[d]]
+			attK := attKs[sd.DirPosture[d]]
 			if attK == 0 {
 				continue
 			}
@@ -191,7 +191,7 @@ func (w *World) front(dtMin float64) {
 					return
 				}
 				dj := w.TileDir(j)
-				def := dens[e][dj] * defKs[ed.PostureDir[dj]] * w.mainEffort(e, j) * w.terrain(j)
+				def := dens[e][dj] * defKs[ed.DirPosture[dj]] * w.mainEffort(e, j) * w.terrain(j)
 				if def <= 0 {
 					def = 0.01
 				}
@@ -226,24 +226,24 @@ func (w *World) front(dtMin float64) {
 	for s := 0; s < 2; s++ {
 		sd := w.Sides[s]
 		e := 1 - s
-		for d := 0; d < 3; d++ {
-			f := &sd.Front[d]
+		for d := 0; d < NumDir; d++ {
+			f := &sd.Dirs[d]
 			if f.Tiles == 0 {
 				continue
 			}
-			ep := w.Sides[e].Front[d].Power
+			ep := w.Sides[e].Dirs[d].Power
 			ratio := 1.0
 			if f.Power > 0 {
 				ratio = clamp(ep/f.Power, 0.2, 5)
 			}
 			k := r.FrontLoss * ratio * step / r.FrontStepMin * MoraleLosses(r, sd.Morale)
 			k *= math.Max(0.3, 1-sd.eff("front_loss"))
-			if sd.PostureDir[d] == PostureOffense {
+			if sd.DirPosture[d] == PostureOffense {
 				k *= 1.6
-			} else if sd.PostureDir[d] == PostureDefense {
+			} else if sd.DirPosture[d] == PostureDefense {
 				k *= 0.7
 			}
-			if w.Sides[e].PostureDir[d] == PostureOffense {
+			if w.Sides[e].DirPosture[d] == PostureOffense {
 				k *= 1.3
 			}
 			men := f.Men * k
@@ -299,9 +299,9 @@ func (w *World) captureTile(i, s int) {
 	w.Owner[i] = uint8(s + 1)
 	w.nextVictory = 0
 	d := w.TileDir(i)
-	w.Sides[s].Front[d].Gained++
+	w.Sides[s].Dirs[d].Gained++
 	if old >= 0 {
-		w.Sides[old].Front[d].Lost++
+		w.Sides[old].Dirs[d].Lost++
 	}
 	w.Captures = append(w.Captures, Capture{Tile: int32(i), Side: int8(s), Time: float32(w.Time)})
 	w.Pressure[i] = 0
@@ -364,8 +364,8 @@ func (w *World) frontSummary(step float64) {
 		sd := w.Sides[s]
 		text := ""
 		lvl := 0
-		for d := 0; d < 3; d++ {
-			f := &sd.Front[d]
+		for d := 0; d < NumDir; d++ {
+			f := &sd.Dirs[d]
 			f.GainedH, f.LostH = f.Gained, f.Lost
 			f.Gained, f.Lost = 0, 0
 			if f.GainedH == 0 && f.LostH == 0 {

@@ -217,8 +217,8 @@ func TestFrontMoves(t *testing.T) {
 			b.HP = 0
 		}
 	}
-	w.Sides[data.RU].PostureDir = [3]int{PostureOffense, PostureOffense, PostureOffense}
-	w.Sides[data.UA].Front[1].Men = 5
+	w.Sides[data.RU].DirPosture = [NumDir]int{PostureOffense, PostureOffense, PostureOffense, PostureOffense}
+	w.Sides[data.UA].Dirs[2].Men = 5
 	ownedBefore := 0
 	for _, o := range w.Owner {
 		if o == 1 {
@@ -409,8 +409,8 @@ func TestDamageEfficiency(t *testing.T) {
 
 func TestRepairTimeAndCrews(t *testing.T) {
 	w := newTestWorld(t)
-	w.Sides[data.RU].PostureDir = [3]int{} // оборона: фронт не должен менять владельцев объектов
-	w.Sides[data.UA].PostureDir = [3]int{}
+	w.Sides[data.RU].DirPosture = [NumDir]int{} // оборона: фронт не должен менять владельцев объектов
+	w.Sides[data.UA].DirPosture = [NumDir]int{}
 	run(w, 5)
 	ref := findBuilding(w, "Кременчугский НПЗ")
 	ref.HP = 0
@@ -854,34 +854,34 @@ func TestMissionHoldFailed(t *testing.T) {
 func TestPosturePerDirection(t *testing.T) {
 	w := newTestWorld(t)
 	ru := w.Sides[data.RU]
-	w.Apply(Command{Kind: CmdPosture, Side: data.RU, Int: PostureOffense, Count: 2}) // Донбасс
-	if ru.PostureDir != [3]int{PostureActive, PostureOffense, PostureActive} {
-		t.Fatalf("позиции по направлениям: %v", ru.PostureDir)
+	w.Apply(Command{Kind: CmdPosture, Side: data.RU, Int: PostureOffense, Count: 3}) // Донбасс
+	if ru.DirPosture != [NumDir]int{PostureActive, PostureActive, PostureOffense, PostureActive} {
+		t.Fatalf("позиции по направлениям: %v", ru.DirPosture)
 	}
 	w.Apply(Command{Kind: CmdPosture, Side: data.RU, Int: PostureDefense}) // все
-	if ru.PostureDir != [3]int{} {
-		t.Fatalf("команда для всех направлений: %v", ru.PostureDir)
+	if ru.DirPosture != [NumDir]int{} {
+		t.Fatalf("команда для всех направлений: %v", ru.DirPosture)
 	}
-	if v := w.BuildView(data.RU, 0); v.Posture != ru.PostureDir {
+	if v := w.BuildView(data.RU, 0); v.Posture != ru.DirPosture {
 		t.Fatal("позиции не попали в представление")
 	}
 	// Старое сохранение без PostureDir: берём единую позицию.
 	old := &Side{Posture: PostureOffense}
 	old.ensure(10)
-	if old.PostureDir != [3]int{PostureOffense, PostureOffense, PostureOffense} {
-		t.Fatalf("миграция позиции: %v", old.PostureDir)
+	if old.DirPosture != [NumDir]int{PostureOffense, PostureOffense, PostureOffense, PostureOffense} {
+		t.Fatalf("миграция позиции: %v", old.DirPosture)
 	}
 	// Наступление на одном направлении не включает давление на других.
 	w2 := newTestWorld(t)
 	run(w2, w2.PrepEnd+1)
 	for s := 0; s < 2; s++ {
-		w2.Sides[s].PostureDir = [3]int{}
+		w2.Sides[s].DirPosture = [NumDir]int{}
 	}
-	w2.Sides[data.RU].PostureDir[1] = PostureOffense
+	w2.Sides[data.RU].DirPosture[2] = PostureOffense
 	run(w2, 6*60)
 	north := 0.0
 	for i := range w2.Pressure {
-		if w2.TileDir(i) != 1 && w2.Pressure[i] > 0 {
+		if w2.TileDir(i) != 2 && w2.Pressure[i] > 0 {
 			north += float64(w2.Pressure[i])
 		}
 	}
@@ -1232,8 +1232,8 @@ func TestTechLinesDataValid(t *testing.T) {
 func TestFPVVersions(t *testing.T) {
 	w := newTestWorld(t)
 	sd := w.Sides[data.UA]
-	sd.Alloc = [3]float64{1, 0, 0}
-	f := &sd.Front[0]
+	sd.DirAlloc = [NumDir]float64{1, 0, 0, 0}
+	f := &sd.Dirs[0]
 	f.FPV, f.FPVPow = 0, 0
 	p0 := w.dirPower(data.UA, 0)
 	w.deliver(data.UA, "fpv", 1, "")
@@ -1393,11 +1393,11 @@ func TestMercenaries(t *testing.T) {
 	ua := w.Sides[data.UA]
 	ua.Res[data.ResMoney] = 1000
 	people, morale, labor := ua.People, ua.Morale, ua.LaborLoss
-	front := ua.Front[0].Men + ua.Front[1].Men + ua.Front[2].Men
+	front := ua.Dirs[0].Men + ua.Dirs[1].Men + ua.Dirs[2].Men + ua.Dirs[3].Men
 	if e := w.Apply(Command{Kind: CmdMobilize, Side: data.UA, Item: "ua_latam"}); e != "" {
 		t.Fatal(e)
 	}
-	got := ua.Front[0].Men + ua.Front[1].Men + ua.Front[2].Men - front
+	got := ua.Dirs[0].Men + ua.Dirs[1].Men + ua.Dirs[2].Men + ua.Dirs[3].Men - front
 	if got < 11.99 || got > 12.01 {
 		t.Fatalf("наёмники должны дать 12 тыс. на фронт, а не %.2f", got)
 	}
@@ -1916,12 +1916,12 @@ func TestRatesAreNetFlow(t *testing.T) {
 // Приказы с NaN отклоняются и не ломают пополнения фронта.
 func TestNaNCommandRejected(t *testing.T) {
 	w := newTestWorld(t)
-	before := w.Sides[data.RU].Alloc
+	before := w.Sides[data.RU].DirAlloc
 	nan := math.NaN()
-	if e := w.Apply(Command{Kind: CmdAlloc, Side: data.RU, Vals: []float64{nan, 1, 1}}); e == "" {
+	if e := w.Apply(Command{Kind: CmdAlloc, Side: data.RU, Vals: []float64{nan, 1, 1, 1}}); e == "" {
 		t.Fatal("NaN в распределении должен отклоняться")
 	}
-	if w.Sides[data.RU].Alloc != before {
+	if w.Sides[data.RU].DirAlloc != before {
 		t.Fatal("распределение изменилось")
 	}
 	if e := w.Apply(Command{Kind: CmdMove, Side: data.RU, X: math.Inf(1)}); e == "" {
@@ -1947,5 +1947,51 @@ func TestSaveLoadUnknownUnit(t *testing.T) {
 	}
 	if _, ok := w2.Units[u.ID]; ok {
 		t.Fatal("юнит неизвестного типа должен быть удалён")
+	}
+}
+
+// Четыре направления фронта: Киев, Харьков, Донбасс, Крым.
+func TestFourDirections(t *testing.T) {
+	w := newTestWorld(t)
+	cases := []struct {
+		name     string
+		lon, lat float64
+		want     int
+	}{
+		{"Чернигов", 31.3, 51.5, 0}, {"Киев", 30.5, 50.45, 0}, {"Сумы", 34.8, 50.9, 1}, {"Харьков", 36.25, 50.0, 1},
+		{"Изюм", 37.3, 49.2, 1}, {"Бахмут", 38.0, 48.6, 2}, {"Покровск", 37.2, 48.3, 2}, {"Мариуполь", 37.55, 47.1, 2},
+		{"Херсон", 32.6, 46.64, 3}, {"Запорожье", 35.1, 47.84, 3}, {"Симферополь", 34.1, 44.95, 3},
+	}
+	for _, c := range cases {
+		x, y := w.m.Project(c.lon, c.lat)
+		if got := w.PointDir(x, y); got != c.want {
+			t.Errorf("%s: направление %s, ожидалось %s", c.name, DirNames[got], DirNames[c.want])
+		}
+	}
+	var have [NumDir]int
+	for _, i := range w.frontT[data.RU] {
+		have[w.TileDir(i)]++
+	}
+	for d, n := range have {
+		if n == 0 {
+			t.Errorf("на направлении %s нет фронтовых тайлов", DirNames[d])
+		}
+	}
+}
+
+// Сохранение с тремя направлениями переносится на четыре без потери сил.
+func TestMigrateThreeDirections(t *testing.T) {
+	sd := &Side{PostureSet: true, PostureDir: [3]int{PostureOffense, PostureDefense, PostureActive}}
+	sd.Front = [3]Direction{{Men: 40, Armor: 400}, {Men: 70, Armor: 700}, {Men: 30, Armor: 300}}
+	sd.Alloc = [3]float64{0.4, 0.4, 0.2}
+	sd.ensure(10)
+	if !sd.DirsSet || sd.Dirs[0].Men != 20 || sd.Dirs[1].Men != 20 || sd.Dirs[2].Men != 70 || sd.Dirs[3].Men != 30 {
+		t.Fatalf("силы после миграции: %+v", sd.Dirs)
+	}
+	if sd.DirPosture != [NumDir]int{PostureOffense, PostureOffense, PostureDefense, PostureActive} {
+		t.Fatalf("позиции после миграции: %v", sd.DirPosture)
+	}
+	if math.Abs(sd.DirAlloc[0]-0.2) > 1e-9 || math.Abs(sd.DirAlloc[2]-0.4) > 1e-9 {
+		t.Fatalf("пополнения после миграции: %v", sd.DirAlloc)
 	}
 }

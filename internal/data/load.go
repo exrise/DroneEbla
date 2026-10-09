@@ -94,6 +94,9 @@ func Load(override string) (*Catalog, error) {
 	if len(r.SellRate) == 0 {
 		r.SellRate = map[string]float64{"fuel": 0.04, "steel": 0.06}
 	}
+	if len(r.Directions) != 4 {
+		r.Directions = []DirAnchor{{"Киев", 30.8, 51.0}, {"Харьков", 36.5, 50.0}, {"Донбасс", 38.2, 48.2}, {"Крым", 35.0, 47.0}}
+	}
 	if r.BomberWarnMin <= 0 {
 		r.BomberWarnMin = 30
 	}

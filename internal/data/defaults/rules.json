@@ -1,5 +1,6 @@
 {
   "game_min_per_sec": 1.0,
+  "directions": [{"name": "Киев", "lon": 30.8, "lat": 51.0}, {"name": "Харьков", "lon": 36.5, "lat": 50.0}, {"name": "Донбасс", "lon": 38.2, "lat": 48.2}, {"name": "Крым", "lon": 35.0, "lat": 47.0}],
   "prep_minutes": 240,
   "pause_budget_sec": 300,
   "city_tax_radius_km": 0,

@@ -203,27 +203,27 @@ func (w *World) apply(c Command) string {
 	case CmdMobilize:
 		return w.mobilize(s, c.Item)
 	case CmdAlloc:
-		if len(c.Vals) != 3 {
-			return "нужно три значения"
+		if len(c.Vals) != NumDir {
+			return "нужно четыре значения"
 		}
 		sum := 0.0
-		for d := 0; d < 3; d++ {
-			sd.Alloc[d] = math.Max(0, c.Vals[d])
-			sum += sd.Alloc[d]
+		for d := 0; d < NumDir; d++ {
+			sd.DirAlloc[d] = math.Max(0, c.Vals[d])
+			sum += sd.DirAlloc[d]
 		}
 		if sum <= 0 {
-			sd.Alloc = [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3}
+			sd.DirAlloc = uniformAlloc()
 		} else {
-			for d := 0; d < 3; d++ {
-				sd.Alloc[d] /= sum
+			for d := 0; d < NumDir; d++ {
+				sd.DirAlloc[d] /= sum
 			}
 		}
 	case CmdPosture:
-		// Count: 0 — все направления, 1–3 — одно направление.
+		// Count: 0 — все направления, 1–4 — одно направление.
 		p := int(clamp(float64(c.Int), 0, 2))
-		for d := 0; d < 3; d++ {
+		for d := 0; d < NumDir; d++ {
 			if c.Count == 0 || c.Count == d+1 {
-				sd.PostureDir[d] = p
+				sd.DirPosture[d] = p
 			}
 		}
 	case CmdMainEffort:
@@ -502,4 +502,13 @@ func finite(v ...float64) bool {
 		}
 	}
 	return true
+}
+
+// uniformAlloc — поровну между направлениями.
+func uniformAlloc() [NumDir]float64 {
+	var a [NumDir]float64
+	for d := range a {
+		a[d] = 1.0 / NumDir
+	}
+	return a
 }

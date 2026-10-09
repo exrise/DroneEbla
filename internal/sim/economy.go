@@ -297,10 +297,10 @@ func (w *World) economy(dtH float64) {
 		// Расход фронта: топливо и боеприпасы.
 		postK := []float64{0.6, 1.0, 1.6}
 		armor, art := 0.0, 0.0
-		for d := 0; d < 3; d++ {
-			k := postK[sd.PostureDir[d]]
-			armor += sd.Front[d].Armor * k
-			art += sd.Front[d].Artillery * k
+		for d := 0; d < NumDir; d++ {
+			k := postK[sd.DirPosture[d]]
+			armor += sd.Dirs[d].Armor * k
+			art += sd.Dirs[d].Artillery * k
 		}
 		if w.War() {
 			delta[data.ResFuel] -= armor * r.FrontFuelUse * dtH
@@ -482,14 +482,17 @@ func (w *World) deliver(s int, item string, amount float64, via string) {
 // distributeFront раздаёт пополнение по направлениям согласно долям.
 func (w *World) distributeFront(s int, what string, n float64) {
 	sd := w.Sides[s]
-	sum := sd.Alloc[0] + sd.Alloc[1] + sd.Alloc[2]
+	sum := 0.0
+	for _, a := range sd.DirAlloc {
+		sum += a
+	}
 	if sum <= 0 {
 		sum = 1
-		sd.Alloc = [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3}
+		sd.DirAlloc = uniformAlloc()
 	}
-	for d := 0; d < 3; d++ {
-		k := n * sd.Alloc[d] / sum
-		f := &sd.Front[d]
+	for d := 0; d < NumDir; d++ {
+		k := n * sd.DirAlloc[d] / sum
+		f := &sd.Dirs[d]
 		switch what {
 		case "men":
 			f.Men += k
@@ -504,15 +507,18 @@ func (w *World) distributeFront(s int, what string, n float64) {
 // distributeFPV раздаёт FPV-дроны по направлениям; power — сила версии (радио 1, оптоволокно, ИИ…).
 func (w *World) distributeFPV(s int, n, power float64) {
 	sd := w.Sides[s]
-	sum := sd.Alloc[0] + sd.Alloc[1] + sd.Alloc[2]
+	sum := 0.0
+	for _, a := range sd.DirAlloc {
+		sum += a
+	}
 	if sum <= 0 {
 		sum = 1
-		sd.Alloc = [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3}
+		sd.DirAlloc = uniformAlloc()
 	}
-	for d := 0; d < 3; d++ {
-		k := n * sd.Alloc[d] / sum
-		sd.Front[d].FPV += k
-		sd.Front[d].FPVPow += k * power
+	for d := 0; d < NumDir; d++ {
+		k := n * sd.DirAlloc[d] / sum
+		sd.Dirs[d].FPV += k
+		sd.Dirs[d].FPVPow += k * power
 	}
 }
 

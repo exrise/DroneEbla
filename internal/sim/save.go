@@ -100,6 +100,14 @@ func (sd *Side) ensure(n int) {
 			sd.Front[d].FPVPow = sd.Front[d].FPV
 		}
 	}
+	if !sd.DirsSet {
+		sd.migrateDirs()
+	}
+	for d := range sd.Dirs {
+		if sd.Dirs[d].FPVPow == 0 && sd.Dirs[d].FPV > 0 {
+			sd.Dirs[d].FPVPow = sd.Dirs[d].FPV
+		}
+	}
 	if sd.Stocks == nil {
 		sd.Stocks = map[string]float64{}
 	}
@@ -232,4 +240,25 @@ func (sd *Side) migrateTech(cat *data.Catalog, s int) {
 	for _, id := range cat.Sides[s].Unlocked {
 		sd.Unlocked[id] = true
 	}
+}
+
+// migrateDirs переносит силы старого сохранения с трёх направлений (Север, Донбасс, Юг) на четыре:
+// Север делится поровну между Киевом и Харьковом, Донбасс остаётся, Юг становится Крымом.
+func (sd *Side) migrateDirs() {
+	half := func(f Direction) Direction {
+		f.Men, f.Armor, f.Artillery, f.FPV, f.FPVPow = f.Men/2, f.Armor/2, f.Artillery/2, f.FPV/2, f.FPVPow/2
+		f.Losses /= 2
+		return f
+	}
+	sd.Dirs = [NumDir]Direction{half(sd.Front[0]), half(sd.Front[0]), sd.Front[1], sd.Front[2]}
+	sd.DirAlloc = [NumDir]float64{sd.Alloc[0] / 2, sd.Alloc[0] / 2, sd.Alloc[1], sd.Alloc[2]}
+	sum := 0.0
+	for _, a := range sd.DirAlloc {
+		sum += a
+	}
+	if sum <= 0 {
+		sd.DirAlloc = uniformAlloc()
+	}
+	sd.DirPosture = [NumDir]int{sd.PostureDir[0], sd.PostureDir[0], sd.PostureDir[1], sd.PostureDir[2]}
+	sd.DirsSet = true
 }

@@ -336,7 +336,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			sx, sy := g.cam.ToScreen(b.X, b.Y)
 			d := b.Dir
 			if d < 0 {
-				d = 1
+				d = g.dirAt(b.X, b.Y)
 			}
 			drawTextHalo(dst, sim.DirNames[d], sx, sy+10, 12, colAccent, color.Black, 1)
 			circle(dst, sx, sy, 9, colAccent, 2)

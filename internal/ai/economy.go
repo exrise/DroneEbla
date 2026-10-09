@@ -122,7 +122,7 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 
 	// Мобилизация, когда на фронте не хватает людей.
 	men := 0.0
-	for d := 0; d < 3; d++ {
+	for d := 0; d < sim.NumDir; d++ {
 		men += v.Front[d].Men
 	}
 	a.peakMen = math.Max(a.peakMen, men)

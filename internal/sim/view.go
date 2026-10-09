@@ -53,10 +53,10 @@ type View struct {
 	Power       [2]float64
 	Stocks      map[string]float64
 	Storage     data.FrontPool
-	Front       [3]Direction
-	EnemyFront  [3]int // число фронтовых тайлов противника (видно по линии)
-	Alloc       [3]float64
-	Posture     [3]int
+	Front       [NumDir]Direction
+	EnemyFront  [NumDir]int // число фронтовых тайлов противника (видно по линии)
+	Alloc       [NumDir]float64
+	Posture     [NumDir]int
 	HasMain     bool
 	MainX       float64
 	MainY       float64
@@ -124,8 +124,8 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		Winner: w.Winner, WinReason: w.WinReason,
 		Res: sd.Res, Rates: sd.Rates, Income: sd.Income, Morale: sd.Morale, People: sd.People,
 		LaborLoss: sd.LaborLoss, Blackout: sd.Blackout, Power: sd.Power,
-		Stocks: copyMap(sd.Stocks), Storage: sd.Storage, Front: sd.Front, Alloc: sd.Alloc,
-		Posture: sd.PostureDir, HasMain: sd.HasMain, MainX: sd.MainX, MainY: sd.MainY,
+		Stocks: copyMap(sd.Stocks), Storage: sd.Storage, Front: sd.Dirs, Alloc: sd.DirAlloc,
+		Posture: sd.DirPosture, HasMain: sd.HasMain, MainX: sd.MainX, MainY: sd.MainY,
 		Orders: append([]Order{}, sd.Orders...), Capacity: copyMap(sd.Capacity),
 		Unlocked: copyBool(sd.Unlocked), Researched: copyBool(sd.Researched),
 		Research: sd.Research, Progress: copyMap(sd.Progress), Bonus: copyMap(sd.Bonus),
@@ -150,8 +150,8 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		}
 	}
 	v.Hints = append([]PlaceHint{}, sd.Hints...)
-	for d := 0; d < 3; d++ {
-		v.EnemyFront[d] = w.Sides[1-s].Front[d].Tiles
+	for d := 0; d < NumDir; d++ {
+		v.EnemyFront[d] = w.Sides[1-s].Dirs[d].Tiles
 	}
 	for _, b := range w.Buildings {
 		if b.Side == s {

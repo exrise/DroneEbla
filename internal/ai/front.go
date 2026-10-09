@@ -20,7 +20,7 @@ func (a *AI) front(w *sim.World, v *sim.View) {
 	}
 	m := w.Map()
 	// Угроза по направлениям: давление противника на наши фронтовые тайлы.
-	var press [3]float64
+	var press [sim.NumDir]float64
 	type tile struct {
 		i int
 		p float64
@@ -36,8 +36,8 @@ func (a *AI) front(w *sim.World, v *sim.View) {
 			hot = append(hot, tile{i, p})
 		}
 	}
-	vals := make([]float64, 3)
-	for d := 0; d < 3; d++ {
+	vals := make([]float64, sim.NumDir)
+	for d := 0; d < sim.NumDir; d++ {
 		vals[d] = 10 + 0.5*float64(v.EnemyFront[d]) + 6*press[d]
 	}
 	a.cmd(w, sim.Command{Kind: sim.CmdAlloc, Vals: vals})
@@ -46,7 +46,7 @@ func (a *AI) front(w *sim.World, v *sim.View) {
 	if !v.War {
 		base = a.cfg.PrepPosture
 	}
-	for d := 0; d < 3; d++ {
+	for d := 0; d < sim.NumDir; d++ {
 		posture := base
 		// Под сильным давлением направление уходит в глухую оборону.
 		if v.War && a.cfg.DefensePressure > 0 && press[d] > a.cfg.DefensePressure {
@@ -80,8 +80,8 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 	c := a.cfg
 	m := w.Map()
 	now := v.Time
-	var press [3]float64
-	var cnt [3]int
+	var press [sim.NumDir]float64
+	var cnt [sim.NumDir]int
 	type tile struct {
 		i int
 		p float64
@@ -99,8 +99,8 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 			hot = append(hot, tile{i, p})
 		}
 	}
-	var pn [3]float64 // среднее давление на фронтовой тайл
-	for d := 0; d < 3; d++ {
+	var pn [sim.NumDir]float64 // среднее давление на фронтовой тайл
+	for d := 0; d < sim.NumDir; d++ {
 		if cnt[d] > 0 {
 			pn[d] = press[d] / float64(cnt[d])
 		}
@@ -108,8 +108,8 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 	}
 
 	// Пополнения идут туда, где враг сильнее давит и длиннее линия соприкосновения.
-	vals := make([]float64, 3)
-	for d := 0; d < 3; d++ {
+	vals := make([]float64, sim.NumDir)
+	for d := 0; d < sim.NumDir; d++ {
 		vals[d] = 10 + 0.5*float64(v.EnemyFront[d]) + 6*press[d]
 	}
 	if a.allocChanged(vals) {
@@ -117,7 +117,7 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 		a.lastAlloc = append(a.lastAlloc[:0], vals...)
 	}
 
-	a.debugf("%s t=%.0f фронт: давление/тайл %.3f %.3f %.3f, тайлов %v, сила %.0f %.0f %.0f, тренд %.1f %.1f %.1f, позиции %v", data.SideKeys[a.side], now, pn[0], pn[1], pn[2], cnt, v.Front[0].Power, v.Front[1].Power, v.Front[2].Power, a.trend[0], a.trend[1], a.trend[2], v.Posture)
+	a.debugf("%s t=%.0f фронт: давление/тайл %.3f, тайлов %v, тренд %.1f, позиции %v", data.SideKeys[a.side], now, pn, cnt, a.trend, v.Posture)
 	// Позиции.
 	dwell := c.PostureDwellMin
 	if dwell <= 0 {
@@ -127,7 +127,7 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 	if hi <= 0 {
 		hi = 0.12
 	}
-	want := [3]int{}
+	want := [sim.NumDir]int{}
 	if !v.War {
 		for d := range want {
 			want[d] = c.PrepPosture
@@ -135,7 +135,7 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 	} else {
 		ceil := c.WarPosture // потолок: 0 — только оборона, 1 — без наступления, 2 — одно направление наступает
 		best, bestDens := -1, 0.0
-		for d := 0; d < 3; d++ {
+		for d := 0; d < sim.NumDir; d++ {
 			if pn[d] > hi {
 				a.defending[d] = true
 			} else if pn[d] < hi*0.6 {
@@ -148,7 +148,7 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 				best, bestDens = d, dens
 			}
 		}
-		for d := 0; d < 3; d++ {
+		for d := 0; d < sim.NumDir; d++ {
 			want[d] = sim.PostureActive
 			switch {
 			case ceil <= sim.PostureDefense || a.defending[d]:
@@ -167,7 +167,7 @@ func (a *AI) frontSmart(w *sim.World, v *sim.View) {
 			}
 		}
 	}
-	for d := 0; d < 3; d++ {
+	for d := 0; d < sim.NumDir; d++ {
 		if v.Posture[d] == want[d] {
 			continue
 		}
@@ -232,7 +232,7 @@ func (a *AI) mainEffort(w *sim.World, v *sim.View) {
 		every = 240
 	}
 	off := -1
-	for d := 0; d < 3; d++ {
+	for d := 0; d < sim.NumDir; d++ {
 		if v.Posture[d] == sim.PostureOffense {
 			off = d
 		}

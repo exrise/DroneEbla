@@ -337,7 +337,7 @@ type SideDef struct {
 	Entries          []EntryPoint       `json:"entries"` // пункты въезда импорта и помощи (по кругу); если пусто — entry_lon/lat
 	Stocks           map[string]float64 `json:"stocks"`  // запасы боеприпасов и зенитных ракет
 	Storage          FrontPool          `json:"storage"` // техника на хранении (советские склады)
-	Front            [3]FrontPool       `json:"front"`   // Север, Донбасс, Юг
+	Front            []FrontPool        `json:"front"`   // Киев, Харьков, Донбасс, Крым
 	Units            []StartUnit        `json:"units"`
 	ReserveBuildings map[string]int     `json:"reserve_buildings"` // здания (площадки), выдаваемые в резерв для расстановки
 	Unlocked         []string           `json:"unlocked"`          // доступно для производства с начала
@@ -369,6 +369,13 @@ type Object struct {
 	Scale float64 `json:"scale"`
 	// Aircraft — своё число самолётов у объекта (перекрывает значения типа по ключам).
 	Aircraft map[string]int `json:"aircraft"`
+}
+
+// DirAnchor — опорная точка направления фронта: тайл относится к направлению с ближайшей точкой.
+type DirAnchor struct {
+	Name string  `json:"name"`
+	Lon  float64 `json:"lon"`
+	Lat  float64 `json:"lat"`
 }
 
 // Rules — общие параметры.
@@ -426,6 +433,7 @@ type Rules struct {
 	KeepStockBatch      int                `json:"keep_stock_batch"`       // размер партии автозаказа ЗУР
 	SellKeepMin         float64            `json:"sell_keep_min"`          // продажа излишков не трогает этот остаток ресурса
 	SellRate            map[string]float64 `json:"sell_rate"`              // курс продажи излишков: ключ ресурса → денег за единицу
+	Directions          []DirAnchor        `json:"directions"`             // опорные точки четырёх направлений фронта (Киев, Харьков, Донбасс, Крым)
 	BomberWarnMin       float64            `json:"bomber_warn_min"`        // предупреждение о взлёте стратегической авиации — не чаще раза за столько игровых минут
 	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
 	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение

@@ -23,7 +23,8 @@
     },
     "storage": {"men": 0, "armor": 4000, "artillery": 3000, "fpv": 0},
     "front": [
-      {"men": 45, "armor": 700, "artillery": 600, "fpv": 0},
+      {"men": 22.5, "armor": 350, "artillery": 300, "fpv": 0},
+      {"men": 22.5, "armor": 350, "artillery": 300, "fpv": 0},
       {"men": 70, "armor": 900, "artillery": 900, "fpv": 0},
       {"men": 45, "armor": 600, "artillery": 600, "fpv": 0}
     ],
@@ -144,7 +145,8 @@
     },
     "storage": {"men": 0, "armor": 600, "artillery": 400, "fpv": 0},
     "front": [
-      {"men": 35, "armor": 350, "artillery": 300, "fpv": 0},
+      {"men": 17.5, "armor": 175, "artillery": 150, "fpv": 0},
+      {"men": 17.5, "armor": 175, "artillery": 150, "fpv": 0},
       {"men": 75, "armor": 650, "artillery": 550, "fpv": 0},
       {"men": 35, "armor": 300, "artillery": 300, "fpv": 0}
     ],

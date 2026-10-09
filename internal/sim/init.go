@@ -35,9 +35,10 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 			People:       def.People,
 			Stocks:       map[string]float64{},
 			Storage:      def.Storage,
-			Alloc:        [3]float64{1.0 / 3, 1.0 / 3, 1.0 / 3},
+			DirAlloc:     uniformAlloc(),
 			Posture:      PostureActive,
-			PostureDir:   [3]int{PostureActive, PostureActive, PostureActive},
+			DirPosture:   [NumDir]int{PostureActive, PostureActive, PostureActive, PostureActive},
+			DirsSet:      true,
 			PostureSet:   true,
 			Capacity:     map[string]float64{},
 			Unlocked:     map[string]bool{},
@@ -73,9 +74,9 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 		for k, v := range def.Stocks {
 			sd.Stocks[k] = v
 		}
-		for d := 0; d < 3; d++ {
+		for d := 0; d < NumDir && d < len(def.Front); d++ {
 			f := def.Front[d]
-			sd.Front[d] = Direction{Men: f.Men, Armor: f.Armor, Artillery: f.Artillery, FPV: f.FPV, FPVPow: f.FPV, Supply: 1}
+			sd.Dirs[d] = Direction{Men: f.Men, Armor: f.Armor, Artillery: f.Artillery, FPV: f.FPV, FPVPow: f.FPV, Supply: 1}
 		}
 		for _, id := range def.Unlocked {
 			sd.Unlocked[id] = true
@@ -129,6 +130,7 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 // Attach подключает каталог и карту (после создания или загрузки).
 func (w *World) Attach(cat *data.Catalog, m *world.MapData) {
 	w.cat, w.m = cat, m
+	w.dirMap = nil
 	w.rng = rand.New(rand.NewSource(w.Seed + int64(w.Time)))
 	for i := range w.depots {
 		w.depots[i] = nil

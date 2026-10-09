@@ -34,7 +34,10 @@ const (
 var PostureNames = []string{"Оборона", "Активная оборона", "Наступление"}
 
 // DirNames — направления фронта.
-var DirNames = [3]string{"Север", "Донбасс", "Юг"}
+var DirNames = [NumDir]string{"Киев", "Харьков", "Донбасс", "Крым"}
+
+// NumDir — число направлений фронта.
+const NumDir = 4
 
 // SpeedMult — множители скоростей 1–5.
 var SpeedMult = []float64{0, 1, 2, 3, 5, 8}
@@ -198,11 +201,15 @@ type Side struct {
 	LaborLoss    float64
 	Stocks       map[string]float64
 	Storage      data.FrontPool
-	Front        [3]Direction
-	Alloc        [3]float64
-	Posture      int    // устарело: позиция всего фронта (старые сохранения)
-	PostureDir   [3]int // позиция по направлениям
-	PostureSet   bool   // PostureDir заполнена (иначе мигрируем из Posture)
+	Dirs         [NumDir]Direction // силы по направлениям (Киев, Харьков, Донбасс, Крым)
+	DirAlloc     [NumDir]float64   // доли пополнения по направлениям
+	DirsSet      bool              // Dirs заполнены (иначе мигрируем из старых Front/Alloc/PostureDir на три направления)
+	Front        [3]Direction      // устарело: три направления старых сохранений
+	Alloc        [3]float64        // устарело
+	Posture      int               // устарело: позиция всего фронта (старые сохранения)
+	DirPosture   [NumDir]int       // позиция по направлениям
+	PostureDir   [3]int            // устарело: позиции на трёх направлениях старых сохранений
+	PostureSet   bool              // PostureDir заполнена (иначе мигрируем из Posture)
 	HasMain      bool
 	MainX        float64
 	MainY        float64
@@ -298,6 +305,8 @@ type World struct {
 	visible     [2][]bool
 	reqCache    map[uint32]float64
 	sens        sensorIndex
+	dirMap      []uint8 // направление фронта каждого тайла
+	dirPts      []Pt
 	nextVictory float64 // не проверять условия победы до этого времени (сбрасывается захватом тайла)
 }
 

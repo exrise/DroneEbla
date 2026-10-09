@@ -88,7 +88,7 @@ func TestDuel(t *testing.T) {
 					hp += bd.HP / bd.MaxHP
 				}
 			}
-			men := sd.Front[0].Men + sd.Front[1].Men + sd.Front[2].Men
+			men := sd.Dirs[0].Men + sd.Dirs[1].Men + sd.Dirs[2].Men + sd.Dirs[3].Men
 			tiles := 0
 			for _, o := range w.Owner {
 				if int(o) == s+1 {
