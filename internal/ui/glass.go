@@ -320,7 +320,8 @@ func (u *UI) glassPanel(x, y, w, h, r, tintA float32) {
 	}
 	const m = 18 // запас под тень
 	if u.glassK > 0 {
-		tintA = min(0.97, max(0.05, tintA*u.glassK))
+		// Нижняя граница плотности: на самой прозрачной настройке текст всё равно читается (контраст не ниже ~4,5:1).
+		tintA = min(0.97, max(0.5, tintA*u.glassK))
 	}
 	op := &ebiten.DrawTrianglesShaderOptions{}
 	op.Images[0] = fx.small
@@ -338,7 +339,7 @@ func (u *UI) glassPanel(x, y, w, h, r, tintA float32) {
 var (
 	pillNormal = [4]float32{1, 1, 1, 0.10}
 	pillHover  = [4]float32{1, 1, 1, 0.19}
-	pillOn     = [4]float32{0.92, 0.66, 0.24, 0.62}
+	pillOn     = [4]float32{0.45, 0.62, 0.92, 0.55}
 	pillOff    = [4]float32{1, 1, 1, 0.04}
 	pillDark   = [4]float32{0.02, 0.03, 0.05, 0.55}
 )

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -30,17 +31,31 @@ func (g *Game) drawInfoPanel() {
 		g.drawHelp()
 		return
 	}
-	x, y := u.W-infoW-8, u.H-infoH-8
-	u.Panel(x, y, infoW, infoH)
+	// Высота карточки — по содержимому (по данным прошлого кадра), не больше infoH.
+	key := fmt.Sprintf("%s:%d:%d", g.sel.Kind, g.sel.ID, g.sel.Idx)
+	if key != g.infoKey {
+		g.infoKey, g.infoUsed = key, 0
+	}
+	ih := infoH
+	if g.infoUsed > 0 {
+		ih = min(infoH, max(130, g.infoUsed))
+	}
+	x, y := u.W-infoW-8, u.H-ih-8
+	u.Panel(x, y, infoW, ih)
 	old := u.screen
-	u.screen = u.sub(x, y, infoW, infoH)
-	u.clip = image.Rect(x, y, x+infoW, y+infoH)
+	u.screen = u.sub(x, y, infoW, ih)
+	u.clip = image.Rect(x, y, x+infoW, y+ih)
+	contentTrack, contentBottom = true, 0
 	defer func() {
+		contentTrack = false
+		if contentBottom > 0 {
+			g.infoUsed = int(contentBottom) - y + 14
+		}
 		u.screen = old
 		u.clip = image.Rectangle{}
 	}()
 	px, py, pw := x+12, y+10, infoW-24
-	if u.Button(x+infoW-28, y+6, 22, 20, "×") {
+	if u.Button(x+infoW-34, y+6, 26, 26, "×") {
 		g.sel = Selection{}
 		return
 	}
@@ -488,25 +503,25 @@ func (g *Game) drawStrikePanel() {
 		mx := g.maxSalvo()
 		for i, d := range []int{-10, -1, 1, 10} {
 			lbl := fmt.Sprintf("%+d", d)
-			if u.Button(px+strikeBtnX+i*42, py, 38, 22, lbl) {
+			if u.Button(px+strikeBtnX+i*42, py, 38, 24, lbl) {
 				g.strike.Count = max(1, min(mx, g.strike.Count+d))
 			}
 		}
-		if u.Button(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 22, fmt.Sprintf("Макс %d", mx)) {
+		if u.Button(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 24, fmt.Sprintf("Макс %d", mx)) {
 			g.strike.Count = max(1, mx)
 		}
-		u.Tooltip(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 22, "Максимальный залп: ограничен запасом, залпом пусковой или пропускной способностью площадки")
+		u.Tooltip(px+strikeBtnX+4*42, py, pw-strikeBtnX-4*42, 24, "Максимальный залп: ограничен запасом, залпом пусковой или пропускной способностью площадки")
 		drawBold(u.screen, fmt.Sprintf("%d", g.strike.Count), float64(px+strikeBtnX-8), float64(py+3), 14, colText, 2)
 		py += 28
 	}
 	drawText(u.screen, "Задержка:", float64(px), float64(py+3), 14, colDim, 0)
 	for i, d := range []float64{-30, -5, 5, 30} {
-		if u.Button(px+strikeBtnX+i*42, py, 38, 22, fmt.Sprintf("%+.0f", d)) {
+		if u.Button(px+strikeBtnX+i*42, py, 38, 24, fmt.Sprintf("%+.0f", d)) {
 			g.strike.Delay = math.Max(0, g.strike.Delay+d)
 		}
 	}
 	drawBold(u.screen, fmt.Sprintf("%.0f мин", g.strike.Delay), float64(px+strikeBtnX-8), float64(py+3), 14, colText, 2)
-	u.Tooltip(px, py, pw, 22, "Задержка позволяет синхронизировать несколько групп: например, пустить ложные цели раньше ракет.")
+	u.Tooltip(px, py, pw, 24, "Задержка позволяет синхронизировать несколько групп: например, пустить ложные цели раньше ракет.")
 	py += 32
 	if u.Button(px, py, pw/2-4, 30, "Отмена") {
 		g.mode = modeNone
@@ -560,6 +575,7 @@ func (g *Game) drawHelp() {
 		"Ctrl+1…9 — в группу, 1…9 — выбрать группу",
 		"Пробел — пауза, [ ] — скорость, F5 — сохранить",
 		"Esc — меню, F11 — экран, Ctrl+«+»/«−» — масштаб",
+		"F1 — показать или скрыть эту подсказку",
 	}
 	if !v.War {
 		lines = append([]string{fmt.Sprintf("Подготовка: до войны %s", fmtMin(v.PrepEnd-v.Time))}, lines...)
@@ -575,9 +591,25 @@ func (g *Game) drawHelp() {
 			out = append(out, hl{w, i == 0 && !v.War})
 		}
 	}
+	// Через 90 секунд (если игрок сам не трогал) плашка сворачивается в маленькую кнопку; F1 — показать снова.
+	if !g.helpPinned && g.helpOpen && time.Since(g.helpStart) > 90*time.Second {
+		g.helpOpen = false
+	}
+	if !g.helpOpen {
+		bw, bh := 150, 28
+		bx, by := u.W-bw-8, u.H-bh-8
+		if u.Button(bx, by, bw, bh, "F1 — подсказки") {
+			g.helpOpen, g.helpPinned = true, true
+		}
+		return
+	}
 	h := len(out)*18 + 20
 	x, y := u.W-infoW-8, u.H-h-8
 	u.Panel(x, y, infoW, h)
+	if u.Button(x+infoW-34, y+6, 26, 26, "×") {
+		g.helpOpen, g.helpPinned = false, true
+		return
+	}
 	for i, l := range out {
 		c := color.RGBA{196, 202, 210, 255}
 		if l.warn {

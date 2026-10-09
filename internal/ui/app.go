@@ -52,8 +52,9 @@ type Selection struct {
 }
 
 type toast struct {
-	text string
-	at   time.Time
+	text  string
+	at    time.Time
+	count int // сколько раз подряд пришло одно и то же сообщение
 }
 
 // Game — ebiten.Game.
@@ -96,6 +97,11 @@ type Game struct {
 	layers         map[string]bool
 	toasts         []toast
 	evSeen         uint64
+	infoUsed       int       // высота содержимого карточки выбранного объекта в прошлом кадре
+	infoKey        string    // что выбрано (при смене высота пересчитывается)
+	helpStart      time.Time // когда началась партия (плашка клавиш сворачивается через 90 с)
+	helpPinned     bool      // игрок сам переключил плашку: автосворачивание отключено
+	helpOpen       bool
 	evInit         bool
 	dragging       bool
 	dragX, dragY   int
@@ -269,11 +275,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) toast(s string) {
-	g.toasts = append(g.toasts, toast{text: s, at: time.Now()})
+	now := time.Now()
+	// Одинаковые сообщения подряд склеиваются в одно со счётчиком.
+	for i := range g.toasts {
+		t := &g.toasts[i]
+		if t.text == s && now.Sub(t.at) < toastLife*time.Second {
+			t.count++
+			t.at = now
+			return
+		}
+	}
+	g.toasts = append(g.toasts, toast{text: s, at: now, count: 1})
 	if len(g.toasts) > 8 {
 		g.toasts = g.toasts[len(g.toasts)-8:]
 	}
 }
+
+// Всплывающие сообщения: сколько секунд живут и сколько показывается одновременно.
+const (
+	toastLife = 7
+	toastMax  = 4
+)
 
 // ---------------------------------------------------------------------
 // Меню.
@@ -562,6 +584,7 @@ func (g *Game) startGame(s netplay.Session) {
 	g.sel = Selection{}
 	g.mode = modeNone
 	g.evSeen, g.evInit = 0, false
+	g.helpStart, g.helpPinned, g.helpOpen = time.Now(), false, true
 	g.menuErr = ""
 	// Камера на центр карты.
 	x, y := g.m.Project(32.5, 48.8)

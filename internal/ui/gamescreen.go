@@ -69,6 +69,7 @@ func (g *Game) gameKeys() {
 		g.sess.Send(sim.Command{Kind: sim.CmdPause, Int: p})
 	}
 	g.speedKeys()
+	g.helpKey()
 	g.groupKeys()
 	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
 		g.strikeHotkey()
@@ -168,7 +169,6 @@ func (g *Game) drawGame() {
 	g.drawInfoPanel()
 	g.drawLayerButtons()
 	g.drawToasts()
-	g.drawResearchNotice()
 	g.drawTechTree()
 	if st := g.sess.Status(); st != "" {
 		w := textWidth(st, 15) + 36
@@ -270,16 +270,20 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			continue
 		}
 		k := 1 - age/180
-		col := color.RGBA{255, 210, 40, 255}
-		if int(c.Side) == my2 {
-			col = color.RGBA{60, 220, 90, 255}
-		} else {
-			col = color.RGBA{255, 60, 40, 255}
+		// Палитра, различимая при нарушении цветового зрения: свои захваты — голубые, потери — оранжевые
+		// с диагональной штриховкой (различие не только цветом).
+		col := color.RGBA{86, 180, 233, 255}
+		mine := int(c.Side) == my2
+		if !mine {
+			col = color.RGBA{230, 120, 0, 255}
 		}
 		tileK := math.Max(0.3, math.Min(1, ts/4)) // тайл мельче 4 px — бледнее, чтобы полоса у фронта не забивала карту
 		fillRect(dst, x0, y0, ts, ts, withAlpha(col, uint8((30+120*k)*tileK)))
 		if age < 30 && ts >= 6 {
 			strokeRect(dst, x0, y0, ts, ts, withAlpha(col, 230), 1.5)
+		}
+		if !mine && ts >= 4 {
+			line(dst, x0, y0+ts, x0+ts, y0, withAlpha(col, 200), 1)
 		}
 	}
 
@@ -388,6 +392,9 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			size = 14
 		}
 		drawTextHalo(dst, c.Name, sx+r+3, sy-size*0.65, size, colMapText, color.RGBA{240, 236, 222, 255}, 0)
+		// Название города занимает место первым: подписи значков его не перекрывают.
+		tw := textWidth(c.Name, size)
+		g.labels = append(g.labels, image.Rect(int(sx-r-2), int(sy-size*0.65), int(sx+r+5+tw), int(sy+size*0.45)))
 		consider("city", 0, ci, c.X, c.Y, sx, sy)
 	}
 	// Контакты (разведданные о противнике).
@@ -464,7 +471,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			fillRect(dst, sx-s/2, sy+s/2+1, s, 3, color.RGBA{40, 40, 40, 200})
 			fillRect(dst, sx-s/2, sy+s/2+1, s*f, 3, colorForFrac(f))
 		}
-		if z > 0.9 || (hov != nil && hov.id == b.ID) {
+		if z > 1.3 || (hov != nil && hov.id == b.ID) {
 			g.mapLabel(dst, bt.Short, sx, sy-s/2-15, col, (hov != nil && hov.id == b.ID) || g.sel.ID == b.ID)
 		}
 		if g.sel.Kind == "building" && g.sel.ID == b.ID {
@@ -487,7 +494,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		if un.State != sim.UnitDeployed {
 			line(dst, sx-w/2, sy+h/2, sx+w/2, sy-h/2, col, 1.5)
 		}
-		if z > 0.8 || (hov != nil && hov.id == un.ID) {
+		if z > 1.1 || (hov != nil && hov.id == un.ID) {
 			g.mapLabel(dst, ut.Short, sx, sy-h/2-15, col, (hov != nil && hov.id == un.ID) || g.sel.ID == un.ID)
 		}
 		if ut.Kind == "ad" && ut.Magazine > 0 && un.Ready < float64(ut.Magazine)-0.01 {
@@ -516,7 +523,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	if v.HasMain {
 		sx, sy := g.cam.ToScreen(v.MainX, v.MainY)
 		circle(dst, sx, sy, g.cat.Rules.MainEffortKm*z, color.RGBA{200, 120, 20, 200}, 2)
-		drawTextHalo(dst, "ГЛАВНЫЙ УДАР", sx, sy-8, 13, color.RGBA{180, 90, 10, 255}, color.White, 1)
+		drawTextHalo(dst, "ГЛАВНЫЙ УДАР", sx, sy-g.cat.Rules.MainEffortKm*z-17, 13, color.RGBA{180, 90, 10, 255}, color.White, 1)
 	}
 	// Летящие боеприпасы.
 	for _, p := range v.Projs {
@@ -563,7 +570,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 				lbl += " — через " + fmtMin(p.Start-v.Time)
 			}
 			// подпись там, где трасса входит в видимую часть карты
-			ly := float64(g.cam.Y) + 40 + float64(i%4)*15
+			ly := math.Max(float64(g.cam.Y), topH) + 54 + float64(i%4)*15 // ниже верхней строки и кнопок слоёв
 			t := (ly - y0) / (y1 - y0)
 			lx := x0 + (x1-x0)*t
 			drawTextHalo(dst, lbl, lx+6, ly, 11, sideColor(s.Side), color.White, 0)
@@ -836,7 +843,7 @@ func (g *Game) drawTopBar() {
 	v := g.view
 	auditRect(6, 5, float64(u.W-12), topH-10)
 	if u.on {
-		u.glassPanel(6, 5, float32(u.W-12), topH-10, 22, 0.7)
+		u.glassPanel(6, 5, float32(u.W-12), topH-10, 22, 0.8)
 	} else {
 		fillRect(u.screen, 0, 0, float64(u.W), topH, colPanel)
 		line(u.screen, 0, topH, float64(u.W), topH, colBorder, 1)
@@ -857,10 +864,10 @@ func (g *Game) drawTopBar() {
 	// Ячейки показателей: подпись, значение, при необходимости пояснение под значением.
 	x = 160
 	cell := func(label, value string, vc color.Color, extra string, ec color.Color, w float64, tip string) {
-		drawText(u.screen, label, x, 9, 11, colDim, 0)
+		drawText(u.screen, label, x, 9, 12, colDim, 0)
 		drawBold(u.screen, value, x, 23, 16, vc, 0)
 		if extra != "" {
-			drawText(u.screen, extra, x+textWidth(value, 16)+6, 27, 11, ec, 0)
+			drawText(u.screen, extra, x+textWidth(value, 16)+6, 26, 12, ec, 0)
 		}
 		u.Tooltip(int(x), 4, int(w), topH-8, tip)
 		x += w
@@ -888,7 +895,7 @@ func (g *Game) drawTopBar() {
 	ex := x
 	cell("Энергия, МВт", fmt.Sprintf("%.0f/%.0f", v.Power[0], v.Power[1]), ec, "", colDim, 132, etip)
 	if len(v.EnemyPower) > 0 {
-		drawText(u.screen, fmt.Sprintf("враг ≈%.0f/%.0f", v.EnemyGen, v.EnemyUse), ex, 44, 11, colDim, 0)
+		drawText(u.screen, fmt.Sprintf("враг ≈%.0f/%.0f", v.EnemyGen, v.EnemyUse), ex, 44, 12, colDim, 0)
 		u.Tooltip(int(ex), 4, 132, topH-8, etip+fmt.Sprintf("\nПротивник (оценка по разведданным): ≈%.0f / ≈%.0f МВт. Подробно — вкладка «Разведка».", v.EnemyGen, v.EnemyUse))
 	}
 
@@ -905,10 +912,7 @@ func (g *Game) drawTopBar() {
 	}
 	rx -= bw + 12
 	for k := 5; k >= 1; k-- {
-		lbl := strings.Repeat(">", min(k, 3))
-		if k > 3 {
-			lbl = fmt.Sprintf("×%d", int(sim.SpeedMult[k]))
-		}
+		lbl := fmt.Sprintf("×%d", int(sim.SpeedMult[k]))
 		if u.ButtonState(rx-34, 35, 34, 24, lbl, v.MySpeed == k, !v.TimeLocked) {
 			g.sess.Send(sim.Command{Kind: sim.CmdSpeed, Int: k})
 		}
@@ -981,43 +985,44 @@ func (g *Game) noResearch() bool {
 	return false
 }
 
-// drawResearchNotice — висящее уведомление, пока не выбрано исследование.
-func (g *Game) drawResearchNotice() {
+// drawResearchBadge — пульсирующая точка у вкладки «Наука», пока не выбрано исследование.
+func (g *Game) drawResearchBadge(bx, by, bw int) {
 	if g.techOpen || !g.noResearch() {
 		return
 	}
 	u := &g.ui
-	txt := "Не выбрано исследование — нажмите, чтобы открыть «Наука»"
-	w := textWidth(txt, 14) + 36
-	x := float64(g.cam.X) + float64(g.cam.W)/2 - w/2
-	y := float64(topH + 54)
-	hot := u.mouseIn(int(x), int(y), int(w), 32)
-	c := color.RGBA{140, 90, 15, 235}
-	if hot {
-		c = color.RGBA{175, 115, 20, 245}
-	}
-	u.plate(x, y, w, 32, c, colWarn)
-	drawText(u.screen, txt, x+w/2, y+8, 14, colText, 1)
-	u.blockUI(int(x), int(y), int(w), 32)
-	if u.clicked(int(x), int(y), int(w), 32) {
-		g.tab, g.techOpen = 4, true
-	}
+	pulse := 0.5 + 0.5*math.Sin(float64(u.in.tick)/12)
+	cx, cy := float64(bx+bw-6), float64(by+5)
+	disc(u.screen, cx, cy, 5+1.5*pulse, withAlpha(colWarn, uint8(110+90*pulse)))
+	disc(u.screen, cx, cy, 3.5, colWarn)
+	u.Tooltip(bx, by, bw, 26, "Не выбрано исследование — откройте «Наука» и выберите, что изучать")
 }
 
 func (g *Game) drawToasts() {
 	u := &g.ui
 	y := float64(u.H - 46)
 	now := time.Now()
-	for i := len(g.toasts) - 1; i >= 0; i-- {
+	shown := 0
+	for i := len(g.toasts) - 1; i >= 0 && shown < toastMax; i-- {
 		t := g.toasts[i]
 		age := now.Sub(t.at).Seconds()
-		if age > 9 {
+		if age > toastLife {
 			continue
 		}
-		w := textWidth(t.text, 14) + 28
+		shown++
+		// Последние полторы секунды сообщение гаснет.
+		a := uint8(255)
+		if age > toastLife-1.5 {
+			a = uint8(255 * (toastLife - age) / 1.5)
+		}
+		txt := t.text
+		if t.count > 1 {
+			txt = fmt.Sprintf("%s ×%d", t.text, t.count)
+		}
+		w := textWidth(txt, 14) + 28
 		x := float64(leftW) + 18
-		u.plate(x, y, w, 30, color.RGBA{20, 22, 26, 220}, colAccent)
-		drawText(u.screen, t.text, x+14, y+7, 14, colText, 0)
+		u.plate(x, y, w, 30, withAlpha(color.RGBA{20, 22, 26, 220}, uint8(int(220)*int(a)/255)), withAlpha(colDim, a))
+		drawText(u.screen, txt, x+14, y+7, 14, withAlpha(colText, a), 0)
 		y -= 36
 	}
 }

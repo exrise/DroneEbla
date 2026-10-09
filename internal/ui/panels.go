@@ -20,18 +20,24 @@ func (g *Game) drawLeftPanel() {
 	const tx, tgap = 22, 4
 	rowW := leftW - 48
 	for i, name := range tabNames {
-		n, k := 5, i
+		// Одинаковая ширина вкладок в обоих рядах; неполный ряд — по центру.
+		k := i
+		bw := (rowW - 4*tgap) / 5
+		off := 0
 		if i >= 5 {
-			n, k = len(tabNames)-5, i-5
+			k = i - 5
+			off = (rowW - (len(tabNames)-5)*bw - (len(tabNames)-6)*tgap) / 2
 		}
-		bw := (rowW - (n-1)*tgap) / n
-		x := tx + k*(bw+tgap)
+		x := tx + off + k*(bw+tgap)
 		y := topH + 14 + (i/5)*30
 		if i == 8 && g.view != nil && len(g.view.Sanctions) > 0 {
 			name = "Санкции"
 		}
 		if u.ButtonState(x, y, bw, 26, name, g.tab == i, true) {
 			g.tab = i
+		}
+		if i == 4 && g.view != nil {
+			g.drawResearchBadge(x, y, bw)
 		}
 	}
 	top := topH + 14 + 2*30 + 8
@@ -143,43 +149,9 @@ func (g *Game) tabFront(x, y, w int) int {
 	u.Tooltip(x, y, w, 26, fmt.Sprintf("В радиусе %.0f км от метки сила ×%.1f, остальная часть того же направления ослабевает.", g.cat.Rules.MainEffortKm, g.cat.Rules.MainEffortMult))
 	y += 36
 	y = g.header("Направления", x, y)
-	for d := 0; d < 3; d++ {
-		f := v.Front[d]
-		u.card(float64(x-6), float64(y-6), float64(w+12), 229, color.RGBA{255, 255, 255, 90}, 0)
-		drawBold(u.screen, sim.DirNames[d], float64(x), float64(y), 15, colText, 0)
-		drawText(u.screen, fmt.Sprintf("доля пополнений %.0f%%", v.Alloc[d]*100), float64(x+w-70), float64(y+1), 13, colDim, 2)
-		if u.Button(x+w-60, y-2, 28, 20, "−") {
-			g.alloc(d, -0.1)
-		}
-		if u.Button(x+w-28, y-2, 28, 20, "+") {
-			g.alloc(d, 0.1)
-		}
-		y += 24
-		u.rowSize = fitRow(sim.PostureNames[:], bw, 22)
-		for p := 0; p < 3; p++ {
-			if u.ButtonState(x+p*(bw+4), y, bw, 22, sim.PostureNames[p], v.Posture[d] == p, true) {
-				g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p, Count: d + 1})
-			}
-		}
-		u.rowSize = 0
-		u.Tooltip(x, y, w, 22, "Позиция только на этом направлении. "+postureTip)
-		y += 28
-		y = g.kv("Личный состав, тыс.", fmt.Sprintf("%.1f", f.Men), x, y, w, colText)
-		y = g.kv("Бронетехника", fmt.Sprintf("%.0f", f.Armor), x, y, w, colText)
-		y = g.kv("Артиллерия", fmt.Sprintf("%.0f", f.Artillery), x, y, w, colText)
-		y = g.kv("FPV-дроны", fmt.Sprintf("%.0f", f.FPV), x, y, w, colText)
-		y = g.kv("Снабжение", fmt.Sprintf("%.0f%%", f.Supply*100), x, y, w, colorForFrac(f.Supply))
-		y = g.kv("Поддержка авиации", fmt.Sprintf("×%.2f", f.Air), x, y, w, colText)
-		y = g.kv("Боевая мощь / фронт", fmt.Sprintf("%.0f / %d тайлов", f.Power, f.Tiles), x, y, w, colText)
-		rc := colText
-		if f.LostH > f.GainedH {
-			rc = colBad
-		} else if f.GainedH > f.LostH {
-			rc = colGood
-		}
-		y = g.kv("За прошлый час", fmt.Sprintf("+%d / −%d км²", f.GainedH*25, f.LostH*25), x, y, w, rc)
-		y += 14
-	}
+	y = g.frontTable(x, y, w)
+	y = g.para("Позиция: О — оборона, А — активная оборона, Н — наступление.", x, y, w, colDim)
+	y += 6
 	y = g.header("Мораль", x, y)
 	y = g.para(g.moraleEffects(), x, y, w, colDim)
 	{
@@ -1007,4 +979,71 @@ func (g *Game) tabAirspace(x, y, w int) int {
 		}
 	}
 	return y
+}
+
+// frontTable — три направления одной таблицей: строки — показатели, столбцы — Север, Донбасс, Юг.
+func (g *Game) frontTable(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	lw := 118
+	cw := (w - lw) / 3
+	col := func(d int) float64 { return float64(x + lw + d*cw + cw/2) }
+	u.card(float64(x-6), float64(y-6), float64(w+12), 274, color.RGBA{255, 255, 255, 90}, 0)
+	for d := 0; d < 3; d++ {
+		drawBold(u.screen, sim.DirNames[d], col(d), float64(y), 14, colText, 1)
+	}
+	y += 24
+	// Позиция направления: О — оборона, А — активная оборона, Н — наступление.
+	drawText(u.screen, "Позиция", float64(x), float64(y+5), 13, colDim, 0)
+	short := [3]string{"О", "А", "Н"}
+	for d := 0; d < 3; d++ {
+		for p := 0; p < 3; p++ {
+			bx := x + lw + d*cw + (cw-3*26-2*2)/2 + p*28
+			if u.ButtonState(bx, y, 26, 26, short[p], v.Posture[d] == p, true) {
+				g.sess.Send(sim.Command{Kind: sim.CmdPosture, Int: p, Count: d + 1})
+			}
+			u.Tooltip(bx, y, 26, 26, sim.DirNames[d]+": "+sim.PostureNames[p]+". "+postureTip)
+		}
+	}
+	y += 32
+	drawText(u.screen, "Пополнение", float64(x), float64(y+5), 13, colDim, 0)
+	for d := 0; d < 3; d++ {
+		bx := x + lw + d*cw + (cw-24*2-34)/2
+		if u.Button(bx, y, 24, 24, "−") {
+			g.alloc(d, -0.1)
+		}
+		drawText(u.screen, fmt.Sprintf("%.0f%%", v.Alloc[d]*100), col(d), float64(y+5), 13, colText, 1)
+		if u.Button(bx+24+34, y, 24, 24, "+") {
+			g.alloc(d, 0.1)
+		}
+	}
+	y += 30
+	row := func(label string, val func(f sim.Direction) (string, color.Color)) {
+		drawText(u.screen, label, float64(x), float64(y), 13, colDim, 0)
+		for d := 0; d < 3; d++ {
+			t, c := val(v.Front[d])
+			drawText(u.screen, t, col(d), float64(y), 14, c, 1)
+		}
+		y += 20
+	}
+	row("Личный состав, тыс.", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%.1f", f.Men), colText })
+	row("Бронетехника", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%.0f", f.Armor), colText })
+	row("Артиллерия", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%.0f", f.Artillery), colText })
+	row("FPV-дроны", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%.0f", f.FPV), colText })
+	row("Снабжение", func(f sim.Direction) (string, color.Color) {
+		return fmt.Sprintf("%.0f%%", f.Supply*100), colorForFrac(f.Supply)
+	})
+	row("Авиация", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("×%.2f", f.Air), colText })
+	row("Мощь", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%.0f", f.Power), colText })
+	row("Тайлов фронта", func(f sim.Direction) (string, color.Color) { return fmt.Sprintf("%d", f.Tiles), colText })
+	row("За час, км²", func(f sim.Direction) (string, color.Color) {
+		c := colText
+		if f.LostH > f.GainedH {
+			c = colBad
+		} else if f.GainedH > f.LostH {
+			c = colGood
+		}
+		return fmt.Sprintf("%+d", (f.GainedH-f.LostH)*25), c
+	})
+	return y + 12
 }

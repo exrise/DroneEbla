@@ -127,10 +127,10 @@ func (r *MapRenderer) update(v *sim.View) {
 				k := float64(p) / 255
 				if o == uint8(v.Side+1) {
 					// противник давит на наш тайл
-					c = color.RGBA{240, 110, 0, uint8(50 + 150*k)}
+					c = color.RGBA{230, 120, 0, uint8(50 + 150*k)}
 				} else {
 					// наше наступление на тайл противника
-					c = color.RGBA{90, 200, 60, uint8(50 + 150*k)}
+					c = color.RGBA{86, 180, 233, uint8(50 + 150*k)} // голубой/оранжевый: пара, различимая и при нарушении цветового зрения
 				}
 			}
 			// premultiplied alpha

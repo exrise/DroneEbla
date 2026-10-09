@@ -21,14 +21,14 @@ var (
 	colPanel2    = color.RGBA{36, 42, 50, 245}
 	colBorder    = color.RGBA{70, 80, 92, 255}
 	colText      = color.RGBA{230, 230, 228, 255}
-	colDim       = color.RGBA{176, 183, 194, 255}
+	colDim       = color.RGBA{198, 205, 216, 255}
 	colAccent    = color.RGBA{217, 164, 65, 255}
 	colGood      = color.RGBA{110, 190, 110, 255}
-	colBad       = color.RGBA{240, 110, 98, 255}
+	colBad       = color.RGBA{255, 128, 116, 255}
 	colWarn      = color.RGBA{235, 190, 70, 255}
 	colButton    = color.RGBA{52, 60, 72, 255}
 	colButtonHi  = color.RGBA{72, 84, 100, 255}
-	colButtonOn  = color.RGBA{150, 112, 40, 255}
+	colButtonOn  = color.RGBA{64, 100, 150, 255}
 	colButtonOff = color.RGBA{40, 44, 50, 255}
 	colRU        = color.RGBA{192, 57, 43, 255}
 	colUA        = color.RGBA{46, 90, 172, 255}
@@ -232,7 +232,20 @@ func disc(dst *ebiten.Image, x, y, r float64, c color.Color) {
 }
 
 // drawText рисует строку; align: 0 влево, 1 по центру, 2 вправо.
+// contentTrack включает учёт нижней границы выведенного текста (для панелей, высота которых зависит от содержимого).
+var (
+	contentTrack  bool
+	contentBottom float64
+)
+
+func trackBottom(y, size float64) {
+	if contentTrack && y+size*1.4 > contentBottom {
+		contentBottom = y + size*1.4
+	}
+}
+
 func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
+	trackBottom(y, size)
 	callStats.text++
 	callStats.glyphs += len(s)
 	auditText(s, x, y, size, align)
@@ -250,6 +263,7 @@ func drawText(dst *ebiten.Image, s string, x, y float64, size float64, c color.C
 }
 
 func drawBold(dst *ebiten.Image, s string, x, y float64, size float64, c color.Color, align int) {
+	trackBottom(y, size)
 	callStats.text++
 	callStats.glyphs += len(s)
 	auditText(s, x, y, size, align)
@@ -348,13 +362,13 @@ func (u *UI) ButtonState(x, y, w, h int, label string, on, enabled bool) bool {
 		case !enabled:
 			fill, rim, light = pillOff, 0.15, 0
 		case on:
-			fill, rim = pillOn, 0.55
+			fill, rim = pillOn, 0.9
 		case hover:
 			fill, rim = pillHover, 0.6
 		}
 		u.pill(float32(x), float32(y), float32(w), float32(h), 10, fill, rim, [3]float32{1, 1, 1}, light)
 		if on && enabled {
-			tc = color.RGBA{255, 250, 238, 255}
+			tc = color.RGBA{255, 255, 255, 255}
 		}
 	} else {
 		c := colButton
@@ -412,7 +426,7 @@ func (u *UI) Bar(x, y, w, h int, frac float64, c color.Color) {
 }
 
 // Panel — фон панели (стеклянная плашка или плоский фон).
-func (u *UI) Panel(x, y, w, h int) { u.PanelT(x, y, w, h, 0.66) }
+func (u *UI) Panel(x, y, w, h int) { u.PanelT(x, y, w, h, 0.8) }
 
 // PanelT — панель с заданной плотностью подкраски стекла (0.5…0.9).
 func (u *UI) PanelT(x, y, w, h int, tint float32) {

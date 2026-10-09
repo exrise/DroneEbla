@@ -17,6 +17,12 @@ import (
 //   - F11 или Alt+Enter — полный экран.
 
 // speedKeys переключает скорость игры.
+func (g *Game) helpKey() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+		g.helpOpen, g.helpPinned = !g.helpOpen, true
+	}
+}
+
 func (g *Game) speedKeys() {
 	if g.view == nil || g.view.TimeLocked {
 		return
