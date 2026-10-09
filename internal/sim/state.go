@@ -288,15 +288,17 @@ type World struct {
 	Human         int  // сторона человека в одиночной игре (у старых сохранений 0 — Россия)
 	Seed          int64
 
-	cat      *data.Catalog
-	m        *world.MapData
-	rng      *rand.Rand
-	depots   [5][]int // тайлы месторождений по типам
-	kyiv     int      // тайл Киева
-	cityAt   map[int]int
-	frontT   [2][]int // фронтовые тайлы по сторонам (кэш)
-	visible  [2][]bool
-	reqCache map[uint32]float64
+	cat         *data.Catalog
+	m           *world.MapData
+	rng         *rand.Rand
+	depots      [5][]int // тайлы месторождений по типам
+	kyiv        int      // тайл Киева
+	cityAt      map[int]int
+	frontT      [2][]int // фронтовые тайлы по сторонам (кэш)
+	visible     [2][]bool
+	reqCache    map[uint32]float64
+	sens        sensorIndex
+	nextVictory float64 // не проверять условия победы до этого времени (сбрасывается захватом тайла)
 }
 
 // Catalog и Map — доступ для интерфейса хоста.

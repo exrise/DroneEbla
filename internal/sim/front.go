@@ -297,6 +297,7 @@ func (w *World) captureTile(i, s int) {
 	r := w.cat.Rules
 	old := w.OwnerSide(i)
 	w.Owner[i] = uint8(s + 1)
+	w.nextVictory = 0
 	d := w.TileDir(i)
 	w.Sides[s].Front[d].Gained++
 	if old >= 0 {
@@ -374,8 +375,8 @@ func (w *World) frontSummary(step float64) {
 				text += "; "
 			}
 			text += fmt.Sprintf("%s: +%d / −%d км²", DirNames[d], f.GainedH*25, f.LostH*25)
-			if f.LostH > f.GainedH {
-				lvl = 1
+			if f.LostH-f.GainedH >= 4 {
+				lvl = 1 // всплывает только заметная потеря (≥ 100 км² за час)
 			}
 		}
 		if text != "" {

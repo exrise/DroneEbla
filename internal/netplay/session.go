@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"net"
 	"os"
@@ -25,7 +26,7 @@ import (
 )
 
 // Version — версия протокола.
-const Version = 10
+const Version = 11
 
 // DefaultPort — порт по умолчанию.
 const DefaultPort = 27015
@@ -204,6 +205,8 @@ type player struct {
 	side    int // -1 — не выбрана
 	sending bool
 	lastEv  uint64
+	layers  [4]uint32 // контрольные суммы слоёв карты, отправленных игроку в последний раз
+	hasSent bool
 }
 
 // LogDir — папка журналов партий; пусто — журнал не ведётся (например, в тестах).
@@ -233,6 +236,7 @@ func startLog(w *sim.World, mode string, extra map[string]any) {
 func NewSandbox(w *sim.World, side int) *Host {
 	startLog(w, "sandbox", map[string]any{"side": side})
 	w.NetHost = false
+	w.Human = side
 	h := &Host{w: w, side: side, sandbox: true, stop: make(chan struct{})}
 	go h.loop()
 	return h
@@ -558,6 +562,7 @@ func (h *Host) collectViews() []outView {
 				}
 			}
 			// Скоростью и паузой управляет хост: клиент видит их, но не меняет.
+			stripSameLayers(&vv, &p.layers, &p.hasSent)
 			vv.TimeLocked = true
 			vv.MySpeed = vv.Speed
 			vv.Pausing = vv.Paused
@@ -612,6 +617,7 @@ func (h *Host) SetSide(s int) {
 	if h.sandbox && h.ai == nil {
 		h.mu.Lock()
 		h.side = s
+		h.w.Human = s
 		h.view = nil
 		h.mu.Unlock()
 	}
@@ -801,6 +807,21 @@ func (cl *Client) read() {
 				cl.events = cl.events[len(cl.events)-300:]
 			}
 			m.View.Events = append([]sim.Event{}, cl.events...)
+			if prev := cl.view; prev != nil {
+				v := m.View
+				if v.SameLayers&1 != 0 {
+					v.Owner = prev.Owner
+				}
+				if v.SameLayers&2 != 0 {
+					v.Fog = prev.Fog
+				}
+				if v.SameLayers&4 != 0 {
+					v.Fort = prev.Fort
+				}
+				if v.SameLayers&8 != 0 {
+					v.Pressure = prev.Pressure
+				}
+			}
 			cl.view = m.View
 			cl.status = ""
 		}
@@ -978,4 +999,19 @@ func (h *Host) Advance(minutes float64, f func(w *sim.World)) {
 		}
 	}
 	h.view = nil
+}
+
+// stripSameLayers убирает из представления слои карты, не изменившиеся с прошлой отправки этому игроку.
+func stripSameLayers(v *sim.View, last *[4]uint32, hasSent *bool) {
+	sums := [4]uint32{crc32.ChecksumIEEE(v.Owner), crc32.ChecksumIEEE(v.Fog), crc32.ChecksumIEEE(v.Fort), crc32.ChecksumIEEE(v.Pressure)}
+	if *hasSent {
+		layers := [4]*[]uint8{&v.Owner, &v.Fog, &v.Fort, &v.Pressure}
+		for i := range layers {
+			if sums[i] == last[i] {
+				v.SameLayers |= 1 << i
+				*layers[i] = nil
+			}
+		}
+	}
+	*last, *hasSent = sums, true
 }

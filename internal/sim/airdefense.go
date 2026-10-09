@@ -29,31 +29,23 @@ func (w *World) tracked(s int, p *Projectile) bool {
 	if m.Kind == "ballistic" {
 		return true // пуск баллистики фиксируется сразу
 	}
-	for _, u := range w.Units {
-		if u.Side != s || u.State != UnitDeployed {
-			continue
-		}
-		ut := w.cat.UnitByID[u.Type]
-		if ut.RadarKm <= 0 {
-			continue
-		}
-		if dist(u.X, u.Y, p.X, p.Y) <= w.detectRange(s, ut.RadarKm, ut.RadarLow, m.Class, m.Stealth) {
+	idx := w.sensors()
+	for _, r := range idx.radars[s] {
+		if dist(r.x, r.y, p.X, p.Y) <= w.detectRange(s, r.km, r.low, m.Class, m.Stealth) {
 			return true
 		}
 	}
 	// Визуальное и акустическое наблюдение над своей территорией.
 	if m.Class == "low" && w.sideOfPoint(p.X, p.Y) == s {
 		watch := w.cat.Rules.AirWatchKm + w.Sides[s].eff("air_watch")
-		for _, b := range w.Buildings {
-			if b.Side == s && dist(b.X, b.Y, p.X, p.Y) <= watch {
-				return true
-			}
-		}
-		for i, ci := range w.cityAt {
-			if w.OwnerSide(i) == s {
-				c := w.m.Cities[ci]
-				if dist(c.X, c.Y, p.X, p.Y) <= watch {
-					return true
+		n := int(math.Ceil(watch / sensorCell))
+		cx, cy := int(math.Floor(p.X/sensorCell)), int(math.Floor(p.Y/sensorCell))
+		for dx := -n; dx <= n; dx++ {
+			for dy := -n; dy <= n; dy++ {
+				for _, q := range idx.posts[s][[2]int{cx + dx, cy + dy}] {
+					if dist(q.X, q.Y, p.X, p.Y) <= watch {
+						return true
+					}
 				}
 			}
 		}
@@ -260,4 +252,50 @@ func sortedUnits(m map[uint32]*Unit) []*Unit {
 	}
 	sort.Slice(out, func(a, b int) bool { return out[a].ID < out[b].ID })
 	return out
+}
+
+// sensorCell — размер ячейки сетки наблюдательных постов, км.
+const sensorCell = 25.0
+
+type radarSens struct{ x, y, km, low float64 }
+
+// sensorIndex — сенсоры сторон для обнаружения целей: РЛС развёрнутых юнитов и сетка постов наблюдения
+// (свои здания и города). Строится один раз и сбрасывается, когда юниты или приказы меняют картину.
+type sensorIndex struct {
+	valid  bool
+	radars [2][]radarSens
+	posts  [2]map[[2]int][]Pt
+}
+
+func (w *World) sensors() *sensorIndex {
+	idx := &w.sens
+	if idx.valid {
+		return idx
+	}
+	*idx = sensorIndex{valid: true}
+	for s := 0; s < 2; s++ {
+		idx.posts[s] = map[[2]int][]Pt{}
+	}
+	for _, u := range w.Units {
+		if u.State != UnitDeployed {
+			continue
+		}
+		if ut := w.cat.UnitByID[u.Type]; ut.RadarKm > 0 {
+			idx.radars[u.Side] = append(idx.radars[u.Side], radarSens{u.X, u.Y, ut.RadarKm, ut.RadarLow})
+		}
+	}
+	add := func(s int, x, y float64) {
+		k := [2]int{int(math.Floor(x / sensorCell)), int(math.Floor(y / sensorCell))}
+		idx.posts[s][k] = append(idx.posts[s][k], Pt{x, y})
+	}
+	for _, b := range w.Buildings {
+		add(b.Side, b.X, b.Y)
+	}
+	for i, ci := range w.cityAt {
+		if s := w.OwnerSide(i); s >= 0 {
+			c := w.m.Cities[ci]
+			add(s, c.X, c.Y)
+		}
+	}
+	return idx
 }

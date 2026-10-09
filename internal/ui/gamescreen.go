@@ -882,7 +882,7 @@ func (g *Game) drawTopBar() {
 		if v.Rates[i] < -0.05 {
 			rc = colBad
 		}
-		tip := fmt.Sprintf("%s: %.0f, изменение %.1f в час", data.ResNames[i], v.Res[i], v.Rates[i])
+		tip := fmt.Sprintf("%s: %.0f, чистое изменение %.1f в час (с учётом госзаказа, ремонта и науки)", data.ResNames[i], v.Res[i], v.Rates[i])
 		if i == data.ResMoney {
 			tip += fmt.Sprintf("\nДоход (налоги, экспорт): %.0f в час", v.Income)
 		}

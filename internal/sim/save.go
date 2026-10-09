@@ -21,7 +21,16 @@ func (w *World) Save(path string) error {
 	if err := zw.Close(); err != nil {
 		return err
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o644)
+	// Пишем во временный файл и переименовываем: сбой посреди записи не портит прежнее сохранение.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // Load читает партию из файла.
@@ -51,6 +60,20 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 		if cat.BuildingByID[b.Type] == nil {
 			delete(w.Buildings, id) // например, макеты из старых версий
 		}
+	}
+	for id, u := range w.Units {
+		if cat.UnitByID[u.Type] == nil {
+			delete(w.Units, id) // тип исчез из данных
+		}
+	}
+	for _, sd := range w.Sides {
+		keep := sd.Orders[:0]
+		for _, o := range sd.Orders {
+			if _, _, _, ok := cat.ItemCost(o.Item); ok {
+				keep = append(keep, o)
+			}
+		}
+		sd.Orders = keep
 	}
 	if w.FortJobs == nil {
 		w.FortJobs = map[int]float64{}

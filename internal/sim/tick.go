@@ -7,11 +7,8 @@ func (w *World) EffectiveSpeed() int {
 	if w.NetHost {
 		return w.Sides[w.HostSide].Speed
 	}
-	if w.Solo {
-		return w.Sides[w.Human].Speed // скоростью управляет человек, а не сторона 0
-	}
-	if w.Sandbox {
-		return w.Sides[0].Speed
+	if w.Solo || w.Sandbox {
+		return w.Sides[w.Human].Speed // скоростью управляет человек (в песочнице — текущая сторона), а не сторона 0
 	}
 	a, b := w.Sides[0].Speed, w.Sides[1].Speed
 	if b < a {
@@ -28,9 +25,12 @@ func (w *World) Paused() bool {
 	if w.NetHost {
 		return w.Sides[w.HostSide].Pausing
 	}
+	if w.Sandbox {
+		return w.Sides[w.Human].Pausing // пауза текущей стороны; после смены стороны старая пауза не держит игру
+	}
 	for s := 0; s < 2; s++ {
 		sd := w.Sides[s]
-		if sd.Pausing && (w.Sandbox || sd.PauseLeft > 0) {
+		if sd.Pausing && sd.PauseLeft > 0 {
 			return true
 		}
 	}
@@ -77,6 +77,7 @@ func (w *World) Step(dtMin float64) {
 }
 
 func (w *World) step(dtMin float64) {
+	w.sens.valid = false
 	wasWar := w.War()
 	w.Time += dtMin
 	if !wasWar && w.War() {
@@ -103,8 +104,13 @@ func (w *World) step(dtMin float64) {
 	w.units(dtMin)
 	w.economy(dtMin / 60)
 	w.front(dtMin)
+	w.sens.valid = false // юниты двигались, тайлы и здания могли перейти к другой стороне
 	w.intel(dtMin)
-	w.checkVictory()
+	// Условия победы не меняются без захватов тайлов: проверяем после захвата и не реже раза в 10 минут.
+	if w.Time >= w.nextVictory {
+		w.nextVictory = w.Time + 10
+		w.checkVictory()
+	}
 }
 
 func (w *World) checkVictory() {

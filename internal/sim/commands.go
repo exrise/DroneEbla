@@ -59,7 +59,9 @@ const (
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
 func (w *World) Apply(c Command) string {
+	w.sens.valid = false
 	e := w.apply(c)
+	w.sens.valid = false
 	w.recCommand(c, e)
 	return e
 }
@@ -70,6 +72,14 @@ func (w *World) apply(c Command) string {
 	}
 	if w.Winner >= 0 && c.Kind != CmdSpeed && c.Kind != CmdPause {
 		return "Партия окончена"
+	}
+	if !finite(c.X, c.Y, c.Delay) || !finite(c.Vals...) {
+		return "неверные числа в приказе"
+	}
+	for _, p := range c.Pts {
+		if !finite(p.X, p.Y) {
+			return "неверные числа в приказе"
+		}
 	}
 	s := c.Side
 	sd := w.Sides[s]
@@ -482,4 +492,14 @@ func (w *World) propaganda(s int) string {
 	sd.PropReady = w.Time + r.PropagandaCooldownH*60
 	w.Log(s, 0, fmt.Sprintf("Информационная кампания: мораль +%.1f", gain))
 	return ""
+}
+
+// finite — все числа конечны (приказы приходят по сети: NaN и Inf ломают расчёты).
+func finite(v ...float64) bool {
+	for _, x := range v {
+		if math.IsNaN(x) || math.IsInf(x, 0) {
+			return false
+		}
+	}
+	return true
 }

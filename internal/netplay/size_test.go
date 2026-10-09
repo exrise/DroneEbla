@@ -21,14 +21,24 @@ func TestViewSize(t *testing.T) {
 	var buf bytes.Buffer
 	fw, _ := flate.NewWriter(&buf, flate.BestSpeed)
 	enc := gob.NewEncoder(fw)
-	enc.Encode(&Msg{View: w.BuildView(data.UA, 0)})
+	var last [4]uint32
+	var sent bool
+	v1 := w.BuildView(data.UA, 0)
+	stripSameLayers(v1, &last, &sent)
+	enc.Encode(&Msg{View: v1})
 	fw.Flush()
 	first := buf.Len()
 	buf.Reset()
-	enc.Encode(&Msg{View: w.BuildView(data.UA, 1<<60)})
+	w.Step(1)
+	v2 := w.BuildView(data.UA, 1<<60)
+	stripSameLayers(v2, &last, &sent)
+	if v2.SameLayers&1 == 0 {
+		t.Fatal("слой владельцев не менялся — должен быть пропущен")
+	}
+	enc.Encode(&Msg{View: v2})
 	fw.Flush()
 	t.Logf("первое сообщение %d КБ, следующее %d КБ (5 раз в секунду → %d КБ/с)", first/1024, buf.Len()/1024, buf.Len()*5/1024)
-	if buf.Len() > 200*1024 {
+	if buf.Len() > 40*1024 {
 		t.Fatal("слишком большое представление")
 	}
 }

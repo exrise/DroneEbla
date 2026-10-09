@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"math"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1876,5 +1877,75 @@ func TestBomberWarningThrottle(t *testing.T) {
 	}
 	if n := count(); n != 2 {
 		t.Fatalf("через %v мин ожидалось второе предупреждение, всего %d", w.cat.Rules.BomberWarnMin, n)
+	}
+}
+
+// Песочница за Украину: скорость и пауза текущей стороны действуют, пауза прежней стороны не держит игру.
+func TestSandboxSpeedAndPauseCurrentSide(t *testing.T) {
+	w := newTestWorld(t)
+	w.Sandbox, w.Human = true, data.UA
+	w.Apply(Command{Kind: CmdSpeed, Side: data.UA, Int: 4})
+	if w.EffectiveSpeed() != 4 {
+		t.Fatalf("скорость песочницы за Украину %d, ожидалось 4", w.EffectiveSpeed())
+	}
+	w.Apply(Command{Kind: CmdPause, Side: data.RU, Int: 1})
+	if w.Paused() {
+		t.Fatal("пауза другой стороны не должна держать игру в песочнице")
+	}
+	w.Apply(Command{Kind: CmdPause, Side: data.UA, Int: 1})
+	if !w.Paused() {
+		t.Fatal("пауза текущей стороны должна останавливать игру")
+	}
+}
+
+// Показатели «+N/ч» — фактический чистый поток: когда деньги тратятся на ремонт и госзаказ, он ниже дохода.
+func TestRatesAreNetFlow(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	ru.Res[data.ResMoney] += 50000
+	for _, id := range []string{"kalibr", "iskander_m", "kh101"} {
+		w.Apply(Command{Kind: CmdOrderAdd, Side: data.RU, Item: id})
+	}
+	run(w, 600)
+	if ru.Rates[data.ResMoney] >= ru.Income-0.5 {
+		t.Fatalf("чистый поток денег %.1f/ч не ниже дохода %.1f/ч при работающем госзаказе", ru.Rates[data.ResMoney], ru.Income)
+	}
+}
+
+// Приказы с NaN отклоняются и не ломают пополнения фронта.
+func TestNaNCommandRejected(t *testing.T) {
+	w := newTestWorld(t)
+	before := w.Sides[data.RU].Alloc
+	nan := math.NaN()
+	if e := w.Apply(Command{Kind: CmdAlloc, Side: data.RU, Vals: []float64{nan, 1, 1}}); e == "" {
+		t.Fatal("NaN в распределении должен отклоняться")
+	}
+	if w.Sides[data.RU].Alloc != before {
+		t.Fatal("распределение изменилось")
+	}
+	if e := w.Apply(Command{Kind: CmdMove, Side: data.RU, X: math.Inf(1)}); e == "" {
+		t.Fatal("Inf в координатах должен отклоняться")
+	}
+}
+
+// Сохранение: юниты неизвестного типа отбрасываются при загрузке, временный файл не остаётся.
+func TestSaveLoadUnknownUnit(t *testing.T) {
+	w := newTestWorld(t)
+	u := w.addUnit("s400", data.RU, 700, 1200)
+	u.Type = "unit_that_vanished"
+	p := filepath.Join(t.TempDir(), "a.sav")
+	if err := w.Save(p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(p + ".tmp"); err == nil {
+		t.Fatal("временный файл остался после сохранения")
+	}
+	w2, err := Load(p, w.cat, w.m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := w2.Units[u.ID]; ok {
+		t.Fatal("юнит неизвестного типа должен быть удалён")
 	}
 }

@@ -221,6 +221,7 @@ func (w *World) economy(dtH float64) {
 		sd := w.Sides[s]
 		def := w.cat.Sides[s]
 		var delta data.Res
+		before := sd.Res
 
 		// Доходы: база, города, экспорт.
 		income := def.BaseIncome
@@ -312,13 +313,6 @@ func (w *World) economy(dtH float64) {
 				sd.Res[i] = 0
 			}
 		}
-		// Скорость изменения для интерфейса (сглаженная).
-		if dtH > 0 {
-			for i := range delta {
-				sd.Rates[i] = sd.Rates[i]*0.95 + delta[i]/dtH*0.05
-			}
-		}
-
 		// Людской поток на фронт.
 		if w.War() && sd.People > 0 {
 			men := math.Min(def.MenStream*(1+sd.eff("men_stream"))*dtH, sd.People)
@@ -333,6 +327,15 @@ func (w *World) economy(dtH float64) {
 		w.deliveries(s)
 		w.morale(s, dtH)
 		w.agentsCost(s, dtH)
+
+		// Скорость изменения для интерфейса: фактический чистый поток за шаг (с госзаказом, ремонтом, наукой),
+		// сглаженный по окну ~2 игровых часа.
+		if dtH > 0 {
+			a := math.Min(1, dtH/2)
+			for i := range sd.Res {
+				sd.Rates[i] += ((sd.Res[i]-before[i])/dtH - sd.Rates[i]) * a
+			}
+		}
 	}
 	w.forts(dtH)
 }

@@ -102,6 +102,10 @@ type View struct {
 	Sats      []SatView
 	Events    []Event
 
+	// SameLayers — сетевая оптимизация: биты 1, 2, 4, 8 — слои Owner, Fog, Fort, Pressure не изменились с прошлого
+	// сообщения игроку и не передаются (клиент берёт их из предыдущего представления).
+	SameLayers uint8
+
 	Owner    []uint8
 	Fog      []uint8 // 2 — видно сейчас, 1 — недавно, 0 — давно/никогда
 	Fort     []uint8 // только свои тайлы
@@ -163,6 +167,8 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		if u.Side == s {
 			cp := *u
 			cp.Path = append([]Pt{}, u.Path...)
+			cp.PathRail = append([]bool{}, u.PathRail...)
+			cp.PathWait = append([]float64{}, u.PathWait...)
 			v.Units = append(v.Units, cp)
 		}
 	}

@@ -386,6 +386,7 @@ func (w *World) impact(p *Projectile, m *data.MunitionType) {
 		if u.HP <= 0 {
 			w.LogAt(u.Side, 2, "Уничтожен: "+ut.Name, u.X, u.Y)
 			delete(w.Units, id)
+			w.sens.valid = false
 		} else {
 			w.LogAt(u.Side, 1, "Повреждён: "+ut.Name, u.X, u.Y)
 		}
