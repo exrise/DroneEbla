@@ -1599,3 +1599,15 @@ func TestAirspaceOpening(t *testing.T) {
 		t.Fatal("у России пакетов неба быть не должно")
 	}
 }
+
+// В одиночной игре за Украину скорость задаёт человек (раньше учитывалась сторона 0 и кнопки не работали).
+func TestSoloSpeedHumanSide(t *testing.T) {
+	for human := 0; human < 2; human++ {
+		w := newTestWorld(t)
+		w.Sandbox, w.Solo, w.Human = true, true, human
+		w.Apply(Command{Kind: CmdSpeed, Side: human, Int: 4})
+		if got := w.EffectiveSpeed(); got != 4 {
+			t.Fatalf("человек за сторону %d: скорость %d, ожидалась 4", human, got)
+		}
+	}
+}

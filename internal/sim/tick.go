@@ -7,6 +7,9 @@ func (w *World) EffectiveSpeed() int {
 	if w.NetHost {
 		return w.Sides[w.HostSide].Speed
 	}
+	if w.Solo {
+		return w.Sides[w.Human].Speed // скоростью управляет человек, а не сторона 0
+	}
 	if w.Sandbox {
 		return w.Sides[0].Speed
 	}
