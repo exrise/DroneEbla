@@ -319,6 +319,20 @@ func (c *Catalog) validate() error {
 				}
 			}
 		}
+		for _, p := range sd.Sanctions {
+			for k := range p.Effects {
+				if _, ok := SanctionKeys[k]; !ok {
+					return fmt.Errorf("%s: санкции %s: неизвестный штраф %s", SideKeys[s], p.ID, k)
+				}
+			}
+			if t := p.Trigger; t != nil {
+				switch t.Kind {
+				case "disable_building", "disable_type", "hit_region", "capture":
+				default:
+					return fmt.Errorf("%s: санкции %s: неизвестное условие %s", SideKeys[s], p.ID, t.Kind)
+				}
+			}
+		}
 	}
 	for _, o := range c.Objects {
 		if c.BuildingByID[o.Type] == nil {

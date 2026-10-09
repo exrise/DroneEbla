@@ -237,6 +237,7 @@ func (w *World) economy(dtH float64) {
 			}
 			income += float64(c.Pop) / 100000 * def.TaxPerCity * pf * MoraleProd(r, sd.Morale)
 		}
+		income *= 1 - w.Sanction(s, "tax")
 		oil, grain := 0.0, 0.0
 		portSum, portN := 0.0, 0
 		for _, b := range w.Buildings {
@@ -259,11 +260,12 @@ func (w *World) economy(dtH float64) {
 		if portN > 0 {
 			oil *= 0.3 + 0.7*portSum/float64(portN)
 		}
-		income += oil + grain
+		income += (oil + grain) * (1 - w.Sanction(s, "export"))
 		sd.Income = income
 		delta[data.ResMoney] += income * dtH
 
 		// Производство ресурсов.
+		elecK := 1 - w.Sanction(s, "electronics")
 		for _, b := range w.Buildings {
 			if b.Side != s {
 				continue
@@ -286,7 +288,9 @@ func (w *World) economy(dtH float64) {
 			}
 			k *= clamp(avail, 0, 1)
 			delta.Add(cons, -k)
-			delta.Add(data.ToRes(bt.Produces), k)
+			prod := data.ToRes(bt.Produces)
+			prod[data.ResElectronics] *= elecK
+			delta.Add(prod, k)
 		}
 
 		// Расход фронта: топливо и боеприпасы.
@@ -703,6 +707,7 @@ func (w *World) deliveries(s int) {
 	if !w.War() {
 		return
 	}
+	w.sanctionsTick(s)
 	h := w.HoursSinceWar()
 	for _, a := range w.cat.Sides[s].Aid {
 		if a.Mission != nil {

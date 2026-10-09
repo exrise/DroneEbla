@@ -74,6 +74,29 @@
       {"id": "ru_imp_kn23", "name": "Ракеты KN-23 (×6)", "item": "kn23", "amount": 6, "money": 90, "delay_h": 36, "requires": "ru_dprk"}
     ],
     "aid": [],
+    "sanctions": [
+      {"id": "ru_s_swift", "name": "Отключение крупных банков от SWIFT", "at_hour": 3, "effects": {"tax": 0.05, "import_cost": 0.10}, "morale": -1},
+      {"id": "ru_s_reserves", "name": "Заморозка резервов Центробанка", "at_hour": 6, "effects": {"tax": 0.08}, "morale": -2},
+      {"id": "ru_s_chips", "name": "Запрет поставок чипов и станков", "at_hour": 12, "effects": {"electronics": 0.15, "import_cost": 0.05}},
+      {"id": "ru_s_sky", "name": "Запрет запчастей для авиации", "at_hour": 24, "effects": {"tax": 0.03, "import_cost": 0.05}},
+      {"id": "ru_s_coal", "name": "Эмбарго ЕС на уголь и металл", "at_hour": 36, "effects": {"export": 0.05}},
+      {"id": "ru_s_oil", "name": "Эмбарго ЕС на морскую нефть", "at_hour": 60, "need_kyiv": true, "effects": {"export": 0.15}, "morale": -1},
+      {"id": "ru_s_cap", "name": "Потолок цен на нефть G7", "at_hour": 90, "effects": {"export": 0.10}},
+      {"id": "ru_s_secondary", "name": "Вторичные санкции к посредникам", "at_hour": 130, "enemy_morale": 40, "effects": {"import_cost": 0.15, "electronics": 0.10}},
+      {"id": "ru_s_fleet", "name": "Санкции против теневого флота", "at_hour": 170, "effects": {"export": 0.10}},
+      {"id": "ru_s_energy", "name": "Ответ на удары по энергосистеме", "hint": "Вводится, если вывести из строя 4 ТЭС Украины.",
+       "trigger": {"kind": "disable_type", "target": "tpp", "count": 4}, "effects": {"export": 0.05, "tax": 0.03}},
+      {"id": "ru_s_hydro", "name": "Ответ на удары по ГЭС", "hint": "Вводится, если вывести из строя 2 ГЭС Украины.",
+       "trigger": {"kind": "disable_type", "target": "hpp", "count": 2}, "effects": {"export": 0.05, "import_cost": 0.05}},
+      {"id": "ru_s_npp", "name": "Санкции против Росатома", "hint": "Вводится после тяжёлого удара (ниже 50% HP) по украинской АЭС.",
+       "trigger": {"kind": "disable_type", "target": "npp", "count": 1, "hp_frac": 0.5}, "effects": {"electronics": 0.10, "import_cost": 0.10}, "morale": -3},
+      {"id": "ru_s_kyiv", "name": "Ответ на массированные удары по Киеву", "hint": "Вводится после тяжёлых ударов (ниже 50% HP) по 5 объектам в 30 км от Киева.",
+       "trigger": {"kind": "hit_region", "count": 5, "hp_frac": 0.5, "lon": 30.52, "lat": 50.45, "radius_km": 30}, "effects": {"tax": 0.03, "export": 0.05}},
+      {"id": "ru_s_kharkiv", "name": "Ответ на взятие Харькова", "hint": "Вводится, если Россия возьмёт Харьков.",
+       "trigger": {"kind": "capture", "target": "Харьков"}, "effects": {"tax": 0.03, "import_cost": 0.05}},
+      {"id": "ru_s_odesa", "name": "Ответ на взятие Одессы", "hint": "Вводится, если Россия возьмёт Одессу.",
+       "trigger": {"kind": "capture", "target": "Одесса"}, "effects": {"export": 0.05, "import_cost": 0.05}}
+    ],
     "mobilization": [
       {"id": "ru_partial", "name": "Частичная мобилизация", "men": 150, "morale": -10, "labor": 0.04, "limit": 1},
       {"id": "ru_contract", "name": "Набор контрактников", "men": 15, "morale": 0, "labor": 0.0, "money": 80, "cooldown_h": 8}

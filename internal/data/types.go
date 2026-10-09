@@ -238,14 +238,36 @@ type AidPackage struct {
 
 // MissionDef — задание с наградой (пакет помощи).
 type MissionDef struct {
-	Kind     string  `json:"kind"`    // disable_building, disable_type, hit_region, hold
-	Target   string  `json:"target"`  // имя здания / тип здания / название города (hold)
+	Kind     string  `json:"kind"`    // disable_building, disable_type, hit_region, hold, capture
+	Target   string  `json:"target"`  // имя здания / тип здания / название города (hold, capture)
 	Count    int     `json:"count"`   // сколько объектов (по умолчанию 1)
 	HpFrac   float64 `json:"hp_frac"` // объект «поражён», когда его HP опускается ниже этой доли (по умолчанию 0.1)
 	Lon      float64 `json:"lon"`     // центр области (hit_region, disable_type)
 	Lat      float64 `json:"lat"`
 	RadiusKm float64 `json:"radius_km"` // радиус области (0 — вся карта)
 	Hours    float64 `json:"hours"`     // hold: сколько часов войны держать
+}
+
+// SanctionPackage — пакет санкций против стороны: вводится по таймеру (AtHour,
+// с условиями) или в ответ на её действия (Trigger) и навсегда ухудшает экономику.
+type SanctionPackage struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Hint        string             `json:"hint"`
+	AtHour      float64            `json:"at_hour"`      // через сколько часов войны (если нет Trigger)
+	NeedKyiv    bool               `json:"need_kyiv"`    // только если Киев держится (Запад уверен в Украине)
+	EnemyMorale float64            `json:"enemy_morale"` // только если мораль противника не ниже
+	Trigger     *MissionDef        `json:"trigger"`      // ответ на действия: disable_building, disable_type, hit_region, capture
+	Effects     map[string]float64 `json:"effects"`      // штрафы, доли: tax, export, electronics, import_cost
+	Morale      float64            `json:"morale"`       // разовое изменение морали стороны
+}
+
+// SanctionKeys — виды штрафов санкций.
+var SanctionKeys = map[string]string{
+	"tax":         "налоги и базовый доход",
+	"export":      "доход от экспорта нефти и зерна",
+	"electronics": "выпуск электроники",
+	"import_cost": "цены импорта",
 }
 
 // Mobilization — вариант пополнения людьми.
@@ -308,6 +330,7 @@ type SideDef struct {
 	Unlocked         []string           `json:"unlocked"`          // доступно для производства с начала
 	Imports          []ImportOffer      `json:"imports"`
 	Aid              []AidPackage       `json:"aid"`
+	Sanctions        []SanctionPackage  `json:"sanctions"` // санкции против этой стороны
 	Mobilization     []Mobilization     `json:"mobilization"`
 	Satellites       []Satellite        `json:"satellites"`
 	BomberWarning    bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника

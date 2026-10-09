@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1440,5 +1441,71 @@ func TestUkraineVictoryIgnoresUnreachableTiles(t *testing.T) {
 	w.checkVictory()
 	if w.Winner != -1 {
 		t.Fatalf("Россия держит достижимый тайл — победы быть не должно, а победитель %d", w.Winner)
+	}
+}
+
+func TestSanctions(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	var imp data.ImportOffer
+	for _, im := range w.cat.Sides[data.RU].Imports {
+		if im.ID == "ru_imp_shahed" {
+			imp = im
+		}
+	}
+	price0 := w.ImportPrice(data.RU, imp)
+	if len(ru.SanctionOn) != 0 || len(w.BuildView(data.UA, 0).Sanctions) != 0 {
+		t.Fatal("до таймера санкций быть не должно; против Украины санкций нет")
+	}
+	// По таймеру: SWIFT (3 ч) и резервы (6 ч).
+	run(w, 6*60+5)
+	if !ru.SanctionOn["ru_s_swift"] || !ru.SanctionOn["ru_s_reserves"] || ru.SanctionOn["ru_s_chips"] {
+		t.Fatalf("санкции по таймеру: %v", ru.SanctionOn)
+	}
+	if got := w.Sanction(data.RU, "tax"); math.Abs(got-0.13) > 1e-9 {
+		t.Fatalf("штраф налогов %.3f, ожидалось 0.13", got)
+	}
+	if p := w.ImportPrice(data.RU, imp); math.Abs(p-price0*1.10) > 1e-6 {
+		t.Fatalf("цена импорта %.2f, ожидалось %.2f", p, price0*1.10)
+	}
+	v := w.BuildView(data.RU, 0)
+	if len(v.Sanctions) < 10 || v.SanctionTotal["tax"] == 0 {
+		t.Fatal("санкции не видны в представлении России")
+	}
+	// В ответ на удары: четыре ТЭС Украины.
+	hammer := *w.cat.MunitionByID["kalibr"]
+	hammer.Accuracy, hammer.Damage, hammer.BlastKm = 1, 100000, 0
+	n := 0
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b.Type == "tpp" && n < 4 {
+			if ru.SanctionOn["ru_s_energy"] {
+				t.Fatal("санкции введены раньше четвёртой ТЭС")
+			}
+			w.impact(&Projectile{Side: data.RU, X: b.X, Y: b.Y}, &hammer)
+			n++
+		}
+	}
+	if !ru.SanctionOn["ru_s_energy"] {
+		t.Fatal("удары по четырём ТЭС не вызвали санкций")
+	}
+	// Взятие Харькова.
+	for i, ci := range w.cityAt {
+		if w.m.Cities[ci].Name == "Харьков" {
+			w.Owner[i] = uint8(data.RU + 1)
+		}
+	}
+	w.sanctionsTick(data.RU)
+	if !ru.SanctionOn["ru_s_kharkiv"] {
+		t.Fatal("взятие Харькова не вызвало санкций")
+	}
+	// Штраф не превышает предела.
+	for _, p := range w.cat.Sides[data.RU].Sanctions {
+		ru.SanctionOn[p.ID] = true
+	}
+	for k := range data.SanctionKeys {
+		if w.Sanction(data.RU, k) > sanctionCap+1e-9 {
+			t.Fatalf("штраф %s выше предела", k)
+		}
 	}
 }

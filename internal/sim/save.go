@@ -125,6 +125,12 @@ func (sd *Side) ensure(n int) {
 	if sd.MissionFail == nil {
 		sd.MissionFail = map[string]bool{}
 	}
+	if sd.SanctionOn == nil {
+		sd.SanctionOn = map[string]bool{}
+	}
+	if sd.SanctionAt == nil {
+		sd.SanctionAt = map[string]float64{}
+	}
 	if sd.CitySeen == nil {
 		sd.CitySeen = map[int]int{}
 	}

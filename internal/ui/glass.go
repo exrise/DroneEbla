@@ -121,28 +121,48 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 }
 `
 
-// Анимированный фон меню: тёмный градиент с мягкими цветными пятнами.
+// Анимированный фон меню: тёмный градиент, слева флаг Украины, справа флаг
+// России. Полотнища слегка колышутся и растворяются к центру и краям экрана.
 const backdropKage = `//kage:unit pixels
 package main
 
 var Time float
 var Size vec2
 
-func blob(uv vec2, c vec2, k float) float {
-	d := (uv - c) * vec2(Size.x/Size.y, 1)
-	return exp(-dot(d, d) * k)
+// wave — смещение полотна по вертикали и освещённость складок.
+func wave(x float, y float, ph float) vec2 {
+	a := 9.0*x - Time*1.1 + ph
+	b := 5.0*x + 3.0*y - Time*0.7 + ph*1.7
+	d := 0.022*sin(a) + 0.012*sin(b)
+	sh := 0.20*cos(a) + 0.10*cos(b)
+	return vec2(d, sh)
+}
+
+// band — 1 внутри полосы [a, b) с мягкими краями.
+func band(y float, a float, b float, e float) float {
+	return smoothstep(a-e, a+e, y) * (1 - smoothstep(b-e, b+e, y))
 }
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	uv := dst.xy / Size
 	base := mix(vec3(0.045, 0.06, 0.095), vec3(0.085, 0.11, 0.17), uv.y)
-	p1 := vec2(0.22+0.08*sin(Time*0.23), 0.35+0.10*cos(Time*0.19))
-	p2 := vec2(0.78+0.07*cos(Time*0.17), 0.55+0.09*sin(Time*0.21))
-	p3 := vec2(0.50+0.12*sin(Time*0.13), 0.90+0.04*cos(Time*0.27))
-	col := base
-	col += vec3(0.80, 0.24, 0.18) * 0.34 * blob(uv, p1, 7)
-	col += vec3(0.20, 0.42, 0.95) * 0.38 * blob(uv, p2, 7)
-	col += vec3(0.95, 0.68, 0.28) * 0.16 * blob(uv, p3, 9)
+	e := 1.5 / Size.y
+	// Вертикальное затухание у верхнего и нижнего края.
+	vfade := smoothstep(0.0, 0.22, uv.y) * (1 - smoothstep(0.78, 1.0, uv.y))
+
+	// Украина: синий над жёлтым.
+	wl := wave(uv.x, uv.y, 0)
+	yl := uv.y + wl.x
+	ua := vec3(0.0, 0.34, 0.72)*band(yl, -1, 0.5, e) + vec3(1.0, 0.80, 0.0)*band(yl, 0.5, 2, e)
+	al := (1 - smoothstep(0.10, 0.46, uv.x)) * vfade * 0.50
+	col := mix(base, ua*(0.85+wl.y), al)
+
+	// Россия: белый, синий, красный.
+	wr := wave(1-uv.x, uv.y, 2.1)
+	yr := uv.y + wr.x
+	ru := vec3(0.90, 0.92, 0.95)*band(yr, -1, 1.0/3.0, e) + vec3(0.0, 0.22, 0.65)*band(yr, 1.0/3.0, 2.0/3.0, e) + vec3(0.84, 0.17, 0.12)*band(yr, 2.0/3.0, 2, e)
+	ar := smoothstep(0.54, 0.90, uv.x) * vfade * 0.50
+	col = mix(col, ru*(0.85+wr.y), ar)
 	return vec4(col, 1)
 }
 `

@@ -304,7 +304,7 @@ func (w *World) ImportAvailable(s int, im data.ImportOffer) bool {
 
 // ImportPrice — цена с учётом скидки.
 func (w *World) ImportPrice(s int, im data.ImportOffer) float64 {
-	return im.Money * (1 - w.Sides[s].eff("import_discount"))
+	return im.Money * (1 - w.Sides[s].eff("import_discount")) * (1 + w.Sanction(s, "import_cost"))
 }
 
 func (w *World) buyImport(s int, id string) string {

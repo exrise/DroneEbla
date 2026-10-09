@@ -58,6 +58,8 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 			CitySeen:    map[int]int{},
 			MissionSeen: map[string][]uint32{},
 			MissionFail: map[string]bool{},
+			SanctionOn:  map[string]bool{},
+			SanctionAt:  map[string]float64{},
 			Reserve:     map[string]int{},
 		}
 		for i := range sd.SeenAt {

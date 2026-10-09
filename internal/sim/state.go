@@ -226,6 +226,8 @@ type Side struct {
 	CitySeen    map[int]int          // сколько раз сторона брала город
 	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
 	MissionFail map[string]bool      // задания, которые уже не выполнить
+	SanctionOn  map[string]bool      // введённые против стороны пакеты санкций
+	SanctionAt  map[string]float64   // когда введён пакет (игровые минуты)
 	Posts       []Post               // отложенные подтверждения прилётов в соцсетях
 	Reserve     map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
 	Hints       []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)

@@ -65,22 +65,11 @@ func (w *World) missionBuildingHit(attacker int, b *Building, hpBefore float64) 
 		if m == nil || sd.AidDone[a.ID] || sd.MissionFail[a.ID] || m.Kind == "hold" {
 			continue
 		}
-		frac := missionFrac(m)
-		if !(hpBefore > b.MaxHP*frac && b.HP <= b.MaxHP*frac) || !w.missionMatches(m, b) {
-			continue
-		}
-		seen := false
-		for _, id := range sd.MissionSeen[a.ID] {
-			seen = seen || id == b.ID
-		}
-		if seen {
-			continue
-		}
-		sd.MissionSeen[a.ID] = append(sd.MissionSeen[a.ID], b.ID)
-		if len(sd.MissionSeen[a.ID]) >= missionCount(m) {
+		if w.countHit(sd, a.ID, m, b, hpBefore) {
 			w.grantAid(attacker, a, "Задание выполнено: ")
 		}
 	}
+	w.sanctionBuildingHit(attacker, b, hpBefore)
 }
 
 // cityOwner — владелец города по названию (-1, если нет такого).

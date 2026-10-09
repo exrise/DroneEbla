@@ -27,6 +27,9 @@ func (g *Game) drawLeftPanel() {
 		bw := (rowW - (n-1)*tgap) / n
 		x := tx + k*(bw+tgap)
 		y := topH + 14 + (i/5)*30
+		if i == 8 && g.view != nil && len(g.view.Sanctions) > 0 {
+			name = "Санкции"
+		}
 		if u.ButtonState(x, y, bw, 26, name, g.tab == i, true) {
 			g.tab = i
 		}
@@ -673,6 +676,10 @@ func (g *Game) tabImport(x, y, w int) int {
 	u := &g.ui
 	v := g.view
 	y = g.header("Закупки за рубежом", x, y)
+	if k := v.SanctionTotal["import_cost"]; k > 0 {
+		y = g.para(fmt.Sprintf("Из-за санкций импорт дороже на %.0f%%.", k*100), x, y, w, colWarn)
+		y += 4
+	}
 	for _, im := range g.cat.Sides[v.Side].Imports {
 		ok := true
 		if im.Requires != "" && !v.Researched[im.Requires] {
@@ -684,7 +691,7 @@ func (g *Game) tabImport(x, y, w int) int {
 		if im.Limit > 0 && v.ImportCount[im.ID] >= im.Limit {
 			ok = false
 		}
-		price := im.Money * (1 - v.Effects["import_discount"])
+		price := im.Money * (1 - v.Effects["import_discount"]) * (1 + v.SanctionTotal["import_cost"])
 		drawText(u.screen, fitText(im.Name, 13, float64(w-100)), float64(x), float64(y), 13, colText, 0)
 		y += 18
 		info := fmt.Sprintf("%.0f денег, доставка %.0f ч", price, im.DelayH)
@@ -851,6 +858,9 @@ func (g *Game) tabLog(x, y, w int) int {
 func (g *Game) tabMissions(x, y, w int) int {
 	u := &g.ui
 	v := g.view
+	if len(v.Sanctions) > 0 {
+		return g.tabSanctions(x, y, w)
+	}
 	y = g.header("Задания", x, y)
 	if len(v.Missions) == 0 {
 		return g.para("Для вашей стороны заданий нет: помощь приходит только по таймеру.", x, y, w, colDim)
@@ -876,6 +886,91 @@ func (g *Game) tabMissions(x, y, w int) int {
 		y = g.para(m.Hint, x, y, w, colDim)
 		y = g.para("Награда: "+m.Reward, x, y, w, colText)
 		y += 10
+	}
+	return y
+}
+
+// tabSanctions — санкции против стороны (аналог помощи и заданий у противника).
+func (g *Game) tabSanctions(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	y = g.header("Санкции", x, y)
+	y = g.para("Запад вводит пакеты санкций по графику и в ответ на ваши действия. Штрафы действуют до конца войны и складываются (не больше 75% по каждому виду).", x, y, w, colDim)
+	y += 4
+	y = g.header("Действуют сейчас", x, y)
+	if len(v.SanctionTotal) == 0 {
+		y = g.label("Санкций пока нет", x, y, colDim)
+	}
+	for _, k := range sim.SanctionOrder {
+		if t := v.SanctionTotal[k]; t > 0 {
+			sign := "−"
+			if k == "import_cost" {
+				sign = "+"
+			}
+			y = g.kv(data.SanctionKeys[k], fmt.Sprintf("%s%.0f%%", sign, t*100), x, y, w, colBad)
+		}
+	}
+	h := 0.0
+	if v.War {
+		h = (v.Time - v.PrepEnd) / 60
+	}
+	var on, timed, trig []sim.SanctionView
+	for _, s := range v.Sanctions {
+		switch {
+		case s.On:
+			on = append(on, s)
+		case s.Trigger:
+			trig = append(trig, s)
+		default:
+			timed = append(timed, s)
+		}
+	}
+	if len(on) > 0 {
+		y += 6
+		y = g.header(fmt.Sprintf("Введены: %d из %d", len(on), len(v.Sanctions)), x, y)
+		for _, s := range on {
+			drawBold(u.screen, fitText(s.Name, 14, float64(w)), float64(x), float64(y), 14, colBad, 0)
+			y += 19
+			y = g.para(s.Effects, x, y, w, colText)
+			y += 4
+		}
+	}
+	if len(timed) > 0 {
+		y += 6
+		y = g.header("Ожидаются", x, y)
+		for _, s := range timed {
+			left := "скоро"
+			if d := s.AtHour - h; d > 0 {
+				left = fmt.Sprintf("через %.0f ч", math.Ceil(d))
+			}
+			drawBold(u.screen, fitText(s.Name, 14, float64(w-90)), float64(x), float64(y), 14, colText, 0)
+			drawText(u.screen, left, float64(x+w), float64(y+1), 13, colWarn, 2)
+			y += 19
+			txt := s.Effects
+			if s.Cond != "" {
+				txt += "; " + s.Cond
+			}
+			y = g.para(txt, x, y, w, colDim)
+			y += 4
+		}
+	}
+	if len(trig) > 0 {
+		y += 6
+		y = g.header("В ответ на ваши действия", x, y)
+		for _, s := range trig {
+			drawBold(u.screen, fitText(s.Name, 14, float64(w-60)), float64(x), float64(y), 14, colText, 0)
+			if s.Target > 1 {
+				drawText(u.screen, fmt.Sprintf("%.0f / %.0f", s.Progress, s.Target), float64(x+w), float64(y+1), 13, colWarn, 2)
+			}
+			y += 20
+			if s.Target > 1 {
+				u.Bar(x, y, w, 8, s.Progress/s.Target, colBad)
+				y += 14
+			}
+			y = g.para(s.Hint, x, y, w, colDim)
+			y = g.para("Штраф: "+s.Effects, x, y, w, colText)
+			y += 6
+		}
 	}
 	return y
 }

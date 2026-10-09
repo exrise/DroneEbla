@@ -115,8 +115,12 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		if a.step > 10 {
 			g.save(screen, fmt.Sprintf("1%d_tab", a.step-11))
 		}
-		g.tab = (a.step - 10) % 8
+		g.tab = (a.step - 10) % 9
+		if a.step == 17 {
+			g.sess.(*netplay.Host).Advance(400, nil) // чтобы ввели первые санкции
+		}
 	case 19:
+		g.save(screen, "18_tab")
 		// Выбор ПВО и планирование удара.
 		for _, u := range g.view.Units {
 			if u.Type == "iskander" {

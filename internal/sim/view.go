@@ -82,8 +82,10 @@ type View struct {
 	EnemyPower         []EnemyRegionPower
 	EnemyGen, EnemyUse float64
 	Missions           []MissionView
-	Placement          bool           // идёт расстановка перед стартом
-	Reserve            map[string]int // что осталось расставить
+	Sanctions          []SanctionView     // санкции против стороны
+	SanctionTotal      map[string]float64 // суммарные штрафы по видам
+	Placement          bool               // идёт расстановка перед стартом
+	Reserve            map[string]int     // что осталось расставить
 	Hints              []PlaceHint
 	Ready              bool
 	EnemyReady         bool
@@ -129,6 +131,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 	}
 	v.EnemyPower, v.EnemyGen, v.EnemyUse = w.estimateEnemyPower(s)
 	v.Missions = w.missionViews(s)
+	v.Sanctions, v.SanctionTotal = w.sanctionViews(s)
 	v.Placement, v.Ready, v.EnemyReady = w.Placement, sd.Ready, w.Sides[1-s].Ready
 	v.Reserve = map[string]int{}
 	for k, n := range sd.Reserve {
