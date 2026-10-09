@@ -309,7 +309,7 @@ const (
 func (g *Game) menuFrame(title string) (int, int) {
 	u := &g.ui
 	cx := u.W / 2
-	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
+	drawBold(u.screen, "ATTRITION", float64(cx), 48, 44, colAccent, 1)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
 	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 560, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 600}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {

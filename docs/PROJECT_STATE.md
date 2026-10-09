@@ -1,4 +1,4 @@
-# DroneEbla — состояние проекта и передача в новую сессию
+# Attrition — состояние проекта и передача в новую сессию
 
 Этот файл написан для того, чтобы другая сессия Claude (или человек) могла продолжить работу, не зная истории. Читать вместе с `docs/GDD.md` (правила игры и принятые решения) и `README.md` (запуск и управление).
 
@@ -64,7 +64,7 @@ internal/ui/               интерфейс на Ebitengine
 docs/GDD.md                дизайн-документ: правила и все решения
 docs/PROJECT_STATE.md      этот файл
 .github/workflows/build.yml  тесты и сборка Windows exe в GitHub Actions
-release/DroneEbla.exe      готовая сборка (лежит в репозитории)
+release/Attrition.exe      готовая сборка (лежит в репозитории)
 ```
 
 ## 4. Как это работает (архитектура)
@@ -112,7 +112,7 @@ release/DroneEbla.exe      готовая сборка (лежит в репоз
 ```bash
 go test ./internal/... -count=1            # около 25 с; тесты симуляции, сети, данных
 go vet ./...
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsgui -s -w" -o release/DroneEbla.exe ./cmd/droneebla
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsgui -s -w" -o release/Attrition.exe ./cmd/droneebla
 ```
 
 - Go 1.26 (тулчейн скачивается автоматически). Для запуска/тестов `ui` в Linux нужны `libgl1-mesa-dev libxrandr-dev libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev libasound2-dev` и `xvfb`.
@@ -121,7 +121,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 - **Пересборка карты**: `go run ./cmd/mapbake -ne <папка с ne_10m_*.geojson>`. Нужные слои Natural Earth (`admin_0_countries`, `admin_1_states_provinces`, `lakes`, `populated_places`, `railroads`, `roads`, `rivers_lake_centerlines`) скачиваются с `raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/` (другие хосты в песочнице закрыты). Границы бокса, месторождения и линия соприкосновения на 23.02.2022 — константы в начале `cmd/mapbake/main.go`.
 - Превью карты: `MAP_PREVIEW=out.png go test ./internal/world -run Preview`.
 - Старые сохранения несовместимы при смене размера карты (`sim.Load` отклоняет с понятным сообщением).
-- Коммиты и пуш — только в ветку `claude/festive-darwin-6yt0pc`. PR не создавался. После правок кода принято пересобирать `release/DroneEbla.exe` и отправлять заказчику.
+- Коммиты и пуш — только в ветку `claude/festive-darwin-6yt0pc`. PR не создавался. После правок кода принято пересобирать `release/Attrition.exe` и отправлять заказчику.
 
 ## 7. Подводные камни, которые уже встречались
 

@@ -1,4 +1,4 @@
-// DroneEbla — стратегия в реальном времени о современной войне на истощение.
+// Attrition — стратегия в реальном времени о современной войне на истощение.
 package main
 
 import (
@@ -30,7 +30,7 @@ func main() {
 	updated, kept, _ := data.SyncDir(dataDir)
 	writeReadme(dataDir)
 
-	logf, _ := os.OpenFile(filepath.Join(dir, "droneebla.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logf, _ := os.OpenFile(filepath.Join(dir, "attrition.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if logf != nil {
 		log.SetOutput(logf)
 	}
@@ -42,7 +42,7 @@ func main() {
 	if err != nil {
 		fatal("Ошибка карты: " + err.Error())
 	}
-	ebiten.SetWindowTitle("DroneEbla — война на истощение")
+	ebiten.SetWindowTitle("Attrition — война на истощение")
 	settingsPath := filepath.Join(dir, "settings.json")
 	st := ui.LoadSettings(settingsPath)
 	if mon := ebiten.Monitor(); mon != nil {
@@ -80,7 +80,7 @@ func writeReadme(dir string) {
 	}
 }
 
-const dataReadme = `Игровые данные DroneEbla.
+const dataReadme = `Игровые данные Attrition.
 
 Здесь лежат все цифры игры: здания (buildings.json), юниты (units.json),
 боеприпасы (munitions.json), снаряжение фронта (front.json), дерево

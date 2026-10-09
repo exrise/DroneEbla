@@ -17,7 +17,7 @@ import (
 // DiscoveryPort — UDP-порт объявлений.
 const DiscoveryPort = 27016
 
-const announceMagic = "DroneEblaLobby1"
+const announceMagic = "AttritionLobby1"
 
 type announce struct {
 	Magic   string
