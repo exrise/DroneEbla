@@ -312,3 +312,45 @@ func TestDiscovery(t *testing.T) {
 		}
 	}
 }
+
+// Хост может добавить бота за сторону: партия стартует без второго игрока, бот расставляет резерв и играет.
+func TestHostWithBot(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := world.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := sim.New(cat, m, false)
+	h, err := NewHost(w, data.RU, 27998, DataHash(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	h.StartGame()
+	if h.Lobby().Started {
+		t.Fatal("без второй стороны партия начаться не должна")
+	}
+	h.ToggleBot(data.UA)
+	if !h.Lobby().Bots[data.UA] {
+		t.Fatal("бот не добавлен")
+	}
+	h.ToggleBot(data.RU) // и за сторону хоста тоже можно
+	h.ToggleBot(data.RU)
+	h.StartGame()
+	if !h.Lobby().Started {
+		t.Fatal("с ботом партия должна начаться")
+	}
+	h.ToggleBot(data.UA) // после начала партии убрать бота нельзя
+	if !h.Lobby().Bots[data.UA] {
+		t.Fatal("бота убрали во время партии")
+	}
+	// Бот расставляет резерв и нажимает «Готово».
+	waitFor(t, "бот готов", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return w.Sides[data.UA].Ready
+	})
+}

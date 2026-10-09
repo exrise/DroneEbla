@@ -25,7 +25,7 @@ import (
 )
 
 // Version — версия протокола.
-const Version = 7
+const Version = 8
 
 // DefaultPort — порт по умолчанию.
 const DefaultPort = 27015
@@ -40,6 +40,7 @@ type Session interface {
 	Lobby() *LobbyState // лобби сетевой игры (nil — не сетевая)
 	PickSide(side int)  // выбрать сторону в лобби
 	StartGame()         // начать партию (только хост)
+	ToggleBot(side int) // добавить или убрать бота за сторону (только хост, до начала партии)
 	IsHost() bool
 	Sandbox() bool
 	Status() string // "" — идёт игра
@@ -79,6 +80,7 @@ type LobbyState struct {
 	Players []LobbyPlayer
 	Started bool
 	Max     int
+	Bots    [2]bool // за сторону играет бот (занимает одно место)
 }
 
 // Count — сколько игроков на стороне side.
@@ -191,7 +193,8 @@ type Host struct {
 	view     *sim.View
 	viewAt   time.Time
 	dataHash string
-	ai       *ai.AI // компьютерный противник (одиночная игра)
+	ai       *ai.AI    // компьютерный противник (одиночная игра)
+	bots     [2]*ai.AI // боты за стороны в сетевой игре (добавляет хост в лобби)
 }
 
 // player — подключённый клиент.
@@ -324,9 +327,43 @@ func (h *Host) humans(side int) int {
 	return n
 }
 
+// taken — сколько мест на стороне занято: живые игроки и бот.
+func (h *Host) taken(side int) int {
+	n := h.humans(side)
+	if h.bots[side] != nil {
+		n++
+	}
+	return n
+}
+
+// present — есть ли у стороны кто-то, кто ею играет.
+func (h *Host) present(side int) bool { return h.humans(side) > 0 || h.bots[side] != nil }
+
+// ToggleBot — хост добавляет бота за сторону или убирает его; только до начала партии.
+func (h *Host) ToggleBot(side int) {
+	h.mu.Lock()
+	if !h.network || h.started || side < 0 || side > 1 {
+		h.mu.Unlock()
+		return
+	}
+	if h.bots[side] != nil {
+		h.bots[side] = nil
+		h.note("Бот убран: " + data.SideNames[side])
+	} else {
+		if h.taken(side) >= MaxPerSide {
+			h.mu.Unlock()
+			return
+		}
+		h.bots[side] = ai.New(h.w.Catalog(), side)
+		h.note("Добавлен бот: " + data.SideNames[side])
+	}
+	h.mu.Unlock()
+	h.broadcastLobby(-1)
+}
+
 // lobbyFor — состояние лобби для игрока id.
 func (h *Host) lobbyFor(id int) *LobbyState {
-	ls := &LobbyState{You: id, Started: h.started, Max: MaxPerSide}
+	ls := &LobbyState{You: id, Started: h.started, Max: MaxPerSide, Bots: [2]bool{h.bots[0] != nil, h.bots[1] != nil}}
 	ls.Players = append(ls.Players, LobbyPlayer{ID: 0, Name: "Хост", Side: h.side, Host: true})
 	for _, p := range h.players {
 		ls.Players = append(ls.Players, LobbyPlayer{ID: p.id, Name: fmt.Sprintf("Игрок %d", p.id), Side: p.side})
@@ -364,7 +401,7 @@ func (h *Host) pick(p *player, side int) string {
 	if h.started && p.side >= 0 {
 		return "После начала партии сторону менять нельзя"
 	}
-	if h.humans(side) >= MaxPerSide {
+	if h.taken(side) >= MaxPerSide {
 		return fmt.Sprintf("За %s уже %d игрока", data.SideNames[side], MaxPerSide)
 	}
 	p.side = side
@@ -426,7 +463,7 @@ func (h *Host) running() bool {
 	if h.sandbox {
 		return true
 	}
-	return h.started && h.humans(0) > 0 && h.humans(1) > 0
+	return h.started && h.present(0) && h.present(1)
 }
 
 type outView struct {
@@ -454,6 +491,11 @@ func (h *Host) loop() {
 				h.w.Update(dt)
 				if h.ai != nil && (!h.w.Paused() || h.w.Placement) {
 					h.ai.Tick(h.w)
+				}
+				for _, b := range h.bots {
+					if b != nil && (!h.w.Paused() || h.w.Placement) {
+						b.Tick(h.w)
+					}
 				}
 			}
 			var outs []outView
@@ -599,7 +641,7 @@ func (h *Host) Lobby() *LobbyState {
 // PickSide — хост выбирает свою сторону (только до начала партии).
 func (h *Host) PickSide(side int) {
 	h.mu.Lock()
-	if !h.network || h.started || side < 0 || side > 1 || side == h.side || h.humans(side) >= MaxPerSide {
+	if !h.network || h.started || side < 0 || side > 1 || side == h.side || h.taken(side) >= MaxPerSide {
 		h.mu.Unlock()
 		return
 	}
@@ -613,7 +655,7 @@ func (h *Host) PickSide(side int) {
 // StartGame — хост начинает партию; нужен хотя бы один игрок за каждую сторону.
 func (h *Host) StartGame() {
 	h.mu.Lock()
-	if !h.network || h.started || h.humans(0) == 0 || h.humans(1) == 0 {
+	if !h.network || h.started || !h.present(0) || !h.present(1) {
 		h.mu.Unlock()
 		return
 	}
@@ -792,6 +834,7 @@ func (cl *Client) PickSide(side int) {
 }
 
 func (cl *Client) StartGame()    {}
+func (cl *Client) ToggleBot(int) {}
 func (cl *Client) SetSide(int)   {}
 func (cl *Client) IsHost() bool  { return false }
 func (cl *Client) Sandbox() bool { return false }

@@ -270,7 +270,8 @@ func (g *Game) autoLobby(screen *ebiten.Image) {
 			os.Exit(1)
 		}
 		g.openLobby(h)
-		for i, side := range []int{data.UA, data.UA, data.RU} {
+		h.ToggleBot(data.RU)
+		for i, side := range []int{data.UA, data.UA} {
 			cl, err := netplay.Connect("127.0.0.1:27990", g.dataHash)
 			if err != nil {
 				os.Exit(1)
