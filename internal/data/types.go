@@ -426,6 +426,7 @@ type Rules struct {
 	KeepStockBatch      int                `json:"keep_stock_batch"`       // размер партии автозаказа ЗУР
 	SellKeepMin         float64            `json:"sell_keep_min"`          // продажа излишков не трогает этот остаток ресурса
 	SellRate            map[string]float64 `json:"sell_rate"`              // курс продажи излишков: ключ ресурса → денег за единицу
+	BomberWarnMin       float64            `json:"bomber_warn_min"`        // предупреждение о взлёте стратегической авиации — не чаще раза за столько игровых минут
 	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
 	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение
 	RailKmh             float64            `json:"rail_kmh"`               // скорость юнита в эшелоне по ж/д, км/ч
@@ -538,7 +539,11 @@ type AISide struct {
 	Build           []AIBuild `json:"build"`
 	BuildEveryMin   float64   `json:"build_every_min"`
 	BuildPerCycle   int       `json:"build_per_cycle"` // сколько зданий строить за один заход (по умолчанию 1)
-	ImportParallel  int       `json:"import_parallel"` // сколько одинаковых закупок держать в пути одновременно
+	// ImportReserveCritical — резерв денег, когда ресурса почти нет; RichMoney/RichElecBelow — при избытке денег электронику докупают до этого запаса без резерва.
+	ImportReserveCritical float64 `json:"import_reserve_critical"`
+	RichMoney             float64 `json:"rich_money"`
+	RichElecBelow         float64 `json:"rich_elec_below"`
+	ImportParallel        int     `json:"import_parallel"` // сколько одинаковых закупок держать в пути одновременно
 	// Fleet — целевой парк юнитов: "новый|старый:N" — держать N штук (живых и заказанных); недостающее заказывается.
 	Fleet         []string `json:"fleet"`
 	FleetBatch    int      `json:"fleet_batch"`    // не больше стольких штук одной позиции в одном заказе
@@ -579,6 +584,9 @@ type AISide struct {
 	CoverPenalty      float64            `json:"cover_penalty"` // насколько каждый известный канал ПВО у цели снижает её приоритет (по умолчанию 0,15)
 	SalvoCommit       float64            `json:"salvo_commit"`
 	SalvoHoldMin      float64            `json:"salvo_hold_min"`
+	HopelessSalvo     float64            `json:"hopeless_salvo"`     // залп, ниже которого не бьют, пока удары не долетают (по умолчанию 24)
+	ReachFloor        float64            `json:"reach_floor"`        // доля долетевших ниже этой — удары «безнадёжны» (по умолчанию 0,1)
+	ZeroCooldownMult  float64            `json:"zero_cooldown_mult"` // во сколько раз дольше не бить цель после двух провальных залпов (по умолчанию 3)
 	// DecoyMunitions — приманки (запускаются вместе с залпом по цели под ПВО), DecoyPerChannel — штук на канал ПВО.
 	DecoyMunitions  []string `json:"decoy_munitions"`
 	DecoyPerChannel float64  `json:"decoy_per_channel"`

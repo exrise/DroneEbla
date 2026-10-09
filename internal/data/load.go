@@ -94,6 +94,9 @@ func Load(override string) (*Catalog, error) {
 	if len(r.SellRate) == 0 {
 		r.SellRate = map[string]float64{"fuel": 0.04, "steel": 0.06}
 	}
+	if r.BomberWarnMin <= 0 {
+		r.BomberWarnMin = 30
+	}
 	if r.AutoImportReserve <= 0 {
 		r.AutoImportReserve, r.AutoImportEveryMin = 300, 30
 	}

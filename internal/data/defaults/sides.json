@@ -181,6 +181,7 @@
     "imports": [
       {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8, "auto_below": 60},
       {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24, "auto_below": 300},
+      {"id": "ua_imp_steel", "name": "Сталь из ЕС (×200)", "item": "res:steel", "amount": 200, "money": 40, "delay_h": 12, "auto_below": 300},
       {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6, "auto_below": 300},
       {"id": "ua_imp_tb2", "name": "Bayraktar TB2 (×4)", "item": "tb2", "amount": 4, "money": 60, "delay_h": 24, "limit": 5}
     ],

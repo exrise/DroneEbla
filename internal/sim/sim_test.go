@@ -1836,3 +1836,45 @@ func TestStocksAndImports(t *testing.T) {
 		t.Fatal("замена ПВО не пришла после потери парка")
 	}
 }
+
+// Предупреждение о взлёте стратегической авиации приходит не чаще раза в bomber_warn_min минут.
+func TestBomberWarningThrottle(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	var bs *Building
+	for _, b := range w.Buildings {
+		if b.Side == data.RU && b.Type == "airbase_strat" && b.Operational() && (bs == nil || b.ID < bs.ID) {
+			bs = b
+		}
+	}
+	if bs == nil {
+		t.Skip("нет рабочей стратегической авиабазы")
+	}
+	tgt := findBuilding(w, "Трипольская ТЭС")
+	bs.Budget = 20
+	w.Sides[data.RU].Stocks["kh101"] = 20
+	count := func() int {
+		n := 0
+		for _, e := range w.Sides[data.UA].Events {
+			if strings.Contains(e.Text, "взлёт стратегической авиации") {
+				n++
+			}
+		}
+		return n
+	}
+	for i := 0; i < 3; i++ {
+		if e := w.Strike(data.RU, StrikePlan{Source: bs.ID, Munition: "kh101", Count: 1, Target: Pt{tgt.X, tgt.Y}}); e != "" {
+			t.Fatal(e)
+		}
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("за три быстрых пуска ожидалось 1 предупреждение, пришло %d", n)
+	}
+	w.Time += w.cat.Rules.BomberWarnMin
+	if e := w.Strike(data.RU, StrikePlan{Source: bs.ID, Munition: "kh101", Count: 1, Target: Pt{tgt.X, tgt.Y}}); e != "" {
+		t.Fatal(e)
+	}
+	if n := count(); n != 2 {
+		t.Fatalf("через %v мин ожидалось второе предупреждение, всего %d", w.cat.Rules.BomberWarnMin, n)
+	}
+}

@@ -48,6 +48,7 @@
       ],
       "imports": [
         "ua_imp_elec",
+"ua_imp_steel",
         "ua_imp_ammo",
         "ua_imp_fuel",
         "ua_imp_tb2"
@@ -215,7 +216,7 @@
       ],
       "smart": true,
       "sell_above": {"fuel": 8000, "steel": 6000},
-      "import_parallel": 10,
+      "import_parallel": 10, "import_reserve_critical": 150, "rich_money": 3000, "rich_elec_below": 2500, "reach_floor": 0.05, "zero_cooldown_mult": 3,
       "build_per_cycle": 3,
       "posture_dwell_min": 180,
       "defense_tile_pressure": 0.12,
@@ -289,9 +290,9 @@
         "oilfield": 3
       },
       "research": [
+        "ru_parallel_import",
         "ru_fpv",
         "ru_geran2",
-        "ru_parallel_import",
         "ru_gerbera",
         "ru_mfg",
         "ru_idrone",
@@ -459,7 +460,7 @@
       "repair_min_weight": 4,
       "smart": true,
       "sell_above": {"fuel": 8000, "steel": 6000},
-      "import_parallel": 10,
+      "import_parallel": 10, "import_reserve_critical": 150, "rich_money": 3000, "rich_elec_below": 2500, "reach_floor": 0.05, "zero_cooldown_mult": 3,
       "build_per_cycle": 3,
       "posture_dwell_min": 180,
       "defense_tile_pressure": 0.12,

@@ -260,3 +260,63 @@ func TestCorridorAirspace(t *testing.T) {
 		}
 	}
 }
+
+// Боеприпас, который почти не долетает, пускают только крупным залпом и не чаще раза в 6 часов; цель после двух
+// провальных залпов подряд получает длинную паузу.
+func TestHopelessStrikes(t *testing.T) {
+	w := newWorld(t)
+	a := New(w.Catalog(), data.UA)
+	if a.hopeless("uj22") {
+		t.Fatal("в начале партии надежда есть")
+	}
+	a.nowT = 100
+	for i := 0; i < 5; i++ {
+		a.noteReach("Итог удара (UJ-22 Airborne): долетело 0 из 8. Оценка", 0, 8, 100)
+	}
+	if !a.hopeless("uj22") {
+		t.Fatal("0 из 40 — безнадёжно")
+	}
+	if a.hopeless("bober") {
+		t.Fatal("другой боеприпас не затронут")
+	}
+	if a.hopelessSalvo("uj22") <= 24 {
+		t.Fatal("после серии провалов требуемый залп должен расти")
+	}
+	a.nowT = 100 + 2*a.hopelessPause("uj22") + 1
+	if a.hopeless("uj22") {
+		t.Fatal("после долгой паузы без ударов пробуем снова")
+	}
+	v := &sim.View{Contacts: []sim.Contact{{ID: 77, Kind: 0, X: 100, Y: 100}}}
+	for i := 0; i < 3; i++ {
+		a.noteResult(v, sim.Event{HasPos: true, X: 105, Y: 98}, 0)
+	}
+	base := a.cfg.TargetCooldownMin
+	if got := a.cooldown(77); got < base*2 {
+		t.Fatalf("пауза после провалов %v, ожидалось не меньше %v", got, base*2)
+	}
+	a.noteResult(v, sim.Event{HasPos: true, X: 100, Y: 100}, 3)
+	if got := a.cooldown(77); got != base {
+		t.Fatalf("после успеха пауза должна вернуться к %v, а она %v", base, got)
+	}
+}
+
+// При избытке денег и нуле электроники умный бот докупает её без резерва, а при нуле ресурса резерв снижается.
+func TestSmartImportLimits(t *testing.T) {
+	w := newWorld(t)
+	a := New(w.Catalog(), data.RU)
+	var im data.ImportOffer
+	for _, o := range a.cat.Sides[data.RU].Imports {
+		if o.Item == "res:electronics" {
+			im = o
+		}
+	}
+	v := &sim.View{}
+	reserve, below := a.smartImportLimits(v, im, 30000, 500, 300)
+	if reserve != 0 || below < 600 {
+		t.Fatalf("богатый бот: резерв %v, порог %v", reserve, below)
+	}
+	reserve, _ = a.smartImportLimits(v, im, 800, 500, 300)
+	if reserve != 150 {
+		t.Fatalf("при нуле ресурса резерв должен упасть до 150, а он %v", reserve)
+	}
+}

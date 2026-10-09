@@ -111,7 +111,7 @@ func (a *AI) targets(v *sim.View) []*target {
 		if wgt <= 0 || (c.HP >= 0 && c.HP < 0.25) {
 			continue
 		}
-		if t, ok := a.lastHit[c.ID]; ok && v.Time-t < a.cfg.TargetCooldownMin {
+		if t, ok := a.lastHit[c.ID]; ok && v.Time-t < a.cooldown(c.ID) {
 			continue
 		}
 		cover := a.adCover(v, c.X, c.Y)
@@ -181,6 +181,7 @@ func (a *AI) strikes(w *sim.World, v *sim.View) {
 		})
 		if err == "" {
 			a.lastHit[p.tgt.c.ID] = v.Time
+			a.lastLaunch[p.m.ID] = v.Time
 		}
 	}
 }
@@ -204,8 +205,8 @@ func (a *AI) plan(w *sim.World, s source, tgts []*target, stock map[string]float
 			if count < 1 {
 				count = 1
 			}
-			if t.need > 1 && float64(count) < math.Ceil(a.cfg.MinSalvoFrac*math.Min(float64(t.need), float64(s.cap))) {
-				continue
+			if a.probing(m) {
+				continue // медленный дрон ещё не доказал, что долетает: пока не пришли итоги первого залпа, второй не пускаем
 			}
 			sp := sim.StrikePlan{Source: s.id, Munition: id, Count: count, Target: sim.Pt{X: t.c.X, Y: t.c.Y}}
 			var wps []sim.Pt
@@ -366,6 +367,7 @@ func (a *AI) massStrike(w *sim.World, v *sim.View, srcs []source, tgts []*target
 			return
 		}
 	}
+	plans = a.dropHopeless(plans)
 	if len(plans) == 0 {
 		return
 	}
@@ -389,6 +391,7 @@ func (a *AI) massStrike(w *sim.World, v *sim.View, srcs []source, tgts []*target
 		})
 		if err == "" {
 			a.lastHit[p.tgt.c.ID] = v.Time
+			a.lastLaunch[p.m.ID] = v.Time
 			delete(a.holdSince, p.tgt.c.ID)
 			launched[p.tgt] = true
 		}
@@ -464,6 +467,19 @@ func contains(list []string, s string) bool {
 // если в среднем долетает лишь часть боеприпасов, залпы укрупняются (до 4 раз), пока не накопятся запасы.
 func (a *AI) reachScale() float64 {
 	return math.Max(1, math.Min(4, 0.5/math.Max(a.reachEMA, 0.1)))
+}
+
+// cooldown — пауза между ударами по цели: после двух провальных залпов подряд она растёт.
+func (a *AI) cooldown(id uint32) float64 {
+	cd := a.cfg.TargetCooldownMin
+	if a.zeroHits[id] >= 2 {
+		m := a.cfg.ZeroCooldownMult
+		if m <= 0 {
+			m = 3
+		}
+		cd *= m
+	}
+	return cd
 }
 
 // zone — круг поражения известного комплекса ПВО.
@@ -562,4 +578,22 @@ func (a *AI) corridor(w *sim.World, sp sim.StrikePlan, sx, sy float64) []sim.Pt 
 		}
 	}
 	return best
+}
+
+// dropHopeless снимает пуски боеприпасом, который почти не долетал, если вся волна (по всем пусковым) меньше требуемой
+// или с прошлой волны прошло мало времени: копим запас до залпа, способного насытить ПВО, вместо новых провалов.
+func (a *AI) dropHopeless(plans []plan) []plan {
+	total := map[string]int{}
+	for _, p := range plans {
+		total[p.m.ID] += p.count
+	}
+	out := plans[:0:0]
+	for _, p := range plans {
+		id := p.m.ID
+		if a.hopeless(id) && (float64(total[id]) < a.hopelessSalvo(id) || a.nowT-a.lastLaunch[id] < a.hopelessPause(id)) {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }

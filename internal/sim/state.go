@@ -273,6 +273,7 @@ type World struct {
 	FrontHour     float64
 	NextID        uint32
 	NextEvent     uint64
+	BomberWarnAt  [2]float64 // когда сторона получила последнее предупреждение о взлёте стратегической авиации
 	FrontAcc      float64
 	HourAcc       float64
 	Winner        int

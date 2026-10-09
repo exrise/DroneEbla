@@ -51,7 +51,11 @@ type AI struct {
 	reconFails  float64            // «штраф» разведки: растёт при потерях, спадает со временем
 	zones       []zone             // известные зоны ПВО противника на время планирования ударов
 	reachEMA    float64            // доля долетевших боеприпасов (скользящая)
-	reconFailAt float64            // когда штраф обновляли
+	nowT        float64            // игровое время текущего решения
+	lastLaunch  map[string]float64 // боеприпас → когда его запускали в последний раз
+	mReach      map[string]*reachStat
+	zeroHits    map[uint32]int // цель → сколько залпов подряд не долетело ни одного
+	reconFailAt float64        // когда штраф обновляли
 }
 
 // New создаёт ИИ для стороны side. Если для стороны нет настроек, ИИ бездействует.
@@ -60,7 +64,7 @@ func New(cat *data.Catalog, side int) *AI {
 		side: side, cfg: cat.AI.Sides[data.SideKeys[side]], cat: cat,
 		rng:  rand.New(rand.NewSource(int64(7919 + side))),
 		next: map[string]float64{}, ordersDone: map[string]bool{},
-		holdSince: map[uint32]float64{}, lastHit: map[uint32]float64{}, lastMove: map[uint32]float64{}, lastRecon: map[uint32]float64{}, repairOff: map[uint32]bool{},
+		holdSince: map[uint32]float64{}, lastLaunch: map[string]float64{}, mReach: map[string]*reachStat{}, zeroHits: map[uint32]int{}, lastHit: map[uint32]float64{}, lastMove: map[uint32]float64{}, lastRecon: map[uint32]float64{}, repairOff: map[uint32]bool{},
 	}
 }
 
@@ -94,6 +98,7 @@ func (a *AI) Tick(w *sim.World) {
 	}
 	a.next["think"] = now + a.cat.AI.ThinkMin
 	v := w.BuildView(a.side, 0)
+	a.nowT = now
 	a.readEvents(v)
 	a.economy(w, v)
 	a.front(w, v)
@@ -143,6 +148,8 @@ func (a *AI) readEvents(v *sim.View) {
 				if n, _ := fmt.Sscanf(e.Text[i:], "долетело %d из %d", &got, &sent); n == 2 && sent > 0 {
 					k := math.Min(0.3, float64(sent)/60)
 					a.reachEMA = a.reachEMA*(1-k) + float64(got)/float64(sent)*k
+					a.noteReach(e.Text, got, sent, v.Time)
+					a.noteResult(v, e, got)
 				}
 			}
 		}
@@ -157,4 +164,118 @@ func (a *AI) readEvents(v *sim.View) {
 			}
 		}
 	}
+}
+
+// noteResult запоминает исход залпа по цели у точки события: подряд провалы удлиняют паузу до следующего удара по ней.
+func (a *AI) noteResult(v *sim.View, e sim.Event, got int) {
+	if !e.HasPos {
+		return
+	}
+	var best *sim.Contact
+	bd := 25.0
+	for i := range v.Contacts {
+		c := &v.Contacts[i]
+		if c.Kind != 0 {
+			continue
+		}
+		if d := dist(c.X, c.Y, e.X, e.Y); d < bd {
+			best, bd = c, d
+		}
+	}
+	if best == nil {
+		return
+	}
+	if got > 0 {
+		delete(a.zeroHits, best.ID)
+		return
+	}
+	a.zeroHits[best.ID]++
+}
+
+// reachStat — сколько боеприпасов одного вида выпущено и долетело (по итогам залпов).
+type reachStat struct {
+	sent, got, at float64
+	fails         int // залпов подряд, из которых не долетело ни одного
+}
+
+// noteReach учитывает итог залпа «Итог удара (Название): долетело N из M» для боеприпаса с этим названием.
+func (a *AI) noteReach(text string, got, sent int, now float64) {
+	i, j := strings.Index(text, "("), strings.Index(text, "): долетело")
+	if i < 0 || j <= i {
+		return
+	}
+	name := text[i+1 : j]
+	for _, m := range a.cat.Munitions {
+		if m.Name != name || data.SideIndex(m.Side) != a.side {
+			continue
+		}
+		st := a.mReach[m.ID]
+		if st == nil {
+			st = &reachStat{}
+			a.mReach[m.ID] = st
+		}
+		st.sent += float64(sent)
+		st.got += float64(got)
+		st.at = now
+		if got == 0 {
+			st.fails++
+		} else {
+			st.fails = 0
+		}
+		if st.sent > 100 {
+			st.sent, st.got = st.sent/2, st.got/2 // старые залпы забываются
+		}
+		return
+	}
+}
+
+// hopeless — этот боеприпас почти не долетал (меньше reach_floor от выпущенных) и давно не пробовали заново.
+func (a *AI) hopeless(id string) bool {
+	st := a.mReach[id]
+	if st == nil || st.sent < 20 || a.nowT-st.at > 2*a.hopelessPause(id) {
+		return false
+	}
+	floor := a.cfg.ReachFloor
+	if floor <= 0 {
+		floor = 0.05
+	}
+	return st.got/st.sent < floor
+}
+
+// probing — медленный дрон, чьи залпы ещё не разрешились: итоги приходят через часы полёта, и без этого правила бот
+// успевает выпустить десятки дронов, не узнав, что они не долетают.
+func (a *AI) probing(m *data.MunitionType) bool {
+	if m.Kind != "drone" || m.SpeedKmh <= 0 || m.SpeedKmh > 300 {
+		return false
+	}
+	last, ok := a.lastLaunch[m.ID]
+	if !ok {
+		return false
+	}
+	if st := a.mReach[m.ID]; st != nil && st.sent >= 20 {
+		return false
+	}
+	return a.nowT-last < 1440
+}
+
+// hopelessPause — пауза между волнами безнадёжным боеприпасом: сутки, после каждых двух провальных залпов подряд вдвое дольше (до 8 суток).
+func (a *AI) hopelessPause(id string) float64 {
+	return 1440 * math.Pow(2, math.Min(3, float64(a.failStreak(id)/2)))
+}
+
+func (a *AI) failStreak(id string) int {
+	if st := a.mReach[id]; st != nil {
+		return st.fails
+	}
+	return 0
+}
+
+// hopelessSalvo — минимальный размер волны для боеприпаса, который почти не долетал: масса, способная насытить ПВО;
+// после каждых двух провальных залпов подряд требование удваивается (до ×8).
+func (a *AI) hopelessSalvo(id string) float64 {
+	base := a.cfg.HopelessSalvo
+	if base <= 0 {
+		base = 24
+	}
+	return base * math.Pow(2, math.Min(3, float64(a.failStreak(id)/2)))
 }

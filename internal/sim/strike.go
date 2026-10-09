@@ -234,7 +234,9 @@ func (w *World) Strike(s int, p StrikePlan) string {
 	}
 	if b, ok := w.Buildings[p.Source]; ok {
 		b.Budget -= float64(p.Count)
-		if m.Platform == "strategic" && w.cat.Sides[1-s].BomberWarning {
+		if m.Platform == "strategic" && w.cat.Sides[1-s].BomberWarning &&
+			(w.BomberWarnAt[1-s] <= 0 || w.Time-w.BomberWarnAt[1-s] >= w.cat.Rules.BomberWarnMin) {
+			w.BomberWarnAt[1-s] = w.Time
 			w.LogAt(1-s, 2, "Разведка партнёров: взлёт стратегической авиации — "+b.Name+". Ожидайте пусков крылатых ракет.", b.X, b.Y)
 		}
 	}

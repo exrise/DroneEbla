@@ -87,9 +87,17 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 			if im.ID != id {
 				continue
 			}
-			for pending[im.Item] < par && w.ImportAvailable(a.side, im) {
+			reserve, limit := c.ImportReserve, below
+			if c.Smart {
+				reserve, limit = a.smartImportLimits(v, im, money, reserve, below)
+			}
+			maxPar := par
+			if c.Smart && im.Item == "res:electronics" && c.RichMoney > 0 && money > c.RichMoney {
+				maxPar *= 3 // денег много, а электроники нет — берём втрое больше партий в пути
+			}
+			for pending[im.Item] < maxPar && w.ImportAvailable(a.side, im) {
 				price := w.ImportPrice(a.side, im)
-				if !a.needItem(v, im, below, pending[im.Item]) || money-price < c.ImportReserve {
+				if !a.needItem(v, im, limit, pending[im.Item]) || money-price < reserve {
 					break
 				}
 				if a.cmd(w, sim.Command{Kind: sim.CmdImport, Item: im.ID}) != "" {
@@ -333,4 +341,31 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 			return
 		}
 	}
+}
+
+// smartImportLimits — резерв денег и порог докупки для предложения im в умном режиме: когда ресурса почти нет,
+// резерв снижается до критического, а при избытке денег запас электроники поднимается, чтобы деньги не лежали мёртвым грузом.
+func (a *AI) smartImportLimits(v *sim.View, im data.ImportOffer, money, reserve, below float64) (float64, float64) {
+	c := a.cfg
+	if len(im.Item) <= 4 || im.Item[:4] != "res:" {
+		return reserve, below
+	}
+	have := 0.0
+	for i, k := range data.ResKeys {
+		if im.Item == "res:"+k {
+			have = v.Res[i]
+		}
+	}
+	crit := c.ImportReserveCritical
+	if crit <= 0 {
+		crit = 150
+	}
+	if have < 10 && crit < reserve {
+		reserve = crit
+	}
+	if c.RichMoney > 0 && money > c.RichMoney && im.Item == "res:electronics" {
+		reserve = 0
+		below = math.Max(below, c.RichElecBelow)
+	}
+	return reserve, below
 }
