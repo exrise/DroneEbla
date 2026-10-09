@@ -258,6 +258,7 @@ func NewHost(w *sim.World, side int, port int, dataHash string) (*Host, error) {
 	h := &Host{w: w, side: side, ln: ln, stop: make(chan struct{}), dataHash: dataHash, network: true, nextID: 1}
 	go h.accept()
 	go h.loop()
+	h.startAnnounce()
 	return h, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -112,6 +113,7 @@ type Game struct {
 	menuSide     int
 	portField    TextField
 	ipField      TextField
+	disc         *netplay.Discovery // поиск лобби на экране «Подключиться»
 	menuErr      string
 	saves        []string
 	lastW, lastH int
@@ -246,6 +248,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawBackdrop(screen)
 		g.glassPrep(screen)
 	}
+	if g.scene != sceneConnect && g.disc != nil {
+		g.disc.Close()
+		g.disc = nil
+	}
 	switch g.scene {
 	case sceneMenu:
 		g.drawMenu()
@@ -305,7 +311,7 @@ func (g *Game) menuFrame(title string) (int, int) {
 	cx := u.W / 2
 	drawBold(u.screen, "DRONEEBLA", float64(cx), 48, 44, colAccent, 1)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
-	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 340, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 600}[g.scene]
+	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 560, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 600}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {
 		ph = u.H - 150 - 24
 	}
@@ -435,10 +441,46 @@ func (g *Game) drawHostSetup() {
 
 func (g *Game) drawConnect() {
 	u := &g.ui
+	if g.disc == nil {
+		g.disc = netplay.NewDiscovery(g.dataHash)
+	}
 	cx, y := g.menuFrame("Подключение к игре")
-	y0 := g.centerText("IP хоста (Radmin VPN); порт можно указать через двоеточие.", cx, float64(y), menuW, 14, colDim)
-	g.ipField.Draw(u, cx-170, int(y0)+8, 340, 38)
-	by := int(y0) + 74
+	y0 := g.centerText("Игры в вашей сети и в Radmin VPN находятся сами — выберите лобби.", cx, float64(y), menuW, 14, colDim)
+	list := g.disc.List()
+	ly := int(y0) + 8
+	if len(list) == 0 {
+		msg := "Ищем игры… Хост должен создать сетевую игру в той же сети."
+		if err := g.disc.Err(); err != nil {
+			msg = "Автопоиск недоступен (" + err.Error() + "). Введите IP вручную."
+		}
+		drawText(u.screen, msg, float64(cx), float64(ly+8), 14, colDim, 1)
+		ly += 36
+	}
+	for i, f := range list {
+		if i >= 5 {
+			break
+		}
+		lbl := fmt.Sprintf("%s — %s — игроков: %d/6", f.Name, f.IP, f.Players)
+		ok := f.Compatible
+		if !ok {
+			lbl += " (другая версия или данные)"
+		} else if f.Started {
+			lbl += " (идёт партия)"
+		}
+		if u.ButtonState(cx-menuW/2+20, ly, menuW-40, 34, lbl, false, ok) {
+			cl, err := netplay.Connect(net.JoinHostPort(f.IP, strconv.Itoa(f.Port)), g.dataHash)
+			if err != nil {
+				g.menuErr = "Ошибка: " + err.Error()
+			} else {
+				g.openLobby(cl)
+			}
+		}
+		ly += 40
+	}
+	ly += 6
+	drawText(u.screen, "Или введите IP хоста вручную (порт можно указать через двоеточие):", float64(cx), float64(ly), 13, colDim, 1)
+	g.ipField.Draw(u, cx-170, ly+22, 340, 38)
+	by := ly + 22 + 38 + 26
 	back, act := g.menuButtons(cx, by, "Подключиться")
 	if back {
 		g.scene = sceneMenu

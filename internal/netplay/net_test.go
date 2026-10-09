@@ -1,6 +1,8 @@
 package netplay
 
 import (
+	"encoding/json"
+	"net"
 	"testing"
 	"time"
 
@@ -272,4 +274,41 @@ func TestMultiplayer(t *testing.T) {
 		t.Fatal("после возвращения игрока игра должна продолжиться")
 	}
 	waitFor(t, "представление вернувшегося", func() bool { return r.View() != nil })
+}
+
+// Объявление хоста, пришедшее по UDP, попадает в список найденных игр.
+func TestDiscovery(t *testing.T) {
+	d := NewDiscovery("h1")
+	defer d.Close()
+	if d.Err() != nil {
+		t.Skip("порт поиска занят:", d.Err())
+	}
+	c, err := net.DialUDP("udp4", nil, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: DiscoveryPort})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	send := func(a announce) {
+		b, _ := json.Marshal(a)
+		c.Write(b)
+	}
+	send(announce{Magic: announceMagic, Version: Version, Hash: "h1", Port: 27015, Name: "Хост", Players: 2})
+	send(announce{Magic: announceMagic, Version: Version, Hash: "other", Port: 27099, Name: "Чужой", Players: 1})
+	send(announce{Magic: "мусор", Port: 1})
+	var list []Found
+	for i := 0; i < 50 && len(list) < 2; i++ {
+		time.Sleep(20 * time.Millisecond)
+		list = d.List()
+	}
+	if len(list) != 2 {
+		t.Fatalf("найдено %d игр, ожидалось 2: %+v", len(list), list)
+	}
+	for _, f := range list {
+		if f.Name == "Хост" && (!f.Compatible || f.Port != 27015 || f.Players != 2) {
+			t.Fatalf("хост: %+v", f)
+		}
+		if f.Name == "Чужой" && f.Compatible {
+			t.Fatal("игра с другими данными не должна быть совместима")
+		}
+	}
 }
