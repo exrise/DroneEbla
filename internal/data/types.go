@@ -408,6 +408,7 @@ type Rules struct {
 	MoraleRepelMin      int                `json:"morale_repel_min"`       // минимальный размер такого удара
 	StrikeDroneVisionKm float64            `json:"strike_drone_vision_km"` // обзор ударного дрона после исследования разведки
 	PlacementKinds      []string           `json:"placement_kinds"`        // виды юнитов, которые игрок сам расставляет перед стартом
+	PlacementBuildings  []string           `json:"placement_buildings"`    // типы стартовых зданий, которые игрок тоже расставляет сам (центры подготовки)
 	SocialMinPop        int                `json:"social_min_pop"`         // соцсети: минимальное население рядом
 	SocialCityKm        float64            `json:"social_city_km"`         // соцсети: радиус от города
 	SocialDelayMin      float64            `json:"social_delay_min"`       // соцсети: задержка подтверждения, мин

@@ -40,6 +40,26 @@ func (w *World) StartPlacement() {
 		}
 		delete(w.Units, id)
 	}
+	// Стартовые здания выбранных типов (центры подготовки) тоже ставит игрок:
+	// настоящие места остаются подсказками для ИИ.
+	bkinds := map[string]bool{}
+	for _, k := range w.cat.Rules.PlacementBuildings {
+		bkinds[k] = true
+	}
+	var bids []uint32
+	for id, b := range w.Buildings {
+		if bkinds[b.Type] && !b.Placed {
+			bids = append(bids, id)
+		}
+	}
+	sort.Slice(bids, func(a, b int) bool { return bids[a] < bids[b] })
+	for _, id := range bids {
+		b := w.Buildings[id]
+		sd := w.Sides[b.Side]
+		sd.Reserve[b.Type]++
+		sd.Hints = append(sd.Hints, PlaceHint{Type: b.Type, X: b.X, Y: b.Y})
+		delete(w.Buildings, id)
+	}
 	for s := 0; s < 2; s++ {
 		for t, n := range w.cat.Sides[s].ReserveBuildings {
 			w.Sides[s].Reserve[t] += n

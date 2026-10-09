@@ -985,8 +985,17 @@ func TestPlacement(t *testing.T) {
 	if ua.Reserve["buk_ua"] < 8 || ua.Reserve["dronesite"] != 4 || len(ua.Hints) == 0 {
 		t.Fatalf("резерв Украины: %v, подсказок %d", ua.Reserve, len(ua.Hints))
 	}
-	// Нельзя поставить на чужую территорию и у фронта.
+	// Центры подготовки тоже расставляет игрок: из мира они уходят в резерв.
 	ru := w.Sides[data.RU]
+	if ua.Reserve["training_center"] != 3 || ru.Reserve["training_center"] != 3 {
+		t.Fatalf("центры подготовки в резерве: UA %d, RU %d", ua.Reserve["training_center"], ru.Reserve["training_center"])
+	}
+	for _, bd := range w.Buildings {
+		if bd.Type == "training_center" {
+			t.Fatal("центр подготовки остался стоять до расстановки")
+		}
+	}
+	// Нельзя поставить на чужую территорию и у фронта.
 	var enemyTile, frontish int = -1, -1
 	for i, o := range w.Owner {
 		if int(o)-1 == data.RU && w.m.Terrain[i] == 1 && enemyTile < 0 {

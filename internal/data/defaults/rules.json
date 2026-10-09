@@ -51,6 +51,7 @@
   "forces_points": 0.5,
   "aircraft_loss": 0.03,
   "placement_kinds": ["ad", "radar", "reb", "rtr", "launcher"],
+  "placement_buildings": ["training_center"],
   "morale_gain_ref": 50,
   "morale_gain_floor": 0.15,
   "morale_fatigue": 0.35,

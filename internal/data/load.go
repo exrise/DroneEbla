@@ -86,6 +86,9 @@ func Load(override string) (*Catalog, error) {
 	if len(r.PlacementKinds) == 0 {
 		r.PlacementKinds = []string{"ad", "radar", "reb", "rtr", "launcher"}
 	}
+	if len(r.PlacementBuildings) == 0 {
+		r.PlacementBuildings = []string{"training_center"}
+	}
 	if r.SocialMinPop <= 0 {
 		r.SocialMinPop, r.SocialCityKm, r.SocialDelayMin, r.SocialDelayMax = 20000, 8, 15, 60
 		r.IntelPoints, r.ForcesPoints = 0.3, 0.5
