@@ -309,7 +309,7 @@ const (
 func (g *Game) menuFrame(title string) (int, int) {
 	u := &g.ui
 	cx := u.W / 2
-	drawBold(u.screen, "ATTRITION", float64(cx), 48, 44, colAccent, 1)
+	g.drawLogo(float64(cx), 34)
 	drawText(u.screen, "Война на истощение: экономика, дроны и ПВО", float64(cx), 104, 17, colDim, 1)
 	ph := map[int]int{sceneMenu: 580, sceneHostSetup: 440, sceneConnect: 560, sceneSandbox: 400, sceneSolo: 340, sceneLoad: 640, sceneLobby: 520, sceneSettings: 600}[g.scene]
 	if ph == 0 || ph > u.H-150-24 {
@@ -379,7 +379,7 @@ func (g *Game) drawMenu() {
 	}
 	y += 58
 	fy := float64(y)
-	fy = g.centerText("Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные вводят его IP из Radmin (26.x.x.x) и выбирают сторону в лобби.", cx, fy, menuW, 13, colDim)
+	fy = g.centerText("Сетевая игра до 6 игроков (до 3 за сторону) через Radmin VPN: хост создаёт игру, остальные видят его лобби в списке (при необходимости можно ввести IP из Radmin, 26.x.x.x) и выбирают сторону.", cx, fy, menuW, 13, colDim)
 	if fy > float64(u.H-90) {
 		return
 	}
