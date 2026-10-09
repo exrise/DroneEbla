@@ -219,6 +219,12 @@ func (a *AI) plan(w *sim.World, s source, tgts []*target, stock map[string]float
 					}
 				}
 			}
+			if w.ValidateStrike(a.side, sp) != "" && a.cfg.Smart && (m.Kind == "drone" || (m.Kind == "cruise" && m.Class != "high")) {
+				if r := a.corridor(w, sp, s.x, s.y); r != nil {
+					sp.Waypoints = r
+					wps = r
+				}
+			}
 			if w.ValidateStrike(a.side, sp) != "" {
 				continue
 			}
@@ -531,4 +537,29 @@ func (a *AI) route(sx, sy, tx, ty float64) []sim.Pt {
 		return nil
 	}
 	return path[1 : len(path)-1]
+}
+
+// corridor ищет самый короткий допустимый маршрут по цепочкам corridors (с любой точки цепочки до конца);
+// nil, если небо закрыто или цель вне дальности.
+func (a *AI) corridor(w *sim.World, sp sim.StrikePlan, sx, sy float64) []sim.Pt {
+	var best []sim.Pt
+	bestLen := math.MaxFloat64
+	for _, chain := range a.cfg.Corridors {
+		for i := range chain {
+			var r []sim.Pt
+			for _, c := range chain[i:] {
+				x, y := w.Map().Project(c[0], c[1])
+				r = append(r, sim.Pt{X: x, Y: y})
+			}
+			sp.Waypoints = r
+			if w.ValidateStrike(a.side, sp) != "" {
+				continue
+			}
+			l := sim.PathLength(sim.Pt{X: sx, Y: sy}, append(append([]sim.Pt{}, r...), sp.Target))
+			if l < bestLen {
+				best, bestLen = r, l
+			}
+		}
+	}
+	return best
 }

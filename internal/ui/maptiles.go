@@ -219,6 +219,8 @@ func (t *tileSet) render(k lodKey, ras *xvector.Rasterizer) *image.RGBA {
 			return colBelarus
 		case world.CountryForeign:
 			return colForeign
+		case world.CountryPoland, world.CountryLithuania, world.CountryLatvia, world.CountryEstonia, world.CountryFinland:
+			return colAllied
 		}
 		return colLand
 	}

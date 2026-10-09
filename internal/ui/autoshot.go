@@ -188,6 +188,13 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.save(screen, "62_zoom08")
 		g.sess.SetSide(1)
 		g.view = nil
+		// Санкт-Петербург и небо Европы: к 40-му часу открыта Польша.
+		g.sess.(*netplay.Host).Advance(40*60, nil)
+		nx, ny := g.m.Project(29.0, 57.8)
+		g.cam.CX, g.cam.CY, g.cam.Z = nx, ny, 0.45
+		g.tab = 8
+	case 195:
+		g.save(screen, "63_north_airspace")
 	case 200:
 		g.tab = 2
 		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))

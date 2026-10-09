@@ -708,6 +708,7 @@ func (w *World) deliveries(s int) {
 		return
 	}
 	w.sanctionsTick(s)
+	w.airspaceTick(s)
 	h := w.HoursSinceWar()
 	for _, a := range w.cat.Sides[s].Aid {
 		if a.Mission != nil {

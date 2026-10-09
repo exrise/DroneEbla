@@ -222,3 +222,41 @@ func TestDuelSmoke(t *testing.T) {
 		t.Errorf("слишком мало приказов за 12 часов: %v", n)
 	}
 }
+
+// Коридор ИИ Украины над Польшей и Прибалтикой проходим, когда небо открыто, и закрыт, пока нет.
+func TestCorridorAirspace(t *testing.T) {
+	cat, err := data.Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := world.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	chains := cat.AI.Sides["ua"].Corridors
+	if len(chains) == 0 {
+		t.Fatal("у ИИ Украины нет коридоров")
+	}
+	open := map[uint8]bool{}
+	for _, c := range []uint8{world.CountryPoland, world.CountryLithuania, world.CountryLatvia, world.CountryEstonia, world.CountryFinland} {
+		open[c] = true
+	}
+	for _, chain := range chains {
+		var prev sim.Pt
+		for i, c := range chain {
+			x, y := m.Project(c[0], c[1])
+			p := sim.Pt{X: x, Y: y}
+			if i == 0 {
+				prev = p
+				continue
+			}
+			if got := sim.AirspaceBlock(m, false, open, prev, p); got != 0 {
+				t.Fatalf("сегмент %d коридора закрыт страной %d даже при открытом небе", i, got)
+			}
+			if got := sim.AirspaceBlock(m, false, nil, prev, p); got == 0 && i > 1 {
+				t.Fatalf("сегмент %d коридора свободен при закрытом небе — коридор не идёт над Европой", i)
+			}
+			prev = p
+		}
+	}
+}

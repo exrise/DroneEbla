@@ -13,12 +13,49 @@ import (
 
 // Страны на карте.
 const (
-	CountryNone    uint8 = iota // море или иностранное государство
-	CountryUkraine              // Украина (включая Крым)
-	CountryRussia               // Россия
-	CountryBelarus              // Беларусь: только воздушное пространство для РФ
-	CountryForeign              // прочие государства: закрыты для всех
+	CountryNone      uint8 = iota // море или иностранное государство
+	CountryUkraine                // Украина (включая Крым)
+	CountryRussia                 // Россия
+	CountryBelarus                // Беларусь: только воздушное пространство для РФ
+	CountryForeign                // прочие государства: закрыты для всех
+	CountryPoland                 // Польша: небо может открыться для Украины
+	CountryLithuania              // Литва: то же
+	CountryLatvia                 // Латвия: то же
+	CountryEstonia                // Эстония: то же
+	CountryFinland                // Финляндия: то же
 )
+
+// CountryCodes — коды стран, чьё небо может открыться для ударов Украины
+// (поле countries у пакетов airspace в sides.json).
+var CountryCodes = map[string]uint8{
+	"pl": CountryPoland, "lt": CountryLithuania, "lv": CountryLatvia,
+	"ee": CountryEstonia, "fi": CountryFinland,
+}
+
+// CountryName — название страны для интерфейса.
+func CountryName(c uint8) string {
+	switch c {
+	case CountryUkraine:
+		return "Украина"
+	case CountryRussia:
+		return "Россия"
+	case CountryBelarus:
+		return "Беларусь"
+	case CountryPoland:
+		return "Польша"
+	case CountryLithuania:
+		return "Литва"
+	case CountryLatvia:
+		return "Латвия"
+	case CountryEstonia:
+		return "Эстония"
+	case CountryFinland:
+		return "Финляндия"
+	case CountryForeign:
+		return "иностранное государство"
+	}
+	return ""
+}
 
 // Типы местности тайла.
 const (

@@ -1518,3 +1518,84 @@ func TestSanctions(t *testing.T) {
 		}
 	}
 }
+
+// Северные объекты (Петербург и область) стоят на суше России.
+func TestNorthObjects(t *testing.T) {
+	w := newTestWorld(t)
+	n := 0
+	for _, b := range w.Buildings {
+		_, lat := w.m.Unproject(b.X, b.Y)
+		if lat < 57 {
+			continue
+		}
+		n++
+		if b.Side != data.RU {
+			t.Fatalf("%s на севере должен принадлежать России", b.Name)
+		}
+	}
+	want := 0
+	for _, o := range w.cat.Objects {
+		if o.Lat >= 57 {
+			want++
+		}
+	}
+	if want < 20 || n != want {
+		t.Fatalf("на севере объектов %d из %d (потерялись при привязке к суше)", n, want)
+	}
+	if findBuilding(w, "КИНЕФ (Кириши)") == nil || findBuilding(w, "Ленинградская АЭС") == nil {
+		t.Fatal("нет КИНЕФ или Ленинградской АЭС")
+	}
+}
+
+// Небо соседних стран закрыто, пока не открыто пакетом; для России — всегда.
+func TestAirspaceOpening(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	// Точка над сушей страны c (первый подходящий тайл).
+	over := func(c uint8) Pt {
+		for i, cc := range w.m.Country {
+			if cc == c && w.m.Terrain[i] == world.TerrainLand {
+				x, y := w.m.TileCenter(i%w.m.W, i/w.m.W)
+				return Pt{X: x, Y: y}
+			}
+		}
+		t.Fatalf("на карте нет страны %d", c)
+		return Pt{}
+	}
+	pl, lt, lv, ee, fi, ro := over(world.CountryPoland), over(world.CountryLithuania), over(world.CountryLatvia),
+		over(world.CountryEstonia), over(world.CountryFinland), over(world.CountryForeign)
+	open := func(s int, p Pt) bool { return w.airspaceOK(s, p, p) }
+	if open(data.UA, pl) || open(data.UA, lt) || open(data.UA, lv) || open(data.UA, ee) || open(data.UA, fi) {
+		t.Fatal("до открытия небо Европы должно быть закрыто")
+	}
+	if c := w.airspaceBlock(data.UA, pl, pl); c != world.CountryPoland {
+		t.Fatalf("закрыла страна %d, ожидалась Польша", c)
+	}
+	run(w, 37*60)
+	if !ua.AirOpen["air_pl"] || ua.AirOpen["air_baltic"] || !open(data.UA, pl) || open(data.UA, lt) {
+		t.Fatalf("после 37 ч открыта только Польша: %v", ua.AirOpen)
+	}
+	run(w, 36*60)
+	if !open(data.UA, lt) || !open(data.UA, lv) || open(data.UA, ee) {
+		t.Fatal("после 73 ч открыты Литва и Латвия, Эстония ещё нет")
+	}
+	run(w, 60*60)
+	if !open(data.UA, ee) || !open(data.UA, fi) {
+		t.Fatalf("после 133 ч открыты Эстония и Финляндия: %v", ua.AirOpen)
+	}
+	// Прочие страны закрыты всегда; Россия не получает ничего.
+	if open(data.UA, ro) || open(data.RU, pl) || open(data.RU, ro) {
+		t.Fatal("небо прочих стран закрыто, для России — всё закрыто")
+	}
+	v := w.BuildView(data.UA, 0)
+	if !v.AirOpen[world.CountryPoland] || len(v.Airspace) != 4 {
+		t.Fatalf("представление неба: %v, пакетов %d", v.AirOpen, len(v.Airspace))
+	}
+	if AirspaceBlock(w.m, false, v.AirOpen, pl, lt) != 0 && AirspaceBlock(w.m, false, v.AirOpen, pl, pl) != 0 {
+		t.Fatal("клиентская проверка маршрута расходится с хостом")
+	}
+	if len(w.BuildView(data.RU, 0).Airspace) != 0 {
+		t.Fatal("у России пакетов неба быть не должно")
+	}
+}

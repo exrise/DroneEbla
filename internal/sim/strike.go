@@ -62,29 +62,47 @@ func PathLength(start Pt, pts []Pt) float64 {
 	return l
 }
 
-// airspaceOK — можно ли стороне пролететь по отрезку.
-func (w *World) airspaceOK(s int, a, b Pt) bool {
+// AirspaceBlock — страна, чьё небо закрыто на отрезке a–b (0 — путь свободен).
+// Открыты: свои страны, море и озёра, Беларусь при belarusAir и страны из open
+// (открытые пакеты airspace); прочие государства закрыты. Функция не зависит
+// от состояния мира, поэтому её вызывает и интерфейс (по карте и данным View).
+func AirspaceBlock(m *world.MapData, belarusAir bool, open map[uint8]bool, a, b Pt) uint8 {
 	d := dist(a.X, a.Y, b.X, b.Y)
 	n := int(d/3) + 1
 	for k := 0; k <= n; k++ {
 		t := float64(k) / float64(n)
 		x, y := a.X+(b.X-a.X)*t, a.Y+(b.Y-a.Y)*t
-		i := w.tileOf(x, y)
-		if i < 0 {
+		tx, ty := m.TileAt(x, y)
+		if !m.In(tx, ty) {
 			continue // за краем карты — допустимо
 		}
-		switch w.m.Country[i] {
-		case world.CountryForeign:
-			if w.m.Terrain[i] == world.TerrainLand {
-				return false
-			}
+		i := m.Idx(tx, ty)
+		if m.Terrain[i] != world.TerrainLand {
+			continue
+		}
+		c := m.Country[i]
+		switch c {
 		case world.CountryBelarus:
-			if !w.cat.Sides[s].BelarusAir {
-				return false
+			if !belarusAir {
+				return c
+			}
+		case world.CountryForeign, world.CountryPoland, world.CountryLithuania,
+			world.CountryLatvia, world.CountryEstonia, world.CountryFinland:
+			if !open[c] {
+				return c
 			}
 		}
 	}
-	return true
+	return 0
+}
+
+// airspaceOK — можно ли стороне пролететь по отрезку.
+func (w *World) airspaceOK(s int, a, b Pt) bool {
+	return w.airspaceBlock(s, a, b) == 0
+}
+
+func (w *World) airspaceBlock(s int, a, b Pt) uint8 {
+	return AirspaceBlock(w.m, w.cat.Sides[s].BelarusAir, w.openCountries(s), a, b)
 }
 
 // ValidateStrike проверяет план удара. Возвращает текст ошибки или "".
@@ -149,7 +167,10 @@ func (w *World) ValidateStrike(s int, p StrikePlan) string {
 	}
 	prev := start
 	for _, q := range pts {
-		if !w.airspaceOK(s, prev, q) {
+		if c := w.airspaceBlock(s, prev, q); c != 0 {
+			if name := world.CountryName(c); name != "" {
+				return "Маршрут проходит через закрытое воздушное пространство: " + name
+			}
 			return "Маршрут проходит через закрытое воздушное пространство"
 		}
 		prev = q

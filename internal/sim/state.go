@@ -226,6 +226,7 @@ type Side struct {
 	CitySeen    map[int]int          // сколько раз сторона брала город
 	MissionSeen map[string][]uint32  // задание → здания, уже засчитанные в прогресс
 	MissionFail map[string]bool      // задания, которые уже не выполнить
+	AirOpen     map[string]bool      // открытые для ударов стороны пакеты воздушного пространства
 	SanctionOn  map[string]bool      // введённые против стороны пакеты санкций
 	SanctionAt  map[string]float64   // когда введён пакет (игровые минуты)
 	Posts       []Post               // отложенные подтверждения прилётов в соцсетях

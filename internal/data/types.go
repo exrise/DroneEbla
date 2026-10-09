@@ -262,6 +262,17 @@ type SanctionPackage struct {
 	Morale      float64            `json:"morale"`       // разовое изменение морали стороны
 }
 
+// AirspacePackage — открытие воздушного пространства стран для ударов стороны:
+// по таймеру (AtHour) и условиям. Открытое небо не закрывается.
+type AirspacePackage struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Countries []string `json:"countries"` // коды стран (world.CountryCodes): pl, lt, lv, ee, fi
+	AtHour    float64  `json:"at_hour"`   // через сколько часов войны
+	NeedKyiv  bool     `json:"need_kyiv"` // только если Киев держится
+	MinMorale float64  `json:"min_morale"`
+}
+
 // SanctionKeys — виды штрафов санкций.
 var SanctionKeys = map[string]string{
 	"tax":         "налоги и базовый доход",
@@ -331,6 +342,7 @@ type SideDef struct {
 	Imports          []ImportOffer      `json:"imports"`
 	Aid              []AidPackage       `json:"aid"`
 	Sanctions        []SanctionPackage  `json:"sanctions"` // санкции против этой стороны
+	Airspace         []AirspacePackage  `json:"airspace"`  // открытие неба соседних стран для ударов этой стороны
 	Mobilization     []Mobilization     `json:"mobilization"`
 	Satellites       []Satellite        `json:"satellites"`
 	BomberWarning    bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника
@@ -520,6 +532,9 @@ type AISide struct {
 	FleetBatch    int      `json:"fleet_batch"`    // не больше стольких штук одной позиции в одном заказе
 	ContractMoney float64  `json:"contract_money"` // платную мобилизацию без потерь морали использовать, если денег больше
 	PeakMenFrac   float64  `json:"peak_men_frac"`  // мобилизовать, когда людей на фронте меньше этой доли от максимума
+	// Corridors — цепочки путевых точек [lon, lat] над открытым небом соседних стран (запад → север):
+	// ИИ летит по ним, когда прямой маршрут закрыт или не долетает.
+	Corridors [][][2]float64 `json:"corridors"`
 	// Фронт.
 	PrepPosture int `json:"prep_posture"` // 0 оборона, 1 активная, 2 наступление
 	WarPosture  int `json:"war_posture"`

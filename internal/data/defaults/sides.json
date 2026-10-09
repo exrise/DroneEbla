@@ -59,7 +59,19 @@
       {"type": "pantsir", "lon": 52.10, "lat": 55.72},
       {"type": "pantsir", "lon": 51.80, "lat": 55.60},
       {"type": "s300", "lon": 46.10, "lat": 51.55},
-      {"type": "pantsir", "lon": 46.30, "lat": 51.45}
+      {"type": "pantsir", "lon": 46.30, "lat": 51.45},
+      {"type": "s400", "lon": 30.20, "lat": 59.95},
+      {"type": "s400", "lon": 30.45, "lat": 59.80},
+      {"type": "s400", "lon": 29.90, "lat": 59.75},
+      {"type": "pantsir", "lon": 29.78, "lat": 59.97},
+      {"type": "pantsir", "lon": 30.25, "lat": 59.82},
+      {"type": "pantsir", "lon": 32.00, "lat": 59.48},
+      {"type": "pantsir", "lon": 28.70, "lat": 60.34},
+      {"type": "pantsir", "lon": 28.42, "lat": 59.69},
+      {"type": "pantsir", "lon": 37.90, "lat": 59.14},
+      {"type": "radar_ru", "lon": 30.00, "lat": 59.90},
+      {"type": "tor", "lon": 30.30, "lat": 59.92},
+      {"type": "s300", "lon": 28.40, "lat": 57.82}
     ],
     "unlocked": [
       "armor", "artillery", "armor_storage", "artillery_storage",
@@ -171,6 +183,12 @@
       {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24},
       {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6},
       {"id": "ua_imp_tb2", "name": "Bayraktar TB2 (×4)", "item": "tb2", "amount": 4, "money": 60, "delay_h": 24, "limit": 5}
+    ],
+    "airspace": [
+      {"id": "air_pl", "name": "Польша открыла небо для ударов", "countries": ["pl"], "at_hour": 36, "need_kyiv": true},
+      {"id": "air_baltic", "name": "Литва и Латвия открыли небо", "countries": ["lt", "lv"], "at_hour": 72, "need_kyiv": true},
+      {"id": "air_ee", "name": "Эстония открыла небо", "countries": ["ee"], "at_hour": 96, "min_morale": 40},
+      {"id": "air_fi", "name": "Финляндия открыла небо", "countries": ["fi"], "at_hour": 130, "min_morale": 40}
     ],
     "aid": [
       {"id": "aid_manpads", "name": "Javelin, Stinger и снаряды", "at_hour": 6, "items": {"res:ammo": 400}, "morale": 2},

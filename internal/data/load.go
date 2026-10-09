@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/exrise/droneebla/internal/world"
 )
 
 //go:embed defaults/*.json
@@ -319,6 +321,16 @@ func (c *Catalog) validate() error {
 			for id := range a.Items {
 				if !c.known(id) {
 					return fmt.Errorf("%s: помощь %s: неизвестный предмет %s", SideKeys[s], a.ID, id)
+				}
+			}
+		}
+		for _, p := range sd.Airspace {
+			if len(p.Countries) == 0 {
+				return fmt.Errorf("%s: небо %s: не указаны страны", SideKeys[s], p.ID)
+			}
+			for _, k := range p.Countries {
+				if _, ok := world.CountryCodes[k]; !ok {
+					return fmt.Errorf("%s: небо %s: неизвестная страна %s", SideKeys[s], p.ID, k)
 				}
 			}
 		}

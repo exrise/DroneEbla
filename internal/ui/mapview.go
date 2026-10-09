@@ -51,6 +51,7 @@ var (
 	colLand    = color.RGBA{236, 230, 212, 255}
 	colBelarus = color.RGBA{222, 222, 206, 255}
 	colForeign = color.RGBA{214, 212, 204, 255}
+	colAllied  = color.RGBA{204, 218, 200, 255} // страны, небо которых может открыться для Украины
 	colRiver   = color.RGBA{92, 140, 186, 255}
 	colRail    = color.RGBA{70, 66, 62, 255}
 	colRoad    = color.RGBA{196, 160, 120, 255}

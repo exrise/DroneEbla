@@ -11,6 +11,7 @@ import (
 
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
+	"github.com/exrise/droneebla/internal/world"
 )
 
 // drawInfoPanel — панель выбранного объекта (справа внизу).
@@ -362,6 +363,31 @@ func (g *Game) strikeLength() (float64, float64) {
 	return l, m.RangeKm
 }
 
+// strikeBlocked — страна с закрытым небом на маршруте плана ("" — путь свободен);
+// проверка та же, что на хосте (sim.AirspaceBlock), по открытым странам из View.
+func (g *Game) strikeBlocked() string {
+	m := g.cat.MunitionByID[g.strike.Munition]
+	sx, sy, ok := g.sourcePos(g.strike.Source)
+	if !ok || m == nil || g.view == nil {
+		return ""
+	}
+	pts := g.strike.Pts
+	if (m.Kind == "ballistic" || m.Kind == "rocket" || (m.Kind == "cruise" && m.Class == "high")) && len(pts) > 0 {
+		pts = pts[len(pts)-1:]
+	}
+	prev := sim.Pt{X: sx, Y: sy}
+	for _, q := range pts {
+		if c := sim.AirspaceBlock(g.m, g.cat.Sides[g.view.Side].BelarusAir, g.view.AirOpen, prev, q); c != 0 {
+			if n := world.CountryName(c); n != "" {
+				return n
+			}
+			return "чужое государство"
+		}
+		prev = q
+	}
+	return ""
+}
+
 func (g *Game) drawStrikePlan(dst *ebiten.Image) {
 	m := g.cat.MunitionByID[g.strike.Munition]
 	sx, sy, ok := g.sourcePos(g.strike.Source)
@@ -385,9 +411,16 @@ func (g *Game) drawStrikePlan(dst *ebiten.Image) {
 	if direct && len(pts) > 0 {
 		pts = pts[len(pts)-1:]
 	}
+	prev := sim.Pt{X: sx, Y: sy}
+	bel := g.cat.Sides[g.view.Side].BelarusAir
 	for i, p := range pts {
 		qx, qy := g.cam.ToScreen(p.X, p.Y)
-		line(dst, px, py, qx, qy, col, 2)
+		segCol := col
+		if sim.AirspaceBlock(g.m, bel, g.view.AirOpen, prev, p) != 0 {
+			segCol = colBad
+		}
+		prev = p
+		line(dst, px, py, qx, qy, segCol, 2)
 		if i == len(pts)-1 && m.Kind != "recon" {
 			circle(dst, qx, qy, 8, col, 2)
 			line(dst, qx-11, qy, qx+11, qy, col, 1.5)
@@ -412,6 +445,10 @@ func (g *Game) drawStrikePanel() {
 		return
 	}
 	h := 270
+	blocked := g.strikeBlocked()
+	if blocked != "" {
+		h += 19
+	}
 	x, y := u.W-infoW-8, u.H-h-8
 	u.Panel(x, y, infoW, h)
 	px, py, pw := x+12, y+10, infoW-24
@@ -441,6 +478,9 @@ func (g *Game) drawStrikePanel() {
 	py = g.kv("Длина маршрута / дальность", fmt.Sprintf("%.0f / %.0f км", l, rng), px, py, pw, lc)
 	if l > 0 && m.SpeedKmh > 0 {
 		py = g.kv("Время полёта", fmtMin(l/m.SpeedKmh*60), px, py, pw, colText)
+	}
+	if blocked != "" {
+		py = g.kv("Воздушное пространство", "закрыто: "+blocked, px, py, pw, colBad)
 	}
 	if m.Kind != "recon" {
 		// Колонки: подпись слева, значение прижато вправо к кнопкам, кнопки с одной и той же x у обеих строк.
@@ -473,7 +513,7 @@ func (g *Game) drawStrikePanel() {
 		g.strike = strikePlan{}
 		return
 	}
-	can := len(g.strike.Pts) > 0 && l <= rng
+	can := len(g.strike.Pts) > 0 && l <= rng && blocked == ""
 	if u.ButtonState(px+pw/2+4, py, pw/2-4, 30, "Пуск! (F)", false, can) {
 		g.confirmStrike()
 	}
@@ -489,6 +529,10 @@ func (g *Game) confirmStrike() {
 	l, rng := g.strikeLength()
 	if l > rng {
 		g.toast("Цель вне досягаемости")
+		return
+	}
+	if c := g.strikeBlocked(); c != "" {
+		g.toast("Маршрут проходит через закрытое воздушное пространство: " + c)
 		return
 	}
 	target := pts[len(pts)-1]

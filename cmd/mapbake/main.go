@@ -20,7 +20,7 @@ import (
 
 const (
 	lonMin, lonMax = 22.0, 54.8
-	latMin, latMax = 44.2, 56.6
+	latMin, latMax = 44.2, 61.5
 	tileKm         = 5.0
 	refLat         = 50.0
 )
@@ -333,6 +333,16 @@ func main() {
 			c = world.CountryRussia
 		case "BLR":
 			c = world.CountryBelarus
+		case "POL":
+			c = world.CountryPoland
+		case "LTU":
+			c = world.CountryLithuania
+		case "LVA":
+			c = world.CountryLatvia
+		case "EST":
+			c = world.CountryEstonia
+		case "FIN":
+			c = world.CountryFinland
 		default:
 			c = world.CountryForeign
 		}
@@ -434,7 +444,8 @@ func main() {
 	// Реки.
 	rivers := load(*dir, "ne_10m_rivers_lake_centerlines")
 	major := map[string]bool{"Dnipro": true, "Desna": true, "Donets": true, "Dniester": true,
-		"Southern Bug": true, "Don": true, "Pripyat": true, "Seym": true, "Kuban": true, "Prut": true, "Danube": true}
+		"Southern Bug": true, "Don": true, "Pripyat": true, "Seym": true, "Kuban": true, "Prut": true, "Danube": true,
+		"Neva": true, "Volkhov": true, "Narva": true, "Svir": true}
 	for _, f := range rivers.Features {
 		name := str(f.Properties, "name")
 		sr := num(f.Properties, "scalerank")

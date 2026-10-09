@@ -861,6 +861,10 @@ func (g *Game) tabMissions(x, y, w int) int {
 	if len(v.Sanctions) > 0 {
 		return g.tabSanctions(x, y, w)
 	}
+	if len(v.Airspace) > 0 {
+		y = g.tabAirspace(x, y, w)
+		y += 8
+	}
 	y = g.header("Задания", x, y)
 	if len(v.Missions) == 0 {
 		return g.para("Для вашей стороны заданий нет: помощь приходит только по таймеру.", x, y, w, colDim)
@@ -970,6 +974,36 @@ func (g *Game) tabSanctions(x, y, w int) int {
 			y = g.para(s.Hint, x, y, w, colDim)
 			y = g.para("Штраф: "+s.Effects, x, y, w, colText)
 			y += 6
+		}
+	}
+	return y
+}
+
+// tabAirspace — пакеты открытия неба соседних стран для ударов (у Украины).
+func (g *Game) tabAirspace(x, y, w int) int {
+	u := &g.ui
+	v := g.view
+	h := 0.0
+	if v.War {
+		h = (v.Time - v.PrepEnd) / 60
+	}
+	y = g.header("Воздушное пространство", x, y)
+	y = g.para("Запуски идут только с вашей земли, но маршрут можно вести над странами, которые открыли небо (на карте они подкрашены): так проще обойти российскую ПВО и достать север. Над остальными странами и над Беларусью лететь нельзя. Открытое небо не закрывается.", x, y, w, colDim)
+	y += 4
+	for _, a := range v.Airspace {
+		c, status := colText, ""
+		if a.On {
+			c, status = colGood, "открыто"
+		} else if d := a.AtHour - h; d > 0 {
+			status = fmt.Sprintf("через %.0f ч", math.Ceil(d))
+		} else {
+			status = "ждёт условий"
+		}
+		drawBold(u.screen, fitText(a.Countries, 14, float64(w-110)), float64(x), float64(y), 14, c, 0)
+		drawText(u.screen, status, float64(x+w), float64(y+1), 13, map[bool]color.Color{true: colGood, false: colWarn}[a.On], 2)
+		y += 20
+		if !a.On && a.Cond != "" {
+			y = g.para("Условие: "+a.Cond, x, y, w, colDim)
 		}
 	}
 	return y
