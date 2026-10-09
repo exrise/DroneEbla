@@ -88,6 +88,9 @@ func Load(override string) (*Catalog, error) {
 	if len(r.PlacementKinds) == 0 {
 		r.PlacementKinds = []string{"ad", "radar", "reb", "rtr", "launcher"}
 	}
+	if r.RailKmh <= 0 {
+		r.RailKmh, r.RailBoardMin, r.RailAlightMin, r.RailStationTiles = 110, 20, 10, 2
+	}
 	if len(r.PlacementBuildings) == 0 {
 		r.PlacementBuildings = []string{"training_center"}
 	}

@@ -52,6 +52,7 @@
   "aircraft_loss": 0.03,
   "placement_kinds": ["ad", "radar", "reb", "rtr", "launcher"],
   "placement_buildings": ["training_center"],
+  "rail_kmh": 110, "rail_board_min": 20, "rail_alight_min": 10, "rail_station_tiles": 2,
   "morale_gain_ref": 50,
   "morale_gain_floor": 0.15,
   "morale_fatigue": 0.35,

@@ -276,6 +276,25 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 		}
 		y = g.kv("Залп", fmt.Sprintf("до %d", ut.Salvo), x, y, w, colText)
 	}
+	if len(un.Path) > 0 {
+		eta := sim.PathETA(g.m, g.cat.Rules, un, ut)
+		rail := 0
+		for _, r := range un.PathRail {
+			if r {
+				rail++
+			}
+		}
+		lbl := "В пути ещё"
+		if len(un.PathRail) > 0 && un.PathRail[0] {
+			lbl = "Едет эшелоном, ещё"
+		} else if len(un.PathWait) > 0 && un.PathWait[0] > 0 {
+			lbl = "Погрузка/выгрузка, всего ещё"
+		}
+		y = g.kv(lbl, fmtMin(eta), x, y, w, colText)
+		if rail > 0 {
+			y = g.kv("По железной дороге", fmt.Sprintf("%d уч.", rail), x, y, w, colAccent)
+		}
+	}
 	y = g.kv("Свёртывание / развёртывание", fmt.Sprintf("%.0f / %.0f мин", ut.PackMin, ut.DeployMin), x, y, w, colDim)
 	if ut.Emitter() {
 		y = g.para("Излучает: видим вражеской РТР.", x, y, w, colDim)

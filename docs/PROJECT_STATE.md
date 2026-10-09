@@ -156,7 +156,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H windowsg
 - Сталь/тыл: `Object.Scale` → `Building.Scale`, тип `rail_station`, ~13 комбинатов и ~24 узла и станции; руда для комбинатов в радиусе 800 км.
 
 ## Обновления блока D (интерфейс)
-- `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 3` (версия 3: линейки версий, `Direction.FPVPow`; 5: мультиплеер до 6 игроков, лобби; 6: санкции в `View`; 7: карта до 61.5° с. ш., небо Европы `airspace` в `View`; 8: боты в лобби, `LobbyState.Bots`).
+- `Side.PostureDir [3]int` + `PostureSet` (миграция в `Side.ensure`), `Command.Count` у `CmdPosture`: 0 — все направления, 1–3 — направление. `View.Posture [3]int`. `netplay.Version = 3` (версия 3: линейки версий, `Direction.FPVPow`; 5: мультиплеер до 6 игроков, лобби; 6: санкции в `View`; 7: карта до 61.5° с. ш., небо Европы `airspace` в `View`; 8: боты в лобби, `LobbyState.Bots`; 9: путь юнитов по ж/д — `Unit.PathRail`, `Unit.PathWait`).
 - `ui/icons.go` (значки), `ui/hotkeys.go` (группы, F, скорость), настройки экрана — `ui/settings.go` (`Settings`, `settings.json`, `layoutScale`, экран настроек, меню партии; F11/Alt+Enter и Ctrl+±/0 — `settingsKeys`), `confirmStrike()` в `info.go`, поле ввода: символы собираются в `Update` (`input.collectTextInput`).
 
 ## Обновления блока B (ПВО)

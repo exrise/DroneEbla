@@ -508,9 +508,14 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		}
 		if len(un.Path) > 0 {
 			px, py := sx, sy
-			for _, p := range un.Path {
+			for k, p := range un.Path {
 				qx, qy := g.cam.ToScreen(p.X, p.Y)
-				line(dst, px, py, qx, qy, withAlpha(col, 140), 1)
+				if k < len(un.PathRail) && un.PathRail[k] {
+					// участок эшелоном по железной дороге: жирнее и золотым
+					line(dst, px, py, qx, qy, withAlpha(colAccent, 220), 2.5)
+				} else {
+					line(dst, px, py, qx, qy, withAlpha(col, 140), 1)
+				}
 				px, py = qx, qy
 			}
 		}

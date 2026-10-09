@@ -1611,3 +1611,126 @@ func TestSoloSpeedHumanSide(t *testing.T) {
 		}
 	}
 }
+
+// Ж/д: между станциями и узлами юнит едет эшелоном и добирается быстрее, чем по дорогам.
+func TestRailTransport(t *testing.T) {
+	w := newTestWorld(t)
+	side := data.UA
+	// Две дальние друг от друга работающие станции/узлы Украины.
+	var hubs []*Building
+	for _, b := range w.Buildings {
+		if b.Side == side && (b.Type == "rail_hub" || b.Type == "rail_station") && b.Operational() {
+			hubs = append(hubs, b)
+		}
+	}
+	sort.Slice(hubs, func(i, j int) bool { return hubs[i].ID < hubs[j].ID })
+	var a, b *Building
+	best := 0.0
+	for i := range hubs {
+		for j := i + 1; j < len(hubs); j++ {
+			if d := dist(hubs[i].X, hubs[i].Y, hubs[j].X, hubs[j].Y); d > best {
+				best, a, b = d, hubs[i], hubs[j]
+			}
+		}
+	}
+	if a == nil || best < 300 {
+		t.Fatalf("не нашлись две дальние станции Украины (%.0f км)", best)
+	}
+	ut := w.cat.UnitByID["buk_ua"]
+	from, to := Pt{a.X, a.Y}, Pt{b.X, b.Y}
+	// Конец пути — на своей суше рядом со станцией.
+	pathR, railR, waitR := w.findPath(side, from, to, ut.SpeedRoad, ut.SpeedOff, true)
+	pathF, _, _ := w.findPath(side, from, to, ut.SpeedRoad, ut.SpeedOff, false)
+	if pathR == nil || pathF == nil {
+		t.Fatal("нет пути между станциями")
+	}
+	u := &Unit{Type: "buk_ua", Side: side, X: from.X, Y: from.Y, Path: pathR, PathRail: railR, PathWait: waitR}
+	uf := &Unit{Type: "buk_ua", Side: side, X: from.X, Y: from.Y, Path: pathF}
+	etaR := PathETA(w.m, w.cat.Rules, u, ut)
+	etaF := PathETA(w.m, w.cat.Rules, uf, ut)
+	nrail := 0
+	for _, r := range railR {
+		if r {
+			nrail++
+		}
+	}
+	if nrail < 10 {
+		t.Fatalf("поезд почти не использован: %d участков", nrail)
+	}
+	if etaR > etaF*0.7 {
+		t.Fatalf("с поездом %.0f мин, без — %.0f мин: выигрыш мал", etaR, etaF)
+	}
+	t.Logf("%.0f км: по дорогам %.0f мин, с эшелоном %.0f мин (%d участков по рельсам)", best, etaF, etaR, nrail)
+	// Разрушенные станции и узлы рвут путь: рельсы не используются.
+	for _, h := range hubs {
+		h.HP = 0
+	}
+	pathD, railD, _ := w.findPath(side, from, to, ut.SpeedRoad, ut.SpeedOff, true)
+	if pathD == nil {
+		t.Skip("без станций пути нет вообще")
+	}
+	for _, r := range railD {
+		if r {
+			t.Fatal("поезд поехал при разрушенных станциях")
+		}
+	}
+	// Чужая сторона не использует рельсы Украины.
+	_, railE, _ := w.findPath(data.RU, from, to, ut.SpeedRoad, ut.SpeedOff, true)
+	for _, r := range railE {
+		if r {
+			t.Fatal("противник едет по нашим рельсам")
+		}
+	}
+}
+
+// Эшелон останавливается, когда станцию на пути разбили, и дальше идёт по дорогам.
+func TestRailCutDuringTrip(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	side := data.UA
+	var hubs []*Building
+	for _, b := range w.Buildings {
+		if b.Side == side && (b.Type == "rail_hub" || b.Type == "rail_station") {
+			hubs = append(hubs, b)
+		}
+	}
+	sort.Slice(hubs, func(i, j int) bool { return hubs[i].ID < hubs[j].ID })
+	var a, b *Building
+	best := 0.0
+	for i := range hubs {
+		for j := i + 1; j < len(hubs); j++ {
+			if d := dist(hubs[i].X, hubs[i].Y, hubs[j].X, hubs[j].Y); d > best {
+				best, a, b = d, hubs[i], hubs[j]
+			}
+		}
+	}
+	u := w.addUnit("buk_ua", side, a.X, a.Y)
+	u.State = UnitDeployed
+	if e := w.MoveUnit(side, u.ID, Pt{b.X, b.Y}); e != "" {
+		t.Fatal(e)
+	}
+	railLegs := 0
+	for _, r := range u.PathRail {
+		if r {
+			railLegs++
+		}
+	}
+	if railLegs == 0 {
+		t.Skip("маршрут без рельсов")
+	}
+	run(w, 120) // свернулся, погрузился, поехал
+	for _, h := range hubs {
+		if h != a && h != b {
+			h.HP = 0
+		}
+	}
+	run(w, 24*60)
+	for _, r := range u.PathRail {
+		if r {
+			t.Fatal("после разрушения станций осталась рельсовая часть пути")
+		}
+	}
+	if len(u.Path) == 0 && dist(u.X, u.Y, b.X, b.Y) > 20 {
+		t.Fatalf("юнит остановился в %.0f км от цели", dist(u.X, u.Y, b.X, b.Y))
+	}
+}
