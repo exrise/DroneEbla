@@ -131,6 +131,8 @@ func New(cat *data.Catalog, m *world.MapData, sandbox bool) *World {
 func (w *World) Attach(cat *data.Catalog, m *world.MapData) {
 	w.cat, w.m = cat, m
 	w.dirMap = nil
+	w.bridgesOK = false
+	w.vcOK = false
 	w.rng = rand.New(rand.NewSource(w.Seed + int64(w.Time)))
 	for i := range w.depots {
 		w.depots[i] = nil

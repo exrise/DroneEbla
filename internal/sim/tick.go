@@ -1,6 +1,10 @@
 package sim
 
-import "github.com/exrise/droneebla/internal/data"
+import (
+	"strings"
+
+	"github.com/exrise/droneebla/internal/data"
+)
 
 // EffectiveSpeed — действующая скорость (меньшая из выбранных).
 func (w *World) EffectiveSpeed() int {
@@ -117,10 +121,16 @@ func (w *World) checkVictory() {
 	if w.Winner >= 0 || !w.War() {
 		return
 	}
-	if w.kyiv >= 0 && w.OwnerSide(w.kyiv) == data.RU {
-		w.Winner = data.RU
-		w.WinReason = "Киев взят"
-		return
+	if cities := w.victoryCities(); len(cities) > 0 {
+		all := true
+		for _, vc := range cities {
+			all = all && w.OwnerSide(vc.tile) == data.RU
+		}
+		if all {
+			w.Winner = data.RU
+			w.WinReason = "Взяты " + w.victoryNames()
+			return
+		}
 	}
 	// Украина: все территории, включая Крым. Тайлы суши, окружённые морем со всех четырёх сторон
 	// (узкие косы вроде Арабатской стрелки в сетке карты), фронт захватить не может — они не мешают.
@@ -143,4 +153,53 @@ func (w *World) attackableByLand(i int) bool {
 		}
 	})
 	return ok
+}
+
+type victoryCity struct {
+	name string
+	tile int
+}
+
+// victoryCities — города условия победы России (крупнейший город карты с таким именем).
+func (w *World) victoryCities() []victoryCity {
+	if w.vcOK {
+		return w.vc
+	}
+	w.vc, w.vcOK = nil, true
+	for _, name := range w.cat.Rules.RuVictoryCities {
+		best := -1
+		for ci, c := range w.m.Cities {
+			if c.Name == name && (best < 0 || c.Pop > w.m.Cities[best].Pop) {
+				best = ci
+			}
+		}
+		if best < 0 {
+			continue
+		}
+		c := w.m.Cities[best]
+		if i := w.tileOf(c.X, c.Y); i >= 0 {
+			w.vc = append(w.vc, victoryCity{name, i})
+		}
+	}
+	return w.vc
+}
+
+func (w *World) victoryNames() string {
+	var names []string
+	for _, vc := range w.victoryCities() {
+		names = append(names, vc.name)
+	}
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " и " + names[len(names)-1]
+}
+
+// VictoryCityView — город условия победы России и его владелец (для интерфейса).
+type VictoryCityView struct {
+	Name  string
+	Owner int // -1 — ничей
 }

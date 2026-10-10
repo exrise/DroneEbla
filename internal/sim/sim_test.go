@@ -1995,3 +1995,172 @@ func TestMigrateThreeDirections(t *testing.T) {
 		t.Fatalf("пополнения после миграции: %v", sd.DirAlloc)
 	}
 }
+
+// Крымский мост: пока цел — техника России проходит с материка в Крым, разрушен — нет пути; разрушение в пути останавливает юнит.
+func TestCrimeanBridgePassage(t *testing.T) {
+	w := newTestWorld(t)
+	var bridge *Building
+	for _, b := range w.Buildings {
+		if b.Name == "Крымский мост" {
+			bridge = b
+		}
+	}
+	if bridge == nil {
+		t.Fatal("нет Крымского моста")
+	}
+	if !w.BridgeOpen(bridge) {
+		t.Fatal("целый мост должен быть открыт для проезда")
+	}
+	sx, sy := w.m.Project(37.6, 45.2) // Краснодарский край
+	dx, dy := w.m.Project(34.1, 44.95)
+	u := w.addUnit("mfg_ru", data.RU, sx, sy)
+	u.State = UnitDeployed
+	if e := w.MoveUnit(data.RU, u.ID, Pt{dx, dy}); e != "" {
+		t.Fatalf("по целому мосту путь в Крым должен быть: %s", e)
+	}
+	hasBridge := false
+	for _, l := range w.bridgeLinks() {
+		ax, ay := w.m.TileCenter(l.a%w.m.W, l.a/w.m.W)
+		for _, p := range u.Path {
+			if dist(p.X, p.Y, ax, ay) < 1 {
+				hasBridge = true
+			}
+		}
+	}
+	if !hasBridge {
+		t.Fatal("путь в Крым идёт не через мост")
+	}
+	// Мост разрушен: пути нет.
+	bridge.HP = 0
+	if w.BridgeOpen(bridge) {
+		t.Fatal("разрушенный мост должен быть закрыт")
+	}
+	u2 := w.addUnit("mfg_ru", data.RU, sx, sy)
+	u2.State = UnitDeployed
+	if e := w.MoveUnit(data.RU, u2.ID, Pt{dx, dy}); e == "" {
+		t.Fatal("через разрушенный мост пути быть не должно")
+	}
+	// Мост разбит, пока юнит едет к нему: юнит останавливается у берега.
+	bridge.HP = bridge.MaxHP
+	u3 := w.addUnit("mfg_ru", data.RU, sx, sy)
+	u3.State = UnitDeployed
+	w.MoveUnit(data.RU, u3.ID, Pt{dx, dy})
+	run(w, 5)
+	bridge.HP = 0
+	w.sens.valid = false
+	for i := 0; i < 600 && len(u3.Path) > 0; i++ {
+		w.Step(1)
+	}
+	if u3.State == UnitMoving && len(u3.Path) > 0 {
+		t.Fatal("юнит продолжил путь через разрушенный мост")
+	}
+	if tile := w.tileOf(u3.X, u3.Y); w.OwnerSide(tile) != data.RU || w.m.Terrain[tile] != 1 {
+		t.Fatal("юнит оказался вне своей суши")
+	}
+	cut := false
+	for _, e := range w.Sides[data.RU].Events {
+		cut = cut || strings.Contains(e.Text, "Мост разрушен")
+	}
+	if !cut {
+		t.Fatal("о разрушении моста в пути нет сообщения")
+	}
+	cx, cy := w.m.Project(34.1, 44.95)
+	if dist(u3.X, u3.Y, cx, cy) < 30 {
+		t.Fatal("юнит добрался до Крыма через разрушенный мост")
+	}
+}
+
+// Победа России — только при удержании всех городов-миллионников одновременно.
+func TestRussiaNeedsAllCities(t *testing.T) {
+	w := newTestWorld(t)
+	w.Time = w.PrepEnd + 10
+	cities := w.victoryCities()
+	if len(cities) != 4 {
+		t.Fatalf("городов условия победы %d, ожидалось 4", len(cities))
+	}
+	for _, c := range cities[:3] {
+		w.Owner[c.tile] = uint8(data.RU + 1)
+	}
+	w.checkVictory()
+	if w.Winner != -1 {
+		t.Fatal("три города из четырёх — победы быть не должно")
+	}
+	w.Owner[cities[3].tile] = uint8(data.RU + 1)
+	w.checkVictory()
+	if w.Winner != data.RU {
+		t.Fatalf("все четыре города у России — победитель %d", w.Winner)
+	}
+}
+
+// Юнит на захваченном тайле отходит на свой тайл с уроном; в окружении гибнет.
+func TestUnitRetreat(t *testing.T) {
+	w := newTestWorld(t)
+	var tile = -1
+	for i, o := range w.Owner {
+		if o == uint8(data.UA+1) && w.m.Terrain[i] == 1 && w.m.Country[i] == 1 {
+			ok := true
+			w.neighbors4(i, func(j int) { ok = ok && w.Owner[j] == o })
+			if ok {
+				tile = i
+				break
+			}
+		}
+	}
+	if tile < 0 {
+		t.Skip("нет внутреннего тайла")
+	}
+	cx, cy := w.m.TileCenter(tile%w.m.W, tile/w.m.W)
+	u := w.addUnit("osa", data.UA, cx, cy)
+	hp := u.HP
+	w.Owner[tile] = uint8(data.RU + 1) // тайл захвачен, вокруг свои
+	w.retreat(u.ID, u, tile)
+	if _, ok := w.Units[u.ID]; !ok {
+		t.Fatal("юнит рядом со своими тайлами должен отойти, а не погибнуть")
+	}
+	if u.HP >= hp || w.OwnerSide(w.tileOf(u.X, u.Y)) != data.UA {
+		t.Fatalf("после отхода: HP %.0f из %.0f, владелец тайла %d", u.HP, hp, w.OwnerSide(w.tileOf(u.X, u.Y)))
+	}
+	// Вокруг только чужое — гибнет.
+	u2 := w.addUnit("osa", data.UA, cx, cy)
+	for i := range w.Owner {
+		if w.m.Terrain[i] == 1 {
+			w.Owner[i] = uint8(data.RU + 1)
+		}
+	}
+	w.retreat(u2.ID, u2, tile)
+	if _, ok := w.Units[u2.ID]; ok {
+		t.Fatal("в окружении юнит должен погибнуть")
+	}
+}
+
+// Режим огня ПВО фильтрует цели.
+func TestFireMode(t *testing.T) {
+	w := newTestWorld(t)
+	drone := w.cat.MunitionByID["shahed136"]
+	ball := w.cat.MunitionByID["iskander_m"]
+	if drone == nil || ball == nil {
+		t.Fatal("нет боеприпасов для проверки")
+	}
+	if !fireAllowed(0, drone) || !fireAllowed(0, ball) {
+		t.Fatal("режим 0 стреляет по всему")
+	}
+	if fireAllowed(1, drone) || !fireAllowed(1, ball) {
+		t.Fatal("режим 1 не стреляет по дронам")
+	}
+	if fireAllowed(2, drone) || !fireAllowed(2, ball) {
+		t.Fatal("режим 2 — только баллистика")
+	}
+	var ad *Unit
+	for _, u := range w.Units {
+		if u.Side == data.UA && w.cat.UnitByID[u.Type].Kind == "ad" {
+			ad = u
+			break
+		}
+	}
+	if e := w.Apply(Command{Kind: CmdFireMode, Side: data.UA, ID: ad.ID, Int: 2}); e != "" || ad.Fire != 2 {
+		t.Fatalf("команда режима огня: %q, режим %d", e, ad.Fire)
+	}
+	if e := w.Apply(Command{Kind: CmdFireMode, Side: data.RU, ID: ad.ID, Int: 1}); e == "" {
+		t.Fatal("чужой комплекс менять нельзя")
+	}
+}

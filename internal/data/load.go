@@ -97,6 +97,15 @@ func Load(override string) (*Catalog, error) {
 	if len(r.Directions) != 4 {
 		r.Directions = []DirAnchor{{"Киев", 30.8, 51.0}, {"Харьков", 36.5, 50.0}, {"Донбасс", 38.2, 48.2}, {"Крым", 35.0, 47.0}}
 	}
+	if len(r.RuVictoryCities) == 0 {
+		r.RuVictoryCities = []string{"Киев", "Харьков", "Одесса", "Днепр"}
+	}
+	if r.RetreatTiles <= 0 {
+		r.RetreatTiles, r.RetreatDamage = 4, 0.25
+	}
+	if r.BridgePassFrac <= 0 {
+		r.BridgePassFrac = 0.5
+	}
 	if r.BomberWarnMin <= 0 {
 		r.BomberWarnMin = 30
 	}

@@ -155,6 +155,23 @@ func (g *Game) tabFront(x, y, w int) int {
 	y = g.frontTable(x, y, w)
 	y = g.para("Позиция: О — оборона, А — активная оборона, Н — наступление.", x, y, w, colDim)
 	y += 6
+	if len(v.VictoryCities) > 0 {
+		y = g.header("Победа России", x, y)
+		y = g.para("Нужно одновременно удерживать все города:", x, y, w, colDim)
+		for _, vc := range v.VictoryCities {
+			who, c := "у Украины", colGood
+			if vc.Owner == data.RU {
+				who, c = "у России", colBad
+			}
+			if v.Side == data.RU && vc.Owner == data.RU {
+				c = colGood
+			} else if v.Side == data.RU {
+				c = colText
+			}
+			y = g.kv(vc.Name, who, x, y, w, c)
+		}
+		y += 6
+	}
 	y = g.header("Мораль", x, y)
 	y = g.para(g.moraleEffects(), x, y, w, colDim)
 	{

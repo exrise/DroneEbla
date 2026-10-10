@@ -125,6 +125,13 @@ func (w *World) findPath(s int, from, to Pt, roadKmh, offKmh float64, useRail bo
 	open := &pq{{start, h(start)}}
 	closed := make([]bool, nodes)
 	goalNode := goal
+	// Открытые мосты с проездом: ребро между концами для пешей части поиска.
+	bridgeTo := map[int]int{}
+	for _, l := range w.bridgeLinks() {
+		if w.bridgeOpen(s, l) {
+			bridgeTo[l.a], bridgeTo[l.b] = l.b, l.a
+		}
+	}
 	relax := func(from, to int, cost float64) {
 		ng := g[from] + float32(cost)
 		if ng < g[to] {
@@ -153,6 +160,13 @@ func (w *World) findPath(s int, from, to Pt, roadKmh, offKmh float64, useRail bo
 			}
 			if train && board[i] {
 				relax(node, i, rules.RailAlightMin/60)
+			}
+		}
+		if !train {
+			if j, ok := bridgeTo[i]; ok && !closed[j] {
+				bx, by := m.TileCenter(i%m.W, i/m.W)
+				cx, cy := m.TileCenter(j%m.W, j/m.W)
+				relax(node, j, dist(bx, by, cx, cy)/roadKmh)
 			}
 		}
 		for dy := -1; dy <= 1; dy++ {
@@ -310,6 +324,9 @@ func (w *World) units(dtMin float64) {
 				u.State = UnitDeployed
 			}
 		case UnitMoving:
+			if w.deadBridgeAhead(u) {
+				w.bridgeCut(u, ut)
+			}
 			left := dtMin
 			for left > 0 && len(u.Path) > 0 {
 				t := u.Path[0]
@@ -363,6 +380,19 @@ func (w *World) railCut(u *Unit, ut *data.UnitType) {
 		return
 	}
 	u.Path, u.PathRail, u.PathWait = path, rail, wait
+}
+
+// bridgeCut пересчитывает путь юнита, когда мост впереди разрушен; нет другого пути — юнит останавливается у берега.
+func (w *World) bridgeCut(u *Unit, ut *data.UnitType) {
+	dest := u.Path[len(u.Path)-1]
+	path, rail, wait := w.findPath(u.Side, Pt{u.X, u.Y}, dest, ut.SpeedRoad, ut.SpeedOff, true)
+	if path == nil {
+		u.Path, u.PathRail, u.PathWait = nil, nil, nil
+		w.LogAt(u.Side, 2, "Мост разрушен, пути нет: "+ut.Name+" остановлена у берега", u.X, u.Y)
+		return
+	}
+	u.Path, u.PathRail, u.PathWait = path, rail, wait
+	w.LogAt(u.Side, 2, "Мост разрушен: "+ut.Name+" идёт в обход", u.X, u.Y)
 }
 
 // reloadAD — перезарядка пусковых ПВО из национального запаса.

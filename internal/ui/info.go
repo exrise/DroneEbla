@@ -203,6 +203,17 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 		}
 		y = g.kv("Снабжает направление", sim.DirNames[d], x, y, w, colText)
 	}
+	if bt.ID == "bridge" {
+		for _, o := range g.cat.Objects {
+			if o.Type == "bridge" && o.Name == b.Name && len(o.Link) == 2 {
+				open, c := "открыт", colGood
+				if b.HP < b.MaxHP*g.cat.Rules.BridgePassFrac {
+					open, c = "закрыт (разрушен)", colBad
+				}
+				y = g.kv("Проход для техники", open, x, y, w, c)
+			}
+		}
+	}
 	if bt.Untargetable {
 		y = g.para("Объект защищён от ударов правилами игры.", x, y, w, colDim)
 	}
@@ -267,6 +278,7 @@ func (g *Game) unitInfo(un *sim.Unit, x, y, w int) {
 			y = g.kv("Боеприпасы", "общий запас", x, y, w, colText)
 		}
 		y = g.kv("Поражение низких / высоких", fmt.Sprintf("%.0f%% / %.0f%%", ut.PkLow*100, ut.PkHigh*100), x, y, w, colText)
+		y = g.fireModeButtons([]uint32{un.ID}, un.Fire, x, y, w)
 	case "radar":
 		y = g.kv("Дальность обнаружения", fmt.Sprintf("%.0f км", ut.RadarKm), x, y, w, colText)
 	case "reb":
@@ -746,4 +758,26 @@ func (g *Game) drawPlacementPanel() {
 		st, c = "Противник готов", colGood
 	}
 	drawText(u.screen, st, float64(px), float64(py+42), 13, c, 0)
+}
+
+// fireModeNames — режимы огня ПВО.
+var fireModeNames = [3]string{"Все цели", "Без дронов", "Баллистика"}
+
+const fireModeTip = "Режим огня комплекса ПВО. «Все цели» — по всему, что видит. «Без дронов» — не тратить ракеты на дроны, разведчиков и ложные цели (дорогие ракеты берегутся для ракет и авиации). «Баллистика» — только по баллистическим ракетам."
+
+// fireModeButtons рисует переключатель режима огня для группы комплексов ПВО; cur — текущий режим (первого).
+func (g *Game) fireModeButtons(ids []uint32, cur int, x, y, w int) int {
+	u := &g.ui
+	bw := (w - 8) / 3
+	u.rowSize = fitRow(fireModeNames[:], bw, 24)
+	for m := 0; m < 3; m++ {
+		if u.ButtonState(x+m*(bw+4), y, bw, 24, fireModeNames[m], cur == m, true) {
+			for _, id := range ids {
+				g.sess.Send(sim.Command{Kind: sim.CmdFireMode, ID: id, Int: m})
+			}
+		}
+	}
+	u.rowSize = 0
+	u.Tooltip(x, y, w, 24, fireModeTip)
+	return y + 30
 }

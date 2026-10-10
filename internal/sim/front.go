@@ -322,8 +322,7 @@ func (w *World) captureTile(i, s int) {
 	}
 	for id, u := range w.Units {
 		if u.Side != s && w.tileOf(u.X, u.Y) == i {
-			w.LogAt(u.Side, 2, "Юнит уничтожен при отступлении: "+w.cat.UnitByID[u.Type].Name, u.X, u.Y)
-			delete(w.Units, id)
+			w.retreat(id, u, i)
 			delete(w.Sides[s].Known, id) // старая метка на захваченной территории не нужна
 		}
 	}
@@ -383,4 +382,41 @@ func (w *World) frontSummary(step float64) {
 			w.Log(s, lvl, "Фронт за час — "+text)
 		}
 	}
+}
+
+// retreat отводит юнит с захваченного противником тайла на ближайший свой в радиусе retreat_tiles
+// (с потерей части прочности); если своего тайла рядом нет (окружение) — юнит гибнет.
+func (w *World) retreat(id uint32, u *Unit, from int) {
+	r := w.cat.Rules
+	ut := w.cat.UnitByID[u.Type]
+	fx, fy := from%w.m.W, from/w.m.W
+	best, bd := -1, math.Inf(1)
+	for dy := -r.RetreatTiles; dy <= r.RetreatTiles; dy++ {
+		for dx := -r.RetreatTiles; dx <= r.RetreatTiles; dx++ {
+			if !w.m.In(fx+dx, fy+dy) {
+				continue
+			}
+			j := w.m.Idx(fx+dx, fy+dy)
+			if w.m.Terrain[j] != 1 || w.OwnerSide(j) != u.Side {
+				continue
+			}
+			if d := float64(dx*dx + dy*dy); d < bd {
+				best, bd = j, d
+			}
+		}
+	}
+	u.HP -= ut.HP * r.RetreatDamage
+	if best < 0 || u.HP <= 0 {
+		w.LogAt(u.Side, 2, "Юнит уничтожен при отступлении: "+ut.Name, u.X, u.Y)
+		delete(w.Units, id)
+		w.sens.valid = false
+		return
+	}
+	cx, cy := w.m.TileCenter(best%w.m.W, best/w.m.W)
+	w.LogAt(u.Side, 2, "Юнит отошёл с потерянной позиции: "+ut.Name, cx, cy)
+	u.X, u.Y = cx, cy
+	u.Path, u.PathRail, u.PathWait = nil, nil, nil
+	u.State, u.Timer = UnitDeploying, ut.DeployMin
+	u.Busy = 0
+	w.sens.valid = false
 }

@@ -52,9 +52,10 @@ const (
 	CmdMainEffort = "main_effort"
 	CmdSurrender  = "surrender"
 	CmdPropaganda = "propaganda"
-	CmdPlace      = "place"   // Item — тип из резерва, X, Y — точка
-	CmdUnplace    = "unplace" // ID — поставленный объект возвращается в резерв
-	CmdReady      = "ready"   // Int 1/0 — готовность к старту
+	CmdPlace      = "place"     // Item — тип из резерва, X, Y — точка
+	CmdUnplace    = "unplace"   // ID — поставленный объект возвращается в резерв
+	CmdFireMode   = "fire_mode" // ID — комплекс ПВО, Int — режим огня 0–2
+	CmdReady      = "ready"     // Int 1/0 — готовность к старту
 )
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
@@ -226,6 +227,12 @@ func (w *World) apply(c Command) string {
 				sd.DirPosture[d] = p
 			}
 		}
+	case CmdFireMode:
+		u, ok := w.Units[c.ID]
+		if !ok || u.Side != s || w.cat.UnitByID[u.Type].Kind != "ad" {
+			return "Это не ваш комплекс ПВО"
+		}
+		u.Fire = int(clamp(float64(c.Int), 0, 2))
 	case CmdMainEffort:
 		if c.Int == 0 {
 			sd.HasMain = false

@@ -127,6 +127,9 @@ func (w *World) airDefense(dtMin float64) {
 			if m.Class == "low" && ut.PkLow <= 0 || m.Class == "high" && ut.PkHigh <= 0 {
 				continue
 			}
+			if !fireAllowed(u.Fire, m) {
+				continue
+			}
 			limit := 1
 			if m.Class == "high" {
 				limit = 2
@@ -298,4 +301,16 @@ func (w *World) sensors() *sensorIndex {
 		}
 	}
 	return idx
+}
+
+// fireAllowed — разрешает ли режим огня комплекса стрелять по этой цели: 1 — без дронов, разведчиков и ложных целей
+// (берегут дорогие ракеты), 2 — только баллистика.
+func fireAllowed(mode int, m *data.MunitionType) bool {
+	switch mode {
+	case 1:
+		return m.Kind != "drone" && m.Kind != "decoy" && m.Kind != "recon"
+	case 2:
+		return m.Kind == "ballistic"
+	}
+	return true
 }

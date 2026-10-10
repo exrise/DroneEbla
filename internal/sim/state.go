@@ -83,6 +83,7 @@ type Unit struct {
 	Ready     float64   // ПВО: ракет на пусковых
 	FlashTill float64   // засветка после залпа
 	Placed    bool      // поставлен игроком на экране расстановки
+	Fire      int       // режим огня ПВО: 0 — по всем целям, 1 — без дронов и ложных целей, 2 — только баллистика
 }
 
 // Projectile — летящий боеприпас или БПЛА.
@@ -307,6 +308,10 @@ type World struct {
 	sens        sensorIndex
 	dirMap      []uint8 // направление фронта каждого тайла
 	dirPts      []Pt
+	bridges     []bridgeLink // мосты с проездом техники (кэш)
+	bridgesOK   bool
+	vc          []victoryCity
+	vcOK        bool
 	nextVictory float64 // не проверять условия победы до этого времени (сбрасывается захватом тайла)
 }
 

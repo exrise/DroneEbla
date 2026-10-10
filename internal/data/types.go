@@ -365,6 +365,8 @@ type Object struct {
 	Lon  float64 `json:"lon"`
 	Lat  float64 `json:"lat"`
 	Dir  int     `json:"dir"` // для мостов и узлов: направление (-1 — авто)
+	// Link — для моста с проездом техники: два конца [lon, lat] на разных берегах; пока мост цел, юниты проходят между ними.
+	Link [][2]float64 `json:"link"`
 	// Scale — множитель выпуска (0 — как 1): мощность комбината, включая то, что за краем карты.
 	Scale float64 `json:"scale"`
 	// Aircraft — своё число самолётов у объекта (перекрывает значения типа по ключам).
@@ -435,6 +437,10 @@ type Rules struct {
 	SellRate            map[string]float64 `json:"sell_rate"`              // курс продажи излишков: ключ ресурса → денег за единицу
 	Directions          []DirAnchor        `json:"directions"`             // опорные точки четырёх направлений фронта (Киев, Харьков, Донбасс, Крым)
 	BomberWarnMin       float64            `json:"bomber_warn_min"`        // предупреждение о взлёте стратегической авиации — не чаще раза за столько игровых минут
+	RuVictoryCities     []string           `json:"ru_victory_cities"`      // города, которые Россия должна удерживать одновременно для победы
+	RetreatTiles        int                `json:"retreat_tiles"`          // радиус отхода юнита с захваченного тайла
+	RetreatDamage       float64            `json:"retreat_damage"`         // доля прочности, теряемая при отступлении
+	BridgePassFrac      float64            `json:"bridge_pass_frac"`       // мост пропускает технику, пока его HP не ниже этой доли
 	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
 	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение
 	RailKmh             float64            `json:"rail_kmh"`               // скорость юнита в эшелоне по ж/д, км/ч
