@@ -1743,6 +1743,9 @@ func TestStocksAndImports(t *testing.T) {
 	ru := w.Sides[data.RU]
 	ru.Res[data.ResMoney] = 3000
 	ru.Researched["ru_parallel_import"] = true
+	ru.Effects["storage_cap"] = 10 // склады не мешают проверке закупок
+	run(w, 1)
+	ru.Res[data.ResMoney] = 3000
 	before := len(ru.Deliveries)
 	if e := w.Apply(Command{Kind: CmdImport, Side: data.RU, Item: "ru_imp_elec", Count: 5}); e != "" {
 		t.Fatal(e)
@@ -2556,5 +2559,93 @@ func TestIndustryShareIncome(t *testing.T) {
 	}
 	if ru.Income > base*0.8 {
 		t.Fatalf("доход после потери промышленности %.1f, до того %.1f", ru.Income, base)
+	}
+}
+
+// Склады: ресурс сверх вместимости сгорает, закупка, которая не поместится, отклоняется, заказы стоят при полном арсенале,
+// а удар по арсеналу сжигает излишек.
+func TestStorage(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	capFuel := ru.StorageCap["fuel"]
+	if capFuel < 500 {
+		t.Fatalf("у России должны быть нефтебазы: вместимость топлива %.0f", capFuel)
+	}
+	ru.Res[data.ResFuel] = capFuel * 3
+	run(w, 5)
+	if ru.Res[data.ResFuel] > capFuel*1.01 {
+		t.Fatalf("топливо %.0f выше вместимости %.0f", ru.Res[data.ResFuel], capFuel)
+	}
+	// закупка электроники, которая не поместится, отклоняется
+	ru.Researched["ru_parallel_import"] = true
+	ru.Res[data.ResMoney] = 5000
+	ru.Res[data.ResElectronics] = ru.StorageCap["electronics"]
+	if e := w.Apply(Command{Kind: CmdImport, Side: data.RU, Item: "ru_imp_elec", Count: 1}); e == "" || !strings.Contains(e, "Склады") {
+		t.Fatalf("закупка сверх вместимости должна отклоняться, а %q", e)
+	}
+	// полный арсенал стопорит заказ
+	ru.Orders = []Order{{Item: "kalibr", Remaining: -1}}
+	ru.Unlocked["kalibr"] = true
+	ru.Res = data.Res{1e9, 1e9, 1e9, 1e9, 1e9}
+	ru.Stocks["kalibr"] += ru.StorageCap["arsenal"] // заведомо больше вместимости
+	for i := 0; i < 50; i++ {
+		w.production(data.RU, 0.2)
+	}
+	if !ru.Orders[0].Stalled || !ru.Orders[0].Full {
+		t.Fatalf("заказ при полном арсенале должен стоять с пометкой «полон»: %+v", ru.Orders[0])
+	}
+	// удар по арсеналам: вместимость падает, излишек сгорает
+	ru.Stocks["kalibr"] = 0
+	ru.Orders = nil
+	run(w, 1)
+	used := w.ArsenalUsed(data.RU)
+	for _, b := range w.Buildings {
+		if b.Side == data.RU && b.Type == "arsenal" {
+			b.HP = 0
+		}
+	}
+	run(w, 1)
+	if w.ArsenalUsed(data.RU) > ru.StorageCap["arsenal"]+1 || w.ArsenalUsed(data.RU) >= used {
+		t.Fatalf("после разрушения арсеналов занято %.0f при вместимости %.0f (было %.0f)", w.ArsenalUsed(data.RU), ru.StorageCap["arsenal"], used)
+	}
+}
+
+// Поставки идут через пункты въезда: без ж/д узлов рядом с ними срок растёт, а при полном параличе поставка ждёт.
+func TestImportLogistics(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	if k := w.ImportLogistics(data.UA); k < 0.99 {
+		t.Fatalf("на старте логистика должна быть полной, а %.2f", k)
+	}
+	ua.Effects["storage_cap"] = 10
+	run(w, 1)
+	ua.Res[data.ResMoney] = 5000
+	ua.Res[data.ResElectronics] = 0
+	base := w.Time
+	if e := w.Apply(Command{Kind: CmdImport, Side: data.UA, Item: "ua_imp_elec", Count: 1}); e != "" {
+		t.Fatal(e)
+	}
+	fast := ua.Deliveries[len(ua.Deliveries)-1].At - base
+	for _, b := range w.Buildings {
+		if b.Side == data.UA && b.Type == "rail_hub" {
+			b.HP = 0
+		}
+	}
+	k := w.ImportLogistics(data.UA)
+	if k >= 0.99 {
+		t.Fatalf("после разрушения узлов логистика %.2f, ждали падения", k)
+	}
+	base = w.Time
+	if e := w.Apply(Command{Kind: CmdImport, Side: data.UA, Item: "ua_imp_elec", Count: 1}); e != "" {
+		t.Fatal(e)
+	}
+	slow := ua.Deliveries[len(ua.Deliveries)-1].At - base
+	if slow <= fast*1.05 {
+		t.Fatalf("срок поставки не вырос: %.0f мин при логистике 1 и %.0f при %.2f", fast, slow, k)
+	}
+	if importDelayK(1) != 1 || importDelayK(0) < 3 {
+		t.Fatalf("множитель срока: %.2f при k=1, %.2f при k=0", importDelayK(1), importDelayK(0))
 	}
 }

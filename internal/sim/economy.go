@@ -222,6 +222,7 @@ func (w *World) economy(dtH float64) {
 		def := w.cat.Sides[s]
 		var delta data.Res
 		before := sd.Res
+		sd.StorageCap = w.storageCaps(s)
 
 		// Доходы: база, города, экспорт.
 		income := def.BaseIncome
@@ -345,6 +346,7 @@ func (w *World) economy(dtH float64) {
 				sd.Res[i] = 0
 			}
 		}
+		w.clampStorage(s)
 		// Людской поток на фронт.
 		if w.War() && sd.People > 0 {
 			men := math.Min(def.MenStream*(1+sd.eff("men_stream"))*dtH, sd.People)
@@ -354,6 +356,7 @@ func (w *World) economy(dtH float64) {
 		}
 
 		w.production(s, dtH)
+		w.enforceArsenal(s)
 		w.construction(s, dtH)
 		w.research(s, dtH)
 		w.deliveries(s)
@@ -445,10 +448,15 @@ func (w *World) production(s int, dtH float64) {
 		} else if !o.Stalled && count[cat] > 0 {
 			o.Progress += sd.Capacity[cat] * dtH / float64(count[cat])
 		}
-		o.Stalled = false
+		o.Stalled, o.Full = false, false
 		for o.Progress >= pts && o.Remaining != 0 {
 			if !w.storageOK(s, o.Item) {
 				o.Stalled = true
+				o.Progress = pts
+				break
+			}
+			if w.arsenalBlocks(s, o.Item) {
+				o.Stalled, o.Full = true, true
 				o.Progress = pts
 				break
 			}
@@ -760,6 +768,16 @@ func (w *World) deliveries(s int) {
 	keep := sd.Deliveries[:0]
 	for _, d := range sd.Deliveries {
 		if w.Time >= d.At {
+			// Пункты въезда без энергии и ж/д узлов не принимают грузы: поставка ждёт, пока логистика не восстановится.
+			if k := w.importLogistics(s); k < importBlockK {
+				d.At = w.Time + 60
+				if !d.Held {
+					d.Held = true
+					w.Log(s, 2, "Поставка задержана: пункты въезда без энергии и железной дороги — "+d.Name)
+				}
+				keep = append(keep, d)
+				continue
+			}
 			w.deliver(s, d.Item, d.Amount, "entry")
 			w.Log(s, 1, "Поставка прибыла: "+d.Name)
 		} else {

@@ -306,6 +306,8 @@ func (a *AI) buildWhen(v *sim.View, when string) bool {
 	switch when {
 	case "power_low":
 		return v.Power[0] < v.Power[1]*1.3 || v.Blackout > 0.03
+	case "arsenal_high":
+		return v.StorageCap["arsenal"] > 0 && v.ArsenalUsed > 0.85*v.StorageCap["arsenal"]
 	}
 	return true
 }

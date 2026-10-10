@@ -64,6 +64,18 @@
    "desc": "Логистический узел направления."},
 
   {"id": "rail_station", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "cost": {"money": 8, "steel": 8}, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
+  {"id": "fuel_depot", "repair_hours": 30, "name": "Нефтебаза и склад металла", "short": "НБ", "hp": 120, "industry": 1,
+   "cost": {"money": 400, "steel": 80}, "build_hours": 96, "power": -3, "storage": {"fuel": 300, "steel": 300}, "buildable": ["ru", "ua"],
+   "desc": "Хранит топливо и сталь. Запас сверх общей вместимости складов пропадает; при разрушении склада теряется часть запаса."},
+
+  {"id": "ammo_depot", "repair_hours": 30, "name": "Склад боеприпасов и электроники", "short": "СБЭ", "hp": 120, "industry": 1,
+   "cost": {"money": 400, "steel": 80}, "build_hours": 96, "power": -3, "storage": {"ammo": 400, "electronics": 100}, "buildable": ["ru", "ua"],
+   "desc": "Хранит снаряды и электронику. Запас сверх общей вместимости пропадает; при разрушении склада теряется часть запаса."},
+
+  {"id": "arsenal", "key": true, "repair_hours": 48, "name": "Арсенал", "short": "АРС", "hp": 200, "industry": 2,
+   "cost": {"money": 800, "steel": 120, "electronics": 20}, "build_hours": 144, "power": -5, "storage": {"arsenal": 3500}, "buildable": ["ru", "ua"],
+   "desc": "Хранит ракеты, дроны и зенитные ракеты. Пока арсенал полон, заказы на ракеты и дроны стоят; при разрушении теряется часть запаса."},
+
   {"id": "depot", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
    "cost": {"money": 15, "steel": 10}, "build_hours": 18, "buildable": ["ru", "ua"],
    "desc": "Полевой склад: добавляет снабжение ближайшему направлению."},

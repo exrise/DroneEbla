@@ -166,6 +166,7 @@ type BuildingType struct {
 	NearKm       float64            `json:"near_km"`
 	NeedCityKm   float64            `json:"need_city_km"`  // строить не дальше этого расстояния от своего города (0 — где угодно)
 	TaxH         float64            `json:"tax_h"`         // налоги: денег в час при целом здании (с множителем scale)
+	Storage      map[string]float64 `json:"storage"`       // вместимость склада: fuel, steel, ammo, electronics (единицы) и arsenal (очки мощности боеприпасов)
 	Industry     float64            `json:"industry"`      // вес предприятия в «здоровье промышленности», от которого зависит часть дохода
 	NeedWaterKm  float64            `json:"need_water_km"` // строить не дальше этого расстояния от реки, озера или моря (0 — где угодно)
 	Research     float64            `json:"research"`      // очки исследований в час
@@ -544,6 +545,7 @@ type Rules struct {
 	RuVictoryCities     []string           `json:"ru_victory_cities"`      // города, которые Россия должна удерживать одновременно для победы
 	RetreatTiles        int                `json:"retreat_tiles"`          // радиус отхода юнита с захваченного тайла
 	RetreatDamage       float64            `json:"retreat_damage"`         // доля прочности, теряемая при отступлении
+	StorageBase         map[string]float64 `json:"storage_base"`           // вместимость без складов (полевые запасы)
 	IndustryShare       float64            `json:"industry_share"`         // доля дохода, зависящая от здоровья промышленности (0..1)
 	CityMinPop          int                `json:"city_min_pop"`           // город, возле которого строят заводы (население не меньше)
 	BridgePassFrac      float64            `json:"bridge_pass_frac"`       // мост пропускает технику, пока его HP не ниже этой доли

@@ -372,10 +372,16 @@ func (w *World) buyImport(s int, id string, n int) string {
 		}
 		price := w.ImportPrice(s, im)
 		bought := 0
+		if ok, why := w.importFits(s, im); !ok {
+			return why
+		}
 		for bought < n && w.ImportAvailable(s, im) && sd.Res[data.ResMoney] >= price {
+			if ok, _ := w.importFits(s, im); !ok {
+				break
+			}
 			sd.Res[data.ResMoney] -= price
 			sd.ImportCount[im.ID]++
-			sd.Deliveries = append(sd.Deliveries, Delivery{Name: im.Name, Item: im.Item, Amount: im.Amount, At: w.Time + im.DelayH*60})
+			sd.Deliveries = append(sd.Deliveries, Delivery{Name: im.Name, Item: im.Item, Amount: im.Amount, At: w.Time + im.DelayH*60*importDelayK(w.importLogistics(s))})
 			bought++
 		}
 		if bought == 0 {
@@ -431,6 +437,9 @@ func (w *World) autoImportTick(s int) {
 		}
 		price := w.ImportPrice(s, im)
 		if pending || have >= im.AutoBelow || sd.Res[data.ResMoney] < price+AutoImportReserve(r, sd.Income) {
+			continue
+		}
+		if ok, _ := w.importFits(s, im); !ok {
 			continue
 		}
 		sd.AutoImportAt[im.ID] = w.Time

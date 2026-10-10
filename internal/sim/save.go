@@ -86,7 +86,30 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 		w.Projs = map[uint32]*Projectile{}
 	}
 	w.Attach(cat, m)
+	w.migrateStorage()
 	return &w, nil
+}
+
+// migrateStorage: в сохранении из версии без складов стартовые склады берутся из данных, иначе запасы сгорели бы.
+func (w *World) migrateStorage() {
+	for _, b := range w.Buildings {
+		if bt := w.cat.BuildingByID[b.Type]; bt != nil && len(bt.Storage) > 0 {
+			return
+		}
+	}
+	for _, o := range w.cat.Objects {
+		bt := w.cat.BuildingByID[o.Type]
+		if bt == nil || len(bt.Storage) == 0 {
+			continue
+		}
+		x, y := w.m.Project(o.Lon, o.Lat)
+		side := w.sideAtPoint(x, y)
+		if side < 0 {
+			continue
+		}
+		b := w.addBuilding(o.Type, side, x, y, 1)
+		b.Name, b.Prewar, b.Dir, b.Scale = o.Name, true, -1, o.Scale
+	}
 }
 
 // ensure восстанавливает пустые карты после декодирования gob.

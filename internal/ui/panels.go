@@ -706,6 +706,18 @@ func (g *Game) tabImport(x, y, w int) int {
 		y = g.para(fmt.Sprintf("Из-за санкций импорт дороже на %.0f%%.", k*100), x, y, w, colWarn)
 		y += 4
 	}
+	{
+		lc, lt := colGood, "полная"
+		switch {
+		case v.ImportK < 0.15:
+			lc, lt = colBad, "парализована: поставки стоят"
+		case v.ImportK < 0.95:
+			lc, lt = colWarn, fmt.Sprintf("%.0f%%, сроки ×%.1f", v.ImportK*100, 1/(0.3+0.7*v.ImportK))
+		}
+		y = g.kv("Логистика пунктов въезда", lt, x, y, w, lc)
+		u.Tooltip(x, y-20, w, 20, "Поставки идут через пункты въезда. Проходимость = энергия в области пункта и целые ж/д узлы рядом. Чем она ниже, тем дольше доставка; ниже 15% грузы не принимаются.")
+		y += 4
+	}
 	for _, im := range g.cat.Sides[v.Side].Imports {
 		ok := true
 		if im.Requires != "" && !v.Researched[im.Requires] {

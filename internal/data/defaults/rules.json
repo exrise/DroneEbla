@@ -72,6 +72,7 @@
   "research_base": 1.0,
   "research_fund_cost": 6,
   "industry_share": 0.35,
+  "storage_base": {"fuel": 100, "steel": 100, "ammo": 100, "electronics": 40, "arsenal": 800},
   "trophy_points": 3,
   "experience_points": 0.5,
   "morale_blackout": 0.15,

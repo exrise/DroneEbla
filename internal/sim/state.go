@@ -153,6 +153,7 @@ type Order struct {
 	Remaining int // -1 — непрерывно
 	Progress  float64
 	Stalled   bool
+	Full      bool // стоит из-за полного арсенала
 }
 
 // Delivery — ожидаемая поставка.
@@ -161,6 +162,7 @@ type Delivery struct {
 	Item   string
 	Amount float64
 	At     float64
+	Held   bool // поставка задержана из-за разрушенной логистики пункта въезда (в журнал пишется один раз)
 }
 
 // Event — запись журнала.
@@ -195,83 +197,87 @@ type Capture struct {
 
 // Side — состояние стороны.
 type Side struct {
-	Res          data.Res
-	Rates        data.Res
-	Morale       float64
-	People       float64
-	LaborLoss    float64
-	Stocks       map[string]float64
-	Storage      data.FrontPool
-	Dirs         [NumDir]Direction // силы по направлениям (Киев, Харьков, Донбасс, Крым)
-	DirAlloc     [NumDir]float64   // доли пополнения по направлениям
-	DirsSet      bool              // Dirs заполнены (иначе мигрируем из старых Front/Alloc/PostureDir на три направления)
-	Front        [3]Direction      // устарело: три направления старых сохранений
-	Alloc        [3]float64        // устарело
-	Posture      int               // устарело: позиция всего фронта (старые сохранения)
-	DirPosture   [NumDir]int       // позиция по направлениям
-	PostureDir   [3]int            // устарело: позиции на трёх направлениях старых сохранений
-	PostureSet   bool              // PostureDir заполнена (иначе мигрируем из Posture)
-	HasMain      bool
-	MainX        float64
-	MainY        float64
-	Orders       []Order
-	Capacity     map[string]float64
-	Unlocked     map[string]bool
-	Researched   map[string]bool
-	Research     string
-	Progress     map[string]float64
-	Bonus        map[string]float64 // очки трофеев и опыта по веткам
-	ResRate      float64
-	ResFund      int
-	AgentFund    bool
-	AgentTimer   float64
-	Effects      map[string]float64
-	Deliveries   []Delivery
-	ImportCount  map[string]int
-	AidDone      map[string]bool
-	MobUsed      map[string]int
-	MobReady     map[string]float64
-	PropReady    float64              // время, с которого доступна следующая кампания
-	MoraleHist   map[string][]float64 // время недавних успехов по видам (убывающая отдача)
-	CitySeen     map[int]int          // сколько раз сторона брала город
-	MissionSeen  map[string][]uint32  // задание → здания, уже засчитанные в прогресс
-	MissionFail  map[string]bool      // задания, которые уже не выполнить
-	StartAD      int                  // число комплексов тяжёлой ПВО на начало войны (для помощи «замена ПВО»)
-	KeepStock    map[string]bool      // автозаказ ЗУР: держать запас (id боеприпаса)
-	LowAlert     map[string]int       // предупреждения о запасе ЗУР: 1 — мало, 2 — кончились
-	AutoImport   map[string]bool      // включена автозакупка предложения (по id)
-	AutoImportAt map[string]float64   // когда автозакупка срабатывала в последний раз
-	AirOpen      map[string]bool      // открытые для ударов стороны пакеты воздушного пространства
-	SanctionOn   map[string]bool      // введённые против стороны пакеты санкций
-	SanctionAt   map[string]float64   // когда введён пакет (игровые минуты)
-	Posts        []Post               // отложенные подтверждения прилётов в соцсетях
-	Reserve      map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
-	Hints        []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
-	PalSub       bool                 // подписка на «ИИ Палантир»
-	PalLast      PalRequest           // последний удар через «Палантир» (для «Повторить»)
-	PalPreview   PalPreview           // последний рассчитанный план
-	PalSuggest   []PalProposal        // предложения ударов «Палантира»
-	PalSuggestAt float64
-	IndustryBase float64     // вес промышленности стороны на начало партии (знаменатель «здоровья»)
-	IncomeParts  IncomeParts // из чего сложился доход на последнем шаге (для интерфейса и диагностики)
-	PalPaused    bool        // подписка приостановлена: не хватило денег на плату (возобновится сама)
-	PalWarned    bool        // предупреждение о скором исчерпании денег уже показано
-	palCacheAt   float64
-	palCacheEp   uint64
-	palPlanAt    float64
-	palPlanEp    uint64
-	Ready        bool // расстановка завершена
-	Known        map[uint32]*Contact
-	SeenAt       []float32 // время последнего наблюдения тайла
-	Events       []Event
-	Speed        int
-	Pausing      bool
-	PauseLeft    float64
-	LossAcc      float64
-	Blackout     float64 // доля населения без света
-	RegionPower  map[int]float64
-	Power        [2]float64 // генерация, потребление
-	Income       float64
+	Res            data.Res
+	Rates          data.Res
+	Morale         float64
+	People         float64
+	LaborLoss      float64
+	Stocks         map[string]float64
+	Storage        data.FrontPool
+	Dirs           [NumDir]Direction // силы по направлениям (Киев, Харьков, Донбасс, Крым)
+	DirAlloc       [NumDir]float64   // доли пополнения по направлениям
+	DirsSet        bool              // Dirs заполнены (иначе мигрируем из старых Front/Alloc/PostureDir на три направления)
+	Front          [3]Direction      // устарело: три направления старых сохранений
+	Alloc          [3]float64        // устарело
+	Posture        int               // устарело: позиция всего фронта (старые сохранения)
+	DirPosture     [NumDir]int       // позиция по направлениям
+	PostureDir     [3]int            // устарело: позиции на трёх направлениях старых сохранений
+	PostureSet     bool              // PostureDir заполнена (иначе мигрируем из Posture)
+	HasMain        bool
+	MainX          float64
+	MainY          float64
+	Orders         []Order
+	Capacity       map[string]float64
+	Unlocked       map[string]bool
+	Researched     map[string]bool
+	Research       string
+	Progress       map[string]float64
+	Bonus          map[string]float64 // очки трофеев и опыта по веткам
+	ResRate        float64
+	ResFund        int
+	AgentFund      bool
+	AgentTimer     float64
+	Effects        map[string]float64
+	Deliveries     []Delivery
+	ImportCount    map[string]int
+	AidDone        map[string]bool
+	MobUsed        map[string]int
+	MobReady       map[string]float64
+	PropReady      float64              // время, с которого доступна следующая кампания
+	MoraleHist     map[string][]float64 // время недавних успехов по видам (убывающая отдача)
+	CitySeen       map[int]int          // сколько раз сторона брала город
+	MissionSeen    map[string][]uint32  // задание → здания, уже засчитанные в прогресс
+	MissionFail    map[string]bool      // задания, которые уже не выполнить
+	StartAD        int                  // число комплексов тяжёлой ПВО на начало войны (для помощи «замена ПВО»)
+	KeepStock      map[string]bool      // автозаказ ЗУР: держать запас (id боеприпаса)
+	LowAlert       map[string]int       // предупреждения о запасе ЗУР: 1 — мало, 2 — кончились
+	AutoImport     map[string]bool      // включена автозакупка предложения (по id)
+	AutoImportAt   map[string]float64   // когда автозакупка срабатывала в последний раз
+	AirOpen        map[string]bool      // открытые для ударов стороны пакеты воздушного пространства
+	SanctionOn     map[string]bool      // введённые против стороны пакеты санкций
+	SanctionAt     map[string]float64   // когда введён пакет (игровые минуты)
+	Posts          []Post               // отложенные подтверждения прилётов в соцсетях
+	Reserve        map[string]int       // резерв для расстановки перед стартом: тип юнита или здания → штук
+	Hints          []PlaceHint          // где эти юниты стояли по умолчанию (подсказки для ИИ)
+	PalSub         bool                 // подписка на «ИИ Палантир»
+	PalLast        PalRequest           // последний удар через «Палантир» (для «Повторить»)
+	PalPreview     PalPreview           // последний рассчитанный план
+	PalSuggest     []PalProposal        // предложения ударов «Палантира»
+	PalSuggestAt   float64
+	StorageCap     map[string]float64 // вместимость складов на последнем шаге (не накапливается, пересчитывается)
+	ArsenalCapSeen float64            // вместимость арсенала на прошлом шаге (для сжигания излишка при ударе)
+	StorageLost    data.Res           // сгоревший сверх вместимости запас с прошлой записи в журнал
+	StorageLogAt   float64
+	IndustryBase   float64     // вес промышленности стороны на начало партии (знаменатель «здоровья»)
+	IncomeParts    IncomeParts // из чего сложился доход на последнем шаге (для интерфейса и диагностики)
+	PalPaused      bool        // подписка приостановлена: не хватило денег на плату (возобновится сама)
+	PalWarned      bool        // предупреждение о скором исчерпании денег уже показано
+	palCacheAt     float64
+	palCacheEp     uint64
+	palPlanAt      float64
+	palPlanEp      uint64
+	Ready          bool // расстановка завершена
+	Known          map[uint32]*Contact
+	SeenAt         []float32 // время последнего наблюдения тайла
+	Events         []Event
+	Speed          int
+	Pausing        bool
+	PauseLeft      float64
+	LossAcc        float64
+	Blackout       float64 // доля населения без света
+	RegionPower    map[int]float64
+	Power          [2]float64 // генерация, потребление
+	Income         float64
 }
 
 // World — всё состояние партии.

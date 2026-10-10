@@ -26,7 +26,7 @@ import (
 )
 
 // Version — версия протокола.
-const Version = 13
+const Version = 14
 
 // DefaultPort — порт по умолчанию.
 const DefaultPort = 27015
