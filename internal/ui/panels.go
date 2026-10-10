@@ -316,7 +316,11 @@ func (g *Game) tabOrders(x, y, w int) int {
 		}
 		u.Bar(x, y, w-90, 8, o.Progress/math.Max(pts, 0.001), c)
 		if o.Stalled {
-			drawText(u.screen, "нет ресурсов", float64(x+w-86), float64(y-4), 12, colBad, 0)
+			why := "нет ресурсов"
+			if o.Full {
+				why = "арсенал полон"
+			}
+			drawText(u.screen, why, float64(x+w-86), float64(y-4), 12, colBad, 0)
 		}
 		u.Tooltip(x, y-20, w-90, 30, fmt.Sprintf("%s\nСтоимость: %s, мощность %.1f очков", name, resText(g.view.Side, cost), pts))
 		y += 16
@@ -398,6 +402,15 @@ func (g *Game) itemDesc(id string) string {
 func (g *Game) tabArsenal(x, y, w int) int {
 	v := g.view
 	side := data.SideKeys[v.Side]
+	if capA := v.StorageCap["arsenal"]; capA > 0 {
+		col := colText
+		if v.ArsenalUsed >= 0.98*capA {
+			col = colWarn
+		}
+		y = g.kv("Арсенал: занято места", fmt.Sprintf("%.0f / %.0f", v.ArsenalUsed, capA), x, y, w, col)
+		g.ui.Tooltip(x, y-20, w, 20, "Вместимость арсеналов в очках мощности боеприпасов. Пока арсенал полон, заказы на ракеты, дроны и ЗУР стоят; при ударе по арсеналу излишек сгорает.")
+		y += 6
+	}
 	y = g.header("Ударные средства", x, y)
 	for _, m := range g.cat.Munitions {
 		if m.Side != side || m.Kind == "interceptor" {
@@ -780,7 +793,7 @@ func (g *Game) tabImport(x, y, w int) int {
 		}
 		have := v.Res[idx]
 		room := math.Max(0, have-g.cat.Rules.SellKeepMin)
-		drawText(u.screen, fmt.Sprintf("%s: %.0f (можно продать %.0f по %.2f)", data.ResNames[idx], have, room, rate), float64(x), float64(y), 13, colText, 0)
+		drawText(u.screen, fmt.Sprintf("%s: %.0f (можно продать %.0f по %s за единицу)", data.ResNames[idx], have, room, g.money(rate)), float64(x), float64(y), 13, colText, 0)
 		y += 20
 		bx := x
 		for _, n := range []int{500, 2000, 0} {

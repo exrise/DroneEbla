@@ -26,11 +26,11 @@ const (
 // groupNames — группы линеек в окне исследований.
 var groupNames = map[string]string{
 	"strike": "Ударные средства", "ad": "ПВО", "intel": "Разведка и РЭБ",
-	"front": "Фронт", "caps": "Возможности",
+	"industry": "Промышленность", "front": "Фронт", "caps": "Возможности",
 }
 
 // techGroups — порядок групп.
-var techGroups = []string{"strike", "ad", "intel", "front", "caps"}
+var techGroups = []string{"strike", "ad", "intel", "industry", "front", "caps"}
 
 // stat — одна строка характеристик на карточке.
 type stat struct {
@@ -40,7 +40,8 @@ type stat struct {
 	up    bool // true — больше значит лучше
 }
 
-func moneyCost(c map[string]float64) stat { return stat{"Цена", c["money"], "", false} }
+// moneyCost — цена в деньгах; единица «¤» выводится в валюте стороны (₽ или ₴).
+func moneyCost(c map[string]float64) stat { return stat{"Цена", c["money"], "¤", false} }
 
 // itemStats — характеристики предмета для карточки. id: боеприпас, юнит, снаряжение фронта или «sat:Имя».
 func (g *Game) itemStats(side int, id string) []stat {
@@ -121,8 +122,10 @@ func (g *Game) primaryItem(t *data.Tech) string {
 	return ""
 }
 
-func fmtStat(v float64, unit string) string {
+func fmtStat(side int, v float64, unit string) string {
 	switch {
+	case unit == "¤":
+		return data.MoneyText(side, v)
 	case unit == "×":
 		return fmt.Sprintf("×%.1f", v)
 	case v >= 100 || v == math.Trunc(v):
@@ -314,7 +317,7 @@ func (g *Game) drawCard(v *sim.View, c techCard, st, prev []stat, x, y int, area
 			continue // у ложных целей нет боевой части и т. п.
 		}
 		drawText(u.screen, s.label, float64(x+7), float64(ty), 12, colDim, 0)
-		val := fmtStat(s.v, s.unit)
+		val := fmtStat(v.Side, s.v, s.unit)
 		if s.v == 0 && s.unit == "" {
 			val = ""
 		}
@@ -328,7 +331,7 @@ func (g *Game) drawCard(v *sim.View, c techCard, st, prev []stat, x, y int, area
 			if (d > 0) != s.up {
 				col = colBad
 			}
-			dt := fmtStat(math.Abs(d), s.unit)
+			dt := fmtStat(v.Side, math.Abs(d), s.unit)
 			sign := "+"
 			if d < 0 {
 				sign = "−"

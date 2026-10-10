@@ -1206,8 +1206,8 @@ func TestTechLinesDataValid(t *testing.T) {
 		for _, l := range cat.Lines[data.SideKeys[s]] {
 			for _, st := range cat.LineSteps[s][l.ID] {
 				used[st.ID] = true
-				if st.Cost <= 0 || len(st.Unlocks) == 0 {
-					t.Errorf("%s: ступень без цены или без предметов", st.ID)
+				if st.Cost <= 0 || (len(st.Unlocks) == 0 && len(st.Effects) == 0) {
+					t.Errorf("%s: ступень без цены или без предметов и эффектов", st.ID)
 				}
 			}
 		}
@@ -2648,4 +2648,91 @@ func TestImportLogistics(t *testing.T) {
 	if importDelayK(1) != 1 || importDelayK(0) < 3 {
 		t.Fatalf("множитель срока: %.2f при k=1, %.2f при k=0", importDelayK(1), importDelayK(0))
 	}
+}
+
+// Простые объекты чинят многочисленные бригады, и если свободных бригад больше, чем повреждённых объектов, ремонт ускоряется;
+// сложные объекты чинятся ограниченным числом тяжёлых бригад.
+func TestRepairCrewClasses(t *testing.T) {
+	w := newTestWorld(t)
+	ru := w.Sides[data.RU]
+	ru.Res = data.Res{1e9, 1e9, 1e9, 1e9, 1e9}
+	var subs, refs []*Building
+	for _, b := range w.buildingsByID() {
+		if b.Side != data.RU || b.Built < 1 {
+			continue
+		}
+		switch b.Type {
+		case "substation":
+			if len(subs) < 3 {
+				subs = append(subs, b)
+			}
+		case "refinery":
+			if len(refs) < 5 {
+				refs = append(refs, b)
+			}
+		}
+	}
+	if len(subs) < 3 || len(refs) < 5 {
+		t.Skip("мало зданий для проверки")
+	}
+	for _, b := range append(append([]*Building{}, subs...), refs...) {
+		b.HP, b.Repair = b.MaxHP*0.5, true
+	}
+	w.repairs(data.RU, 1)
+	bt := w.cat.BuildingByID["substation"]
+	want := subs[0].MaxHP / bt.RepairHrs() * w.cat.Rules.RepairCrewSpeedMax
+	if got := subs[0].HP - subs[0].MaxHP*0.5; math.Abs(got-want) > want*0.02 {
+		t.Fatalf("подстанция за час: +%.2f HP, ждали около %.2f (трое повреждённых, 12 простых бригад → ×%.0f)", got, want, w.cat.Rules.RepairCrewSpeedMax)
+	}
+	repaired := 0
+	for _, b := range refs {
+		if b.HP > b.MaxHP*0.5 {
+			repaired++
+		}
+	}
+	if repaired != w.cat.Rules.RepairPerType {
+		t.Fatalf("НПЗ чинится одновременно %d, ждали %d (лимит на тип для тяжёлых)", repaired, w.cat.Rules.RepairPerType)
+	}
+}
+
+// Расходы денег раскладываются по категориям и сглаживаются: заводы электроники тратят деньги сами.
+func TestSpendRates(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+121)
+	sd := w.Sides[data.RU]
+	if sd.SpendRate[SpendPlants] <= 0 {
+		t.Fatalf("заводы электроники расходуют деньги, а расход не виден: %v", sd.SpendRate)
+	}
+	for c, r := range sd.SpendRate {
+		if r < 0 {
+			t.Fatalf("отрицательный расход %s: %.2f", c, r)
+		}
+	}
+}
+
+// Технологии «Промышленности» действуют: мощность, вместимость складов и скидка импорта растут.
+func TestIndustryTechEffects(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ru := w.Sides[data.RU]
+	cap0 := w.capacity(data.RU)[data.CapAir]
+	sto0 := w.storageCaps(data.RU)["fuel"]
+	price0 := w.ImportPrice(data.RU, w.cat.Sides[data.RU].Imports[0])
+	for _, id := range []string{"ru_ind_cap1", "ru_ind_sto1", "ru_ind_imp1"} {
+		tc := w.cat.TechByID[data.RU][id]
+		if tc == nil {
+			t.Fatalf("нет технологии %s", id)
+		}
+		w.completeTech(data.RU, tc)
+	}
+	if c := w.capacity(data.RU)[data.CapAir]; c < cap0*1.07 {
+		t.Fatalf("мощность %.1f → %.1f, ждали +8%%", cap0, c)
+	}
+	if s := w.storageCaps(data.RU)["fuel"]; s < sto0*1.14 {
+		t.Fatalf("вместимость топлива %.0f → %.0f, ждали +15%%", sto0, s)
+	}
+	if p := w.ImportPrice(data.RU, w.cat.Sides[data.RU].Imports[0]); p > price0*0.96 {
+		t.Fatalf("цена импорта %.1f → %.1f, ждали −5%%", price0, p)
+	}
+	_ = ru
 }

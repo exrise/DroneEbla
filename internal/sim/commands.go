@@ -123,6 +123,7 @@ func (w *World) apply(c Command) string {
 			return "Не хватает ресурсов: " + fmtRes(s, cost)
 		}
 		sd.Res.Add(cost, -1)
+		w.spend(s, SpendOther, cost[data.ResMoney])
 		b.Masked = true
 	case CmdFort:
 		cost := data.ToRes(r.FortCost)
@@ -139,6 +140,7 @@ func (w *World) apply(c Command) string {
 				break
 			}
 			sd.Res.Add(cost, -1)
+			w.spend(s, SpendOther, cost[data.ResMoney])
 			w.FortJobs[i] = 0
 			n++
 		}
@@ -323,6 +325,7 @@ func (w *World) build(s int, typ string, x, y float64) string {
 		built = 1
 	} else {
 		w.Sides[s].Res.Add(data.ToRes(bt.Cost), -1)
+		w.spend(s, SpendBuild, bt.Cost["money"])
 	}
 	b := w.addBuilding(typ, s, x, y, built)
 	if bt.Supply > 0 {
@@ -380,6 +383,7 @@ func (w *World) buyImport(s int, id string, n int) string {
 				break
 			}
 			sd.Res[data.ResMoney] -= price
+			w.spend(s, SpendImport, price)
 			sd.ImportCount[im.ID]++
 			sd.Deliveries = append(sd.Deliveries, Delivery{Name: im.Name, Item: im.Item, Amount: im.Amount, At: w.Time + im.DelayH*60*importDelayK(w.importLogistics(s))})
 			bought++
@@ -475,6 +479,7 @@ func (w *World) mobilize(s int, id string) string {
 			return e
 		}
 		sd.Res[data.ResMoney] -= mb.Money
+		w.spend(s, SpendOther, mb.Money)
 		if !mb.Foreign {
 			sd.People -= mb.Men
 		}
@@ -518,6 +523,7 @@ func (w *World) propaganda(s int) string {
 	}
 	gain := PropagandaGain(r, sd.Morale)
 	sd.Res[data.ResMoney] -= cost
+	w.spend(s, SpendOther, cost)
 	sd.Morale = clamp(sd.Morale+gain, 0, 100)
 	sd.PropReady = w.Time + r.PropagandaCooldownH*60
 	w.Log(s, 0, fmt.Sprintf("Информационная кампания: мораль +%.1f", gain))

@@ -322,6 +322,7 @@ func (w *World) economy(dtH float64) {
 			}
 			k *= clamp(avail, 0, 1)
 			delta.Add(cons, -k)
+			w.spend(s, SpendPlants, cons[data.ResMoney]*k)
 			prod := data.ToRes(bt.Produces)
 			prod[data.ResElectronics] *= elecK
 			delta.Add(prod, k)
@@ -363,6 +364,8 @@ func (w *World) economy(dtH float64) {
 		w.morale(s, dtH)
 		w.agentsCost(s, dtH)
 		w.palantirCost(s, dtH)
+
+		w.smoothSpend(s, dtH)
 
 		// Скорость изменения для интерфейса: фактический чистый поток за шаг (с госзаказом, ремонтом, наукой),
 		// сглаженный по окну ~2 игровых часа.
@@ -466,6 +469,7 @@ func (w *World) production(s int, dtH float64) {
 				break
 			}
 			sd.Res.Add(cost, -1)
+			w.spend(s, SpendOrders, cost[data.ResMoney])
 			o.Progress -= pts
 			w.deliver(s, o.Item, batch, "")
 			if o.Remaining > 0 {
@@ -696,19 +700,46 @@ func (w *World) repairs(s int, dtH float64) {
 		}
 		return list[a].ID < list[c].ID
 	})
-	crews := r.RepairCrews
+	// Два класса бригад: простые объекты (подстанции, склады, станции, площадки) чинят многочисленные «простые» бригады,
+	// сложные (заводы, электростанции, порты, мосты) — немногие тяжёлые; у тяжёлых действует лимит на тип.
+	// Если бригад класса больше, чем повреждённых объектов, лишние присоединяются к объектам и ускоряют ремонт.
+	crews := [2]int{r.RepairCrewsSimple, r.RepairCrewsHeavy}
 	perType := map[string]int{}
-	for _, b := range list {
-		if crews == 0 {
-			break
+	var work []*Building
+	mult := map[uint32]int{}
+	classOf := func(b *Building) int {
+		if w.cat.BuildingByID[b.Type].RepairClass == "simple" {
+			return 0
 		}
-		// Однотипные здания делят специалистов и оборудование: одновременно
-		// чинится не больше repair_per_type зданий каждого типа.
-		if perType[b.Type] >= r.RepairPerType {
+		return 1
+	}
+	for _, b := range list {
+		c := classOf(b)
+		if crews[c] == 0 {
 			continue
 		}
+		if c == 1 && perType[b.Type] >= r.RepairPerType {
+			continue
+		}
+		perType[b.Type]++
+		crews[c]--
+		mult[b.ID] = 1
+		work = append(work, b)
+	}
+	for progress := true; progress; {
+		progress = false
+		for _, b := range work {
+			c := classOf(b)
+			if crews[c] > 0 && float64(mult[b.ID]) < r.RepairCrewSpeedMax {
+				mult[b.ID]++
+				crews[c]--
+				progress = true
+			}
+		}
+	}
+	for _, b := range work {
 		bt := w.cat.BuildingByID[b.Type]
-		rate := b.MaxHP / bt.RepairHrs() * (1 + sd.eff("repair_speed"))
+		rate := b.MaxHP / bt.RepairHrs() * (1 + sd.eff("repair_speed")) * float64(mult[b.ID])
 		if b.frac() < r.DamageFloor {
 			rate *= r.RepairRuinMult
 		}
@@ -718,13 +749,12 @@ func (w *World) repairs(s int, dtH float64) {
 			continue
 		}
 		sd.Res.Add(cost, -1)
+		w.spend(s, SpendRepair, cost[data.ResMoney])
 		b.HP += hp
 		if b.KeyHit && b.HP > b.MaxHP*0.5 {
 			b.KeyHit = false // починен достаточно: новый вывод из строя снова считается
 		}
 		b.Repairing = true
-		perType[b.Type]++
-		crews--
 	}
 }
 
@@ -867,6 +897,7 @@ func (w *World) agentsCost(s int, dtH float64) {
 		c := w.cat.Rules.AgentFundCost * dtH
 		if sd.Res[data.ResMoney] >= c {
 			sd.Res[data.ResMoney] -= c
+			w.spend(s, SpendOther, c)
 		} else {
 			sd.AgentFund = false
 		}
@@ -875,6 +906,7 @@ func (w *World) agentsCost(s int, dtH float64) {
 		c := w.cat.Rules.ResearchFundCost * float64(sd.ResFund) * dtH
 		if sd.Res[data.ResMoney] >= c {
 			sd.Res[data.ResMoney] -= c
+			w.spend(s, SpendScience, c)
 		} else {
 			sd.ResFund = 0
 			w.Log(s, 1, "Не хватает денег на финансирование исследований")

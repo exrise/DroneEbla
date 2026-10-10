@@ -258,6 +258,8 @@ type Side struct {
 	ArsenalCapSeen float64            // вместимость арсенала на прошлом шаге (для сжигания излишка при ударе)
 	StorageLost    data.Res           // сгоревший сверх вместимости запас с прошлой записи в журнал
 	StorageLogAt   float64
+	SpendRate      map[string]float64 // расходы денег в час по категориям (сглаженные)
+	spendStep      map[string]float64
 	IndustryBase   float64     // вес промышленности стороны на начало партии (знаменатель «здоровья»)
 	IncomeParts    IncomeParts // из чего сложился доход на последнем шаге (для интерфейса и диагностики)
 	PalPaused      bool        // подписка приостановлена: не хватило денег на плату (возобновится сама)

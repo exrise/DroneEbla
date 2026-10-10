@@ -49,6 +49,7 @@ type View struct {
 	IncomeParts IncomeParts
 	StorageCap  map[string]float64
 	ArsenalUsed float64
+	SpendRate   map[string]float64
 	ImportK     float64 // проходимость пунктов въезда импорта 0..1
 	Morale      float64
 	People      float64
@@ -128,7 +129,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 		Speed: w.EffectiveSpeed(), MySpeed: sd.Speed, EnemySpeed: w.Sides[1-s].Speed,
 		Paused: w.Paused(), Pausing: sd.Pausing, PauseLeft: sd.PauseLeft,
 		Winner: w.Winner, WinReason: w.WinReason,
-		Res: sd.Res, Rates: sd.Rates, Income: sd.Income, IncomeParts: sd.IncomeParts, StorageCap: copyMap(sd.StorageCap), ArsenalUsed: w.ArsenalUsed(s), ImportK: w.importLogistics(s), Morale: sd.Morale, People: sd.People,
+		Res: sd.Res, Rates: sd.Rates, Income: sd.Income, IncomeParts: sd.IncomeParts, StorageCap: copyMap(sd.StorageCap), ArsenalUsed: w.ArsenalUsed(s), ImportK: w.importLogistics(s), SpendRate: copyMap(sd.SpendRate), Morale: sd.Morale, People: sd.People,
 		LaborLoss: sd.LaborLoss, Blackout: sd.Blackout, Power: sd.Power,
 		Stocks: copyMap(sd.Stocks), Storage: sd.Storage, Front: sd.Dirs, Alloc: sd.DirAlloc,
 		Posture: sd.DirPosture, HasMain: sd.HasMain, MainX: sd.MainX, MainY: sd.MainY,

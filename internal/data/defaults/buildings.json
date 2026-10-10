@@ -31,12 +31,12 @@
    "capacity": {"air": 10, "drone": 2}, "buildable": ["ru", "ua"],
    "desc": "Мощность для ракет, крылатых ракет и зенитных ракет."},
 
-  {"id": "drone_workshop", "need_city_km": 25, "repair_hours": 10, "name": "Цех БПЛА", "short": "ЦБ", "hp": 40,
+  {"id": "drone_workshop", "repair_class": "simple", "need_city_km": 25, "repair_hours": 10, "name": "Цех БПЛА", "short": "ЦБ", "hp": 40,
    "cost": {"money": 10, "steel": 5, "electronics": 5}, "build_hours": 12, "power": -5,
    "capacity": {"drone": 4}, "buildable": ["ru", "ua"],
    "desc": "Малое рассредоточенное производство дронов. Дёшево, быстро, легко поражается."},
 
-  {"id": "training_center", "repair_hours": 12, "name": "Центр подготовки", "short": "ЦП", "hp": 40,
+  {"id": "training_center", "repair_class": "simple", "repair_hours": 12, "name": "Центр подготовки", "short": "ЦП", "hp": 40,
    "cost": {"money": 20, "steel": 5, "electronics": 3}, "build_hours": 16, "power": -3,
    "buildable": ["ru", "ua"],
    "desc": "Здесь формируются расчёты: мобильные огневые группы и дроны-перехватчики появляются у центров подготовки."},
@@ -56,19 +56,19 @@
   {"id": "npp", "repair_hours": 240, "name": "АЭС", "short": "АЭС", "hp": 1000, "cost": {"money": 5000, "steel": 400, "electronics": 100}, "power": 1500, "untargetable": true,
    "desc": "Атомная электростанция. Удары по АЭС запрещены."},
 
-  {"id": "substation", "repair_hours": 24, "name": "Подстанция 750 кВ", "short": "ПС", "hp": 60,
+  {"id": "substation", "repair_class": "simple", "repair_hours": 24, "name": "Подстанция 750 кВ", "short": "ПС", "hp": 60,
    "cost": {"money": 30, "steel": 10, "electronics": 5}, "build_hours": 24, "transfer": 600, "buildable": ["ru", "ua"],
    "desc": "Перетоки энергии между областью и соседями."},
 
   {"id": "rail_hub", "key": true, "repair_hours": 20, "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "cost": {"money": 30, "steel": 20}, "supply": 1.0,
    "desc": "Логистический узел направления."},
 
-  {"id": "rail_station", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "cost": {"money": 8, "steel": 8}, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
-  {"id": "fuel_depot", "repair_hours": 30, "name": "Нефтебаза и склад металла", "short": "НБ", "hp": 120, "industry": 1,
+  {"id": "rail_station", "repair_class": "simple", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "cost": {"money": 8, "steel": 8}, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
+  {"id": "fuel_depot", "repair_class": "simple", "repair_hours": 30, "name": "Нефтебаза и склад металла", "short": "НБ", "hp": 120, "industry": 1,
    "cost": {"money": 400, "steel": 80}, "build_hours": 96, "power": -3, "storage": {"fuel": 300, "steel": 300}, "buildable": ["ru", "ua"],
    "desc": "Хранит топливо и сталь. Запас сверх общей вместимости складов пропадает; при разрушении склада теряется часть запаса."},
 
-  {"id": "ammo_depot", "repair_hours": 30, "name": "Склад боеприпасов и электроники", "short": "СБЭ", "hp": 120, "industry": 1,
+  {"id": "ammo_depot", "repair_class": "simple", "repair_hours": 30, "name": "Склад боеприпасов и электроники", "short": "СБЭ", "hp": 120, "industry": 1,
    "cost": {"money": 400, "steel": 80}, "build_hours": 96, "power": -3, "storage": {"ammo": 400, "electronics": 100}, "buildable": ["ru", "ua"],
    "desc": "Хранит снаряды и электронику. Запас сверх общей вместимости пропадает; при разрушении склада теряется часть запаса."},
 
@@ -76,7 +76,7 @@
    "cost": {"money": 800, "steel": 120, "electronics": 20}, "build_hours": 144, "power": -5, "storage": {"arsenal": 3500}, "buildable": ["ru", "ua"],
    "desc": "Хранит ракеты, дроны и зенитные ракеты. Пока арсенал полон, заказы на ракеты и дроны стоят; при разрушении теряется часть запаса."},
 
-  {"id": "depot", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
+  {"id": "depot", "repair_class": "simple", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
    "cost": {"money": 15, "steel": 10}, "build_hours": 18, "buildable": ["ru", "ua"],
    "desc": "Полевой склад: добавляет снабжение ближайшему направлению."},
 
@@ -106,22 +106,22 @@
    "cost": {"money": 600, "steel": 120, "electronics": 160}, "build_hours": 96, "buildable": ["ua"],
    "desc": "Центр обработки данных для «ИИ Палантир». Нужна вода для охлаждения (река, озеро или море в 10 км) и много энергии: при нехватке энергии в области сервис отключается. Без ЦОД подписка не работает. Цель для ударов."},
 
-  {"id": "trade_warehouse", "repair_hours": 24, "name": "Торговый склад", "short": "ТС", "hp": 60, "tax_h": 1, "cost": {"money": 30, "steel": 20}, "build_hours": 24, "buildable": [],
+  {"id": "trade_warehouse", "repair_class": "simple", "repair_hours": 24, "name": "Торговый склад", "short": "ТС", "hp": 60, "tax_h": 1, "cost": {"money": 30, "steel": 20}, "build_hours": 24, "buildable": [],
    "desc": "Гражданский торговый склад у крупного города: приносит налоги, пока цел. Строить нельзя — стоит с начала игры; разрушение склада бьёт по налогам."},
 
   {"id": "research", "repair_hours": 60, "name": "НИИ / КБ", "short": "НИИ", "hp": 80, "research": 2,
    "cost": {"money": 50, "electronics": 10}, "build_hours": 48, "power": -10, "buildable": ["ru", "ua"],
    "desc": "Ускоряет исследования."},
 
-  {"id": "dronesite", "repair_hours": 6, "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
+  {"id": "dronesite", "repair_class": "simple", "repair_hours": 6, "name": "Площадка запуска БПЛА", "short": "ПЗ", "hp": 40,
    "cost": {"money": 2, "steel": 5}, "build_hours": 8, "launch": ["dronesite"], "launch_rate": 20, "buildable": ["ru", "ua"],
    "desc": "Пуск ударных и разведывательных БПЛА."},
 
-  {"id": "dronesite2", "repair_hours": 10, "name": "Площадка запуска БПЛА II", "short": "ПЗ2", "hp": 80,
+  {"id": "dronesite2", "repair_class": "simple", "repair_hours": 10, "name": "Площадка запуска БПЛА II", "short": "ПЗ2", "hp": 80,
    "cost": {"money": 10, "steel": 15, "electronics": 5}, "build_hours": 16, "launch": ["dronesite"], "launch_rate": 45, "buildable": ["ru", "ua"],
    "desc": "Второй уровень: пусковые рельсы, катапульты и укрытия. Накапливает и запускает больше дронов за раз (45 против 20)."},
 
-  {"id": "dronesite3", "repair_hours": 16, "name": "Площадка запуска БПЛА III", "short": "ПЗ3", "hp": 150,
+  {"id": "dronesite3", "repair_class": "simple", "repair_hours": 16, "name": "Площадка запуска БПЛА III", "short": "ПЗ3", "hp": 150,
    "cost": {"money": 30, "steel": 35, "electronics": 15}, "build_hours": 30, "launch": ["dronesite"], "launch_rate": 90, "buildable": ["ru", "ua"],
    "desc": "Третий уровень: крупный комплекс с автоматизированной подачей и укрытиями. Запускает до 90 дронов за раз."}
 ]

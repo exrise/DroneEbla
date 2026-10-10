@@ -166,6 +166,7 @@ type BuildingType struct {
 	NearKm       float64            `json:"near_km"`
 	NeedCityKm   float64            `json:"need_city_km"`  // строить не дальше этого расстояния от своего города (0 — где угодно)
 	TaxH         float64            `json:"tax_h"`         // налоги: денег в час при целом здании (с множителем scale)
+	RepairClass  string             `json:"repair_class"`  // simple — ремонтируется «простыми» бригадами, иначе тяжёлыми
 	Storage      map[string]float64 `json:"storage"`       // вместимость склада: fuel, steel, ammo, electronics (единицы) и arsenal (очки мощности боеприпасов)
 	Industry     float64            `json:"industry"`      // вес предприятия в «здоровье промышленности», от которого зависит часть дохода
 	NeedWaterKm  float64            `json:"need_water_km"` // строить не дальше этого расстояния от реки, озера или моря (0 — где угодно)
@@ -516,19 +517,22 @@ type Rules struct {
 	FlashMin            float64            `json:"flash_min"`       // засветка пусковой после залпа
 	RepairPerHour       float64            `json:"repair_per_hour"` // доля HP в час
 	RepairCostK         float64            `json:"repair_cost_k"`
-	RepairCrews         int                `json:"repair_crews"`       // зданий, которые сторона чинит одновременно
-	MoraleGood          float64            `json:"morale_good"`        // выше этой морали — бонусы
-	MoraleBad           float64            `json:"morale_bad"`         // ниже этой морали — штрафы
-	MoraleFrontHigh     float64            `json:"morale_front_high"`  // множитель силы фронта при морали 100
-	MoraleFrontLow      float64            `json:"morale_front_low"`   // множитель силы фронта при морали 0
-	MoraleLossMax       float64            `json:"morale_loss_max"`    // множитель потерь фронта при морали 0
-	MoraleProdHigh      float64            `json:"morale_prod_high"`   // множитель выпуска и налогов при морали 100
-	MoraleProdLow       float64            `json:"morale_prod_low"`    // множитель выпуска и налогов при морали 0
-	MoraleLevyHigh      float64            `json:"morale_levy_high"`   // множитель притока людей при морали 100
-	MoraleLevyLow       float64            `json:"morale_levy_low"`    // множитель притока людей и мобилизации при морали 0
-	MoraleMobPenalty    float64            `json:"morale_mob_penalty"` // во сколько раз растёт штраф морали от мобилизации при морали 0
-	PropagandaCost      float64            `json:"propaganda_cost"`    // деньги (×(1+мораль/100))
-	PropagandaGain      float64            `json:"propaganda_gain"`    // прирост морали при морали 0 (убывает к 100)
+	RepairCrews         int                `json:"repair_crews"`          // зданий, которые сторона чинит одновременно (если не заданы классы бригад)
+	RepairCrewsSimple   int                `json:"repair_crews_simple"`   // бригады для простых объектов (подстанции, склады, станции, площадки)
+	RepairCrewsHeavy    int                `json:"repair_crews_heavy"`    // бригады для сложных объектов (заводы, электростанции, порты, мосты)
+	RepairCrewSpeedMax  float64            `json:"repair_crew_speed_max"` // во сколько раз свободные бригады могут ускорить ремонт одного объекта
+	MoraleGood          float64            `json:"morale_good"`           // выше этой морали — бонусы
+	MoraleBad           float64            `json:"morale_bad"`            // ниже этой морали — штрафы
+	MoraleFrontHigh     float64            `json:"morale_front_high"`     // множитель силы фронта при морали 100
+	MoraleFrontLow      float64            `json:"morale_front_low"`      // множитель силы фронта при морали 0
+	MoraleLossMax       float64            `json:"morale_loss_max"`       // множитель потерь фронта при морали 0
+	MoraleProdHigh      float64            `json:"morale_prod_high"`      // множитель выпуска и налогов при морали 100
+	MoraleProdLow       float64            `json:"morale_prod_low"`       // множитель выпуска и налогов при морали 0
+	MoraleLevyHigh      float64            `json:"morale_levy_high"`      // множитель притока людей при морали 100
+	MoraleLevyLow       float64            `json:"morale_levy_low"`       // множитель притока людей и мобилизации при морали 0
+	MoraleMobPenalty    float64            `json:"morale_mob_penalty"`    // во сколько раз растёт штраф морали от мобилизации при морали 0
+	PropagandaCost      float64            `json:"propaganda_cost"`       // деньги (×(1+мораль/100))
+	PropagandaGain      float64            `json:"propaganda_gain"`       // прирост морали при морали 0 (убывает к 100)
 	PropagandaCooldownH float64            `json:"propaganda_cooldown_h"`
 	MoraleKeyHit        float64            `json:"morale_key_hit"`         // бонус атакующему за вывод из строя ключевого объекта
 	MoraleKeyLoss       float64            `json:"morale_key_loss"`        // потеря морали владельцем ключевого объекта

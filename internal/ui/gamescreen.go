@@ -926,7 +926,7 @@ func (g *Game) drawTopBar() {
 		}
 		tip := fmt.Sprintf("%s: %.0f, чистое изменение %.1f в час (с учётом госзаказа, ремонта и науки)", data.ResName(i, v.Side), v.Res[i], v.Rates[i])
 		if i == data.ResMoney {
-			tip = fmt.Sprintf("%s: %s, чистое изменение %s в час (с учётом госзаказа, ремонта и науки)\nДоход (налоги, экспорт): %s в час", data.ResName(i, v.Side), data.MoneyText(v.Side, v.Res[i]), data.MoneyText(v.Side, v.Rates[i]), data.MoneyText(v.Side, v.Income))
+			tip = g.moneyTip(i)
 			rate := data.MoneyShort(v.Side, v.Rates[i])
 			if v.Rates[i] >= 0 {
 				rate = "+" + rate
@@ -935,7 +935,17 @@ func (g *Game) drawTopBar() {
 			cell(data.ResName(i, v.Side), val, colText, rate+"/ч", rc, math.Max(114, textWidth(val, 16)+textWidth(rate+"/ч", 12)+22), tip)
 			continue
 		}
-		cell(data.ResName(i, v.Side), fmtNum(v.Res[i]), colText, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
+		vc := colText
+		if key := resStorageKey(i); key != "" {
+			if capK := v.StorageCap[key]; capK > 0 {
+				tip += fmt.Sprintf("\nСклады: %.0f / %.0f", v.Res[i], capK)
+				if v.Res[i] >= 0.98*capK {
+					vc = colWarn
+					tip += "\nСклады полны: излишек сгорает. Постройте склады (вкладка «Стройка») или расходуйте запас."
+				}
+			}
+		}
+		cell(data.ResName(i, v.Side), fmtNum(v.Res[i]), vc, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
 	}
 	cell("Мораль", fmt.Sprintf("%.0f", v.Morale), colorForFrac(v.Morale/100), "", colDim, 74,
 		g.moraleEffects()+"\nПадает от потерь, блэкаутов, потери городов, мобилизации; растёт от помощи, взятия городов, поражения ключевых объектов врага и пропаганды.")
@@ -1149,4 +1159,49 @@ func (g *Game) adHasAmmo(un *sim.Unit, ut *data.UnitType) bool {
 		return g.view.Stocks[ut.Interceptor] >= 1
 	}
 	return g.view.Res[data.ResAmmo] >= 0.2
+}
+
+// resStorageKey — ключ вместимости складов для ресурса (пусто — не хранится на складах).
+func resStorageKey(i int) string {
+	switch i {
+	case data.ResFuel:
+		return "fuel"
+	case data.ResSteel:
+		return "steel"
+	case data.ResAmmo:
+		return "ammo"
+	case data.ResElectronics:
+		return "electronics"
+	}
+	return ""
+}
+
+var spendNames = map[string]string{
+	sim.SpendOrders: "госзаказ", sim.SpendBuild: "стройка", sim.SpendImport: "закупки", sim.SpendRepair: "ремонт",
+	sim.SpendPlants: "заводы (расход денег)", sim.SpendScience: "исследования", sim.SpendOther: "прочее",
+}
+
+// moneyTip — подсказка к деньгам в шапке: остаток, чистый поток, разбивка дохода и расходов.
+func (g *Game) moneyTip(i int) string {
+	v := g.view
+	m := func(x float64) string { return data.MoneyText(v.Side, x) }
+	ip := v.IncomeParts
+	tip := fmt.Sprintf("%s: %s, чистое изменение %s в час", data.ResName(i, v.Side), m(v.Res[i]), m(v.Rates[i]))
+	tip += fmt.Sprintf("\n\nДоход %s в час (до общего множителя):\n  база %s, города %s, торговые склады %s, экспорт %s", m(v.Income), m(ip.Base), m(ip.Cities), m(ip.Trade), m(ip.Export))
+	if ip.SanctionLoss > 0.5 {
+		tip += fmt.Sprintf("\n  санкции −%s", m(ip.SanctionLoss))
+	}
+	tip += fmt.Sprintf("\n  здоровье промышленности ×%.2f, общий множитель ×%.2f", ip.Industry, ip.K)
+	tip += "\n\nРасходы в час:"
+	total := 0.0
+	for _, c := range sim.SpendCats {
+		if r := v.SpendRate[c]; r >= 0.05 {
+			tip += fmt.Sprintf("\n  %s %s", spendNames[c], m(r))
+			total += r
+		}
+	}
+	if total == 0 {
+		tip += " нет"
+	}
+	return tip
 }

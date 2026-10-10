@@ -131,6 +131,15 @@ func Load(override string) (*Catalog, error) {
 	if r.StrikeDroneVisionKm <= 0 {
 		r.StrikeDroneVisionKm = 5
 	}
+	if r.RepairCrewsSimple <= 0 {
+		r.RepairCrewsSimple = r.RepairCrews * 2
+	}
+	if r.RepairCrewsHeavy <= 0 {
+		r.RepairCrewsHeavy = r.RepairCrews
+	}
+	if r.RepairCrewSpeedMax < 1 {
+		r.RepairCrewSpeedMax = 3
+	}
 	if r.RepairPerType <= 0 {
 		r.RepairPerType = 2
 	}

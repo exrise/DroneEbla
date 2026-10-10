@@ -10,7 +10,13 @@
     {"id": "idrone", "name": "Дроны-перехватчики", "group": "ad", "start": []},
     {"id": "reb", "name": "РЭБ", "group": "intel", "start": ["reb_ru"]},
     {"id": "sat", "name": "Спутниковая группировка", "group": "intel", "start": []},
-    {"id": "fpv", "name": "FPV-дроны на фронте", "group": "front", "start": []}
+    {"id": "fpv", "name": "FPV-дроны на фронте", "group": "front", "start": []},
+    {"id": "ind_cap", "name": "Мощность заводов", "group": "industry", "start": []},
+    {"id": "ind_imp", "name": "Логистика и импорт", "group": "industry", "start": []},
+    {"id": "ind_rep", "name": "Ремонтные службы", "group": "industry", "start": []},
+    {"id": "ind_pow", "name": "Энергетика", "group": "industry", "start": []},
+    {"id": "ind_sto", "name": "Склады и хранение", "group": "industry", "start": []},
+    {"id": "ind_sci", "name": "Научная база", "group": "industry", "start": []}
   ],
   "ua": [
     {"id": "drones", "name": "Дальние ударные БПЛА", "group": "strike", "start": []},
@@ -20,6 +26,12 @@
     {"id": "idrone", "name": "Дроны-перехватчики", "group": "ad", "start": []},
     {"id": "reb", "name": "РЭБ", "group": "intel", "start": ["reb_ua"]},
     {"id": "recon", "name": "Разведывательные БПЛА", "group": "intel", "start": ["tb2"]},
-    {"id": "fpv", "name": "FPV-дроны на фронте", "group": "front", "start": []}
+    {"id": "fpv", "name": "FPV-дроны на фронте", "group": "front", "start": []},
+    {"id": "ind_cap", "name": "Мощность заводов", "group": "industry", "start": []},
+    {"id": "ind_imp", "name": "Логистика и импорт", "group": "industry", "start": []},
+    {"id": "ind_rep", "name": "Ремонтные службы", "group": "industry", "start": []},
+    {"id": "ind_pow", "name": "Энергетика", "group": "industry", "start": []},
+    {"id": "ind_sto", "name": "Склады и хранение", "group": "industry", "start": []},
+    {"id": "ind_sci", "name": "Научная база", "group": "industry", "start": []}
   ]
 }

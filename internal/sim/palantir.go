@@ -394,6 +394,7 @@ func (w *World) palantirCost(s int, dtH float64) {
 	c := def.MoneyH * dtH
 	if sd.Res[data.ResMoney] >= c {
 		sd.Res[data.ResMoney] -= c
+		w.spend(s, SpendOther, c)
 		if sd.PalPaused {
 			sd.PalPaused = false
 			w.Log(s, 1, "«Палантир»: подписка возобновлена")
