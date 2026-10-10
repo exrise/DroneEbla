@@ -83,8 +83,9 @@ func (g *Game) gameKeys() {
 		if g.mode != modeNone {
 			g.mode = modeNone
 			g.strike = strikePlan{}
-		} else if g.sel.Kind != "" {
+		} else if g.sel.Kind != "" || g.multi != nil {
 			g.sel = Selection{}
+			g.multi = nil
 		} else {
 			g.toggleGameMenu()
 		}
@@ -147,12 +148,16 @@ func (g *Game) drawGame() {
 	}
 	g.evInit = true
 	g.rend.update(v)
+	g.smooth.update(v, time.Now())
+	g.autosaveTick()
+	g.pruneMulti()
 
 	// Карта.
 	mapImg := u.sub(g.cam.X, g.cam.Y, g.cam.W, g.cam.H)
 	mapImg.Fill(colSea)
 	g.rend.drawBase(mapImg, &g.cam, g.layers, v)
 	hov := g.drawEntities(mapImg)
+	g.drawSelRect()
 
 	g.glassPrep(u.screen)
 	var live input
@@ -480,8 +485,10 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 		consider("building", b.ID, 0, b.X, b.Y, sx, sy)
 	}
 	// Свои юниты.
+	now := time.Now()
 	for _, un := range v.Units {
-		sx, sy := g.cam.ToScreen(un.X, un.Y)
+		ux, uy := g.smooth.get(false, un.ID, un.X, un.Y, now)
+		sx, sy := g.cam.ToScreen(ux, uy)
 		if !g.visibleOnScreen(sx, sy) {
 			continue
 		}
@@ -495,7 +502,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 			line(dst, sx-w/2, sy+h/2, sx+w/2, sy-h/2, col, 1.5)
 		}
 		if z > 1.1 || (hov != nil && hov.id == un.ID) {
-			g.mapLabel(dst, ut.Short, sx, sy-h/2-15, col, (hov != nil && hov.id == un.ID) || g.sel.ID == un.ID)
+			g.mapLabel(dst, ut.Short, sx, sy-h/2-15, col, (hov != nil && hov.id == un.ID) || g.sel.ID == un.ID || g.multi[un.ID])
 		}
 		if ut.Kind == "ad" && ut.Magazine > 0 && un.Ready < float64(ut.Magazine)-0.01 {
 			f := un.Ready / float64(ut.Magazine)
@@ -519,7 +526,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 				px, py = qx, qy
 			}
 		}
-		if g.sel.Kind == "unit" && g.sel.ID == un.ID {
+		if (g.sel.Kind == "unit" && g.sel.ID == un.ID) || g.multi[un.ID] {
 			strokeRect(dst, sx-w/2-4, sy-h/2-4, w+8, h+8, colAccent, 2)
 		}
 		consider("unit", un.ID, 0, un.X, un.Y, sx, sy)
@@ -532,7 +539,7 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	}
 	// Летящие боеприпасы.
 	for _, p := range v.Projs {
-		sx, sy := g.cam.ToScreen(p.X, p.Y)
+		sx, sy := g.cam.ToScreen(g.smooth.get(true, p.ID, p.X, p.Y, now))
 		if p.Side == my2 && len(p.Path) > 0 && p.Engaged >= 0 {
 			px, py := sx, sy
 			for _, q := range p.Path {
@@ -687,8 +694,30 @@ func (g *Game) mapInput(hov *hoverItem) {
 		}
 		return
 	}
+	// Рамка выделения (Shift + ЛКМ по пустой карте).
+	if g.rect != nil {
+		g.rect.x1, g.rect.y1 = in.mx, in.my
+		if in.down {
+			in.consumed = true
+			return
+		}
+		r := *g.rect
+		g.rect = nil
+		g.rectSelect(r)
+		return
+	}
 	if !overMap || in.consumed {
 		return
+	}
+	if in.click && g.mode == modeNone && shiftHeld() {
+		if hov != nil && hov.kind == "unit" {
+			g.toggleMulti(hov.id)
+			return
+		}
+		if hov == nil {
+			g.rect = &selRect{in.mx, in.my, in.mx, in.my}
+			return
+		}
 	}
 	if in.click {
 		switch g.mode {
@@ -713,6 +742,7 @@ func (g *Game) mapInput(hov *hoverItem) {
 			g.strike.Pts = append(g.strike.Pts, p)
 			return
 		}
+		g.multi = nil
 		if hov != nil {
 			g.sel = Selection{Kind: hov.kind, ID: hov.id, Idx: hov.idx}
 		} else {
@@ -739,7 +769,9 @@ func (g *Game) mapInput(hov *hoverItem) {
 			}
 			return
 		}
-		if g.sel.Kind == "unit" {
+		if ids := g.multiIDs(); ids != nil {
+			g.moveMulti(ids, wx, wy)
+		} else if g.sel.Kind == "unit" {
 			g.sess.Send(sim.Command{Kind: sim.CmdMove, ID: g.sel.ID, X: wx, Y: wy})
 		}
 	}

@@ -88,3 +88,30 @@ func TestUIScale(t *testing.T) {
 		}
 	}
 }
+
+// Выбор группы клавишей выделяет всех юнитов и не двигает камеру.
+func TestGroupSelectKeepsCamera(t *testing.T) {
+	g := &Game{view: &sim.View{Units: []sim.Unit{{ID: 1, X: 10, Y: 20}, {ID: 2, X: 300, Y: 400}}}}
+	g.cam = Camera{CX: 50, CY: 60, Z: 1, W: 800, H: 600}
+	g.sel = Selection{Kind: "unit", ID: 1}
+	g.toggleMulti(2)
+	if ids := g.multiIDs(); len(ids) != 2 {
+		t.Fatalf("после Shift+щелчка выбрано %v", ids)
+	}
+	g.setGroup(2, false)
+	g.setMulti(nil)
+	cx, cy := g.cam.CX, g.cam.CY
+	g.selectGroup(2)
+	if ids := g.multiIDs(); len(ids) != 2 {
+		t.Fatalf("группа выделила %v, ожидалось 2 юнита", ids)
+	}
+	if g.cam.CX != cx || g.cam.CY != cy {
+		t.Fatal("камера сдвинулась при выборе группы")
+	}
+	// Погибший член убирается; остаток становится обычным выбором.
+	g.view.Units = g.view.Units[:1]
+	g.pruneMulti()
+	if g.multi != nil || g.sel.ID != 1 {
+		t.Fatalf("после гибели: multi=%v sel=%+v", g.multi, g.sel)
+	}
+}

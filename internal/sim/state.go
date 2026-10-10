@@ -311,6 +311,7 @@ type World struct {
 	bridges     []bridgeLink // мосты с проездом техники (кэш)
 	bridgesOK   bool
 	vc          []victoryCity
+	raids       map[[3]int]*raid // накапливаемые сводки налётов
 	vcOK        bool
 	nextVictory float64 // не проверять условия победы до этого времени (сбрасывается захватом тайла)
 }

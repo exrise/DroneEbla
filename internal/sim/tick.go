@@ -108,6 +108,7 @@ func (w *World) step(dtMin float64) {
 	w.units(dtMin)
 	w.economy(dtMin / 60)
 	w.front(dtMin)
+	w.flushRaids()
 	w.sens.valid = false // юниты двигались, тайлы и здания могли перейти к другой стороне
 	w.intel(dtMin)
 	// Условия победы не меняются без захватов тайлов: проверяем после захвата и не реже раза в 10 минут.

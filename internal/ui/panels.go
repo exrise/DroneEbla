@@ -490,13 +490,13 @@ func (g *Game) clickRow(k, val string, x, y, w int, c color.Color, key string, l
 		u.rowHi(float64(x-4), float64(y-2), float64(w+8), 20)
 	}
 	if u.clicked(x-2, y-2, w+4, 20) {
-		g.cycleSelect(key, list())
+		g.cycleSelect(key, list(), true)
 	}
 	return g.kv(k, val, x, y, w, c)
 }
 
 // cycleSelect выбирает следующего кандидата и наводит на него камеру.
-func (g *Game) cycleSelect(key string, cs []cand) {
+func (g *Game) cycleSelect(key string, cs []cand, center bool) {
 	if len(cs) == 0 {
 		g.toast("Нет подходящих юнитов или источников пуска, готовых к действию")
 		return
@@ -530,8 +530,11 @@ func (g *Game) cycleSelect(key string, cs []cand) {
 		i = pick()
 	}
 	seen[cs[i].sel.ID] = true
+	g.multi = nil
 	g.sel = cs[i].sel
-	g.centerOn(cs[i].x, cs[i].y)
+	if center {
+		g.centerOn(cs[i].x, cs[i].y)
+	}
 }
 
 func (g *Game) unitsOfType(id string) []cand {

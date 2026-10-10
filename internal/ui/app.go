@@ -120,6 +120,13 @@ type Game struct {
 	auto         *autoShot
 	notices      []string
 	cycleSeen    map[string]map[uint32]bool
+	autoNext     float64 // игровое время следующего автосохранения (0 — не задано)
+	autoN        int
+	autoBusy     bool
+	delArm       string          // сохранение, у которого нажато «Удалить» (ждёт подтверждения)
+	multi        map[uint32]bool // групповое выделение юнитов (два и больше)
+	rect         *selRect        // рамка выделения, пока зажата кнопка
+	smooth       smoother        // плавное движение юнитов и боеприпасов между представлениями
 	labels       []image.Rectangle
 	groups       [9][]Selection // контрольные группы (клавиши 1…9)
 }
@@ -575,14 +582,26 @@ func (g *Game) drawLoad() {
 		if i >= rows {
 			break
 		}
-		name := filepath.Base(f)
-		bw := menuW/2 - 24
-		if u.Button(cx-bw-6, ly+i*38, bw, 32, name) {
+		if u.Button(cx-menuW/2+10, ly+i*38, menuW-170, 32, fitText(saveLabel(f), 14, float64(menuW-190))) {
 			g.loadSave(f, false)
 		}
-		if u.Button(cx+6, ly+i*38, bw, 32, "без сети (песочница / одиночная)") {
+		if u.Button(cx+menuW/2-150, ly+i*38, 100, 32, "без сети") {
 			g.loadSave(f, true)
 		}
+		del := "×"
+		if g.delArm == f {
+			del = "?"
+		}
+		if u.ButtonState(cx+menuW/2-44, ly+i*38, 34, 32, del, g.delArm == f, true) {
+			if g.delArm == f {
+				deleteSave(f)
+				g.delArm = ""
+				g.saves = g.listSaves()
+			} else {
+				g.delArm = f
+			}
+		}
+		u.Tooltip(cx+menuW/2-44, ly+i*38, 34, 32, "Удалить сохранение (нажмите ещё раз, чтобы подтвердить)")
 	}
 	by := ly + rows*38 + 14
 	if u.Button(cx-100, by, 200, 42, "Назад") {
@@ -626,6 +645,7 @@ func (g *Game) startGame(s netplay.Session) {
 	g.sel = Selection{}
 	g.mode = modeNone
 	g.evSeen, g.evInit = 0, false
+	g.autoNext, g.delArm = 0, ""
 	g.helpStart, g.helpPinned, g.helpOpen = time.Now(), false, true
 	g.menuErr = ""
 	// Камера на центр карты.
@@ -645,6 +665,9 @@ func (g *Game) quickSave() {
 	if err := g.sess.Save(p); err != nil {
 		g.toast("Ошибка сохранения: " + err.Error())
 	} else {
+		if v := g.view; v != nil {
+			writeMeta(p, saveMeta{Mode: g.modeName(v), Side: v.Side, Time: v.Time, Saved: time.Now().Format("02.01 15:04")})
+		}
 		g.toast("Сохранено: " + name)
 	}
 }

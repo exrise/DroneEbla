@@ -2164,3 +2164,38 @@ func TestFireMode(t *testing.T) {
 		t.Fatal("чужой комплекс менять нельзя")
 	}
 }
+
+// Налёт на район даёт одну сводку вместо отдельных всплывающих «Попаданий».
+func TestRaidSummary(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	tgt := findBuilding(w, "Трипольская ТЭС")
+	ua := w.Sides[data.UA]
+	ua.Events = nil
+	for i := 0; i < 5; i++ {
+		w.raidHit(tgt, "Калибр", 0.6, false)
+	}
+	w.raidHit(tgt, "Калибр", 0, true)
+	for i := 0; i < 6; i++ {
+		w.raidDowned(data.UA, tgt.X, tgt.Y, "Шахед-136")
+	}
+	run(w, 5)
+	for _, e := range ua.Events {
+		if strings.HasPrefix(e.Text, "Налёт") {
+			t.Fatal("сводка пришла раньше срока")
+		}
+	}
+	run(w, 20)
+	var got []Event
+	for _, e := range ua.Events {
+		if strings.HasPrefix(e.Text, "Налёт") {
+			got = append(got, e)
+		}
+	}
+	if len(got) != 1 {
+		t.Fatalf("сводок налёта %d, ожидалась 1", len(got))
+	}
+	if got[0].Level != 2 || !strings.Contains(got[0].Text, "попаданий 6") || !strings.Contains(got[0].Text, "сбито 6") || !strings.Contains(got[0].Text, "выведено из строя") {
+		t.Fatalf("сводка: %q (уровень %d)", got[0].Text, got[0].Level)
+	}
+}

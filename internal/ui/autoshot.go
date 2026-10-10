@@ -197,10 +197,10 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.save(screen, "63_north_airspace")
 	case 200:
 		g.tab = 2
-		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))
+		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"), true)
 	case 215:
 		g.save(screen, "70_arsenal_click1")
-		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"))
+		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"), true)
 	case 230:
 		g.save(screen, "71_arsenal_click2")
 		os.Exit(0)

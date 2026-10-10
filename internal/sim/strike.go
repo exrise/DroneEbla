@@ -370,11 +370,9 @@ func (w *World) impact(p *Projectile, m *data.MunitionType) {
 				b.Aircraft[k] = math.Max(0, n-n*m.Damage/b.MaxHP*0.6)
 			}
 		}
-		lvl := 1
-		if b.HP <= 0 && before > 0 {
-			lvl = 2
-		}
-		w.LogAt(b.Side, lvl, fmt.Sprintf("Попадание (%s): %s — %.0f%%", m.Name, b.Name, b.frac()*100), b.X, b.Y)
+		out := b.HP <= 0 && before > 0
+		w.raidHit(b, m.Name, b.frac(), out)
+		w.LogAt(b.Side, 0, fmt.Sprintf("Попадание (%s): %s — %.0f%%", m.Name, b.Name, b.frac()*100), b.X, b.Y)
 	}
 	for id, u := range w.Units {
 		if u.Side == p.Side || dist(u.X, u.Y, p.X, p.Y) > m.BlastKm+0.3 {

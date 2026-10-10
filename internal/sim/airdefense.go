@@ -242,6 +242,9 @@ func (w *World) underEnemyAD(b *Building) bool {
 // downed — сообщение о сбитии.
 func (w *World) downed(by int, p *Projectile, name string) {
 	w.LogAt(by, 0, "Сбит: "+name, p.X, p.Y)
+	if p.Side != by && w.cat.MunitionByID[p.Munition].Kind != "recon" {
+		w.raidDowned(by, p.X, p.Y, name)
+	}
 	m := w.cat.MunitionByID[p.Munition]
 	if m.Kind == "recon" {
 		w.LogAt(p.Side, 1, fmt.Sprintf("Потерян разведчик: %s", name), p.X, p.Y)

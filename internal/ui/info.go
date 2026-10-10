@@ -27,12 +27,12 @@ func (g *Game) drawInfoPanel() {
 		g.drawStrikePanel()
 		return
 	}
-	if g.sel.Kind == "" {
+	if g.sel.Kind == "" && g.multi == nil {
 		g.drawHelp()
 		return
 	}
 	// Высота карточки — по содержимому (по данным прошлого кадра), не больше infoH.
-	key := fmt.Sprintf("%s:%d:%d", g.sel.Kind, g.sel.ID, g.sel.Idx)
+	key := fmt.Sprintf("%s:%d:%d:%d", g.sel.Kind, g.sel.ID, g.sel.Idx, len(g.multi))
 	if key != g.infoKey {
 		g.infoKey, g.infoUsed = key, 0
 	}
@@ -57,6 +57,11 @@ func (g *Game) drawInfoPanel() {
 	px, py, pw := x+12, y+10, infoW-24
 	if u.Button(x+infoW-34, y+6, 26, 26, "×") {
 		g.sel = Selection{}
+		g.multi = nil
+		return
+	}
+	if ids := g.multiIDs(); ids != nil {
+		g.multiInfo(ids, px, py, pw)
 		return
 	}
 	switch g.sel.Kind {
@@ -633,6 +638,7 @@ func (g *Game) drawHelp() {
 		"ЛКМ — выбрать, перетаскивание — сдвиг карты",
 		"Колесо — масштаб, WASD/стрелки — прокрутка",
 		"ПКМ — марш юнита, F — пуск (пусковая выбрана)",
+		"Shift+щелчок или Shift+рамка — выбрать несколько юнитов",
 		"Ctrl+1…9 — в группу, 1…9 — выбрать группу",
 		"Пробел — пауза, [ ] — скорость, F5 — сохранить",
 		"Esc — меню, F11 — экран, Ctrl+«+»/«−» — масштаб",

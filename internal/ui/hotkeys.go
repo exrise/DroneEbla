@@ -11,7 +11,8 @@ import (
 
 // Горячие клавиши (необязательные, всё доступно мышью):
 //   - Ctrl+1…9 — запомнить выбранный объект в группу (Ctrl+Shift+1…9 — добавить);
-//   - 1…9 — выбрать следующий объект группы и перейти к нему;
+//   - 1…9 — выбрать всех юнитов группы (камера не двигается), у группы из зданий — следующее здание;
+//   - Shift+щелчок и Shift+рамка — групповое выделение юнитов, ПКМ — марш всех выбранных;
 //   - F — режим пуска для выбранной пусковой, повторно — пуск;
 //   - [ и ] (или цифры numpad 1–5) — скорость игры;
 //   - F11 или Alt+Enter — полный экран.
@@ -63,6 +64,25 @@ func (g *Game) groupable(s Selection) bool {
 }
 
 func (g *Game) setGroup(n int, add bool) {
+	if ids := g.multiIDs(); ids != nil {
+		var grp []Selection
+		if add {
+			grp = g.groups[n-1]
+		}
+	next:
+		for _, id := range ids {
+			s := Selection{Kind: "unit", ID: id}
+			for _, m := range grp {
+				if m == s {
+					continue next
+				}
+			}
+			grp = append(grp, s)
+		}
+		g.groups[n-1] = grp
+		g.toast(fmt.Sprintf("Группа %d: %d", n, len(grp)))
+		return
+	}
 	if !g.groupable(g.sel) {
 		g.toast("Выберите свой юнит или здание, чтобы запомнить его в группе")
 		return
@@ -109,7 +129,18 @@ func (g *Game) selectGroup(n int) {
 		g.toast(fmt.Sprintf("Группа %d пуста: выберите объект и нажмите Ctrl+%d", n, n))
 		return
 	}
-	g.cycleSelect(fmt.Sprintf("group:%d", n), cs)
+	// Выделяются все юниты группы сразу, камера не двигается.
+	var units []uint32
+	for _, c := range cs {
+		if c.sel.Kind == "unit" {
+			units = append(units, c.sel.ID)
+		}
+	}
+	if len(units) >= 2 {
+		g.setMulti(units)
+		return
+	}
+	g.cycleSelect(fmt.Sprintf("group:%d", n), cs, false)
 }
 
 // strikeHotkey — F: открыть режим пуска для выбранной пусковой или подтвердить удар.
