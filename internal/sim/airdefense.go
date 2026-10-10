@@ -260,6 +260,18 @@ func sortedUnits(m map[uint32]*Unit) []*Unit {
 	return out
 }
 
+// buildingsByID — здания в порядке ID: расчёты экономики не должны зависеть от случайного порядка обхода карты.
+func (w *World) buildingsByID() []*Building {
+	if len(w.bldSorted) != len(w.Buildings) {
+		w.bldSorted = w.bldSorted[:0]
+		for _, b := range w.Buildings {
+			w.bldSorted = append(w.bldSorted, b)
+		}
+		sort.Slice(w.bldSorted, func(a, b int) bool { return w.bldSorted[a].ID < w.bldSorted[b].ID })
+	}
+	return w.bldSorted
+}
+
 // sensorCell — размер ячейки сетки наблюдательных постов, км.
 const sensorCell = 25.0
 

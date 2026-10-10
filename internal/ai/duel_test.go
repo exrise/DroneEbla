@@ -100,6 +100,25 @@ func TestDuel(t *testing.T) {
 				sum(st[s].strikes), pct(st[s].reached, st[s].sent), st[s].posture)
 		}
 		t.Log(b.String())
+		if os.Getenv("DRONEEBLA_DUEL_ECON") != "" {
+			for s := 0; s < 2; s++ {
+				sd := w.Sides[s]
+				ip := sd.IncomeParts
+				stalled := map[string]int{}
+				total := map[string]int{}
+				for _, o := range sd.Orders {
+					_, cat, _, _ := w.Catalog().ItemCost(o.Item)
+					total[cat]++
+					if o.Stalled {
+						stalled[cat]++
+					}
+				}
+				t.Logf("  экономика %s: доход %.0f (база %.0f, города %.0f, склады %.0f, экспорт %.0f, санкции −%.0f, ×%.2f); потоки топл %+.0f сталь %+.0f эл %+.0f снар %+.0f; мощность %v; заказов %v, застряло %v",
+					data.SideKeys[s], sd.Income, ip.Base, ip.Cities, ip.Trade, ip.Export, ip.SanctionLoss, ip.K,
+					sd.Rates[data.ResFuel], sd.Rates[data.ResSteel], sd.Rates[data.ResElectronics], sd.Rates[data.ResAmmo],
+					sd.Capacity, total, stalled)
+			}
+		}
 	}
 	for k := 1; k <= days*1440 && w.Winner < 0; k++ {
 		w.Step(1)

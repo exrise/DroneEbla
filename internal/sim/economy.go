@@ -20,7 +20,7 @@ func (w *World) updatePower() {
 		use := map[int]float64{}
 		capT := map[int]float64{}
 		pop := map[int]float64{}
-		for _, b := range w.Buildings {
+		for _, b := range w.buildingsByID() {
 			if b.Side != s || b.Region < 0 {
 				continue
 			}
@@ -225,6 +225,7 @@ func (w *World) economy(dtH float64) {
 
 		// Доходы: база, города, экспорт.
 		income := def.BaseIncome
+		cityTax, tradeTax := 0.0, 0.0
 		for i, ci := range w.cityAt {
 			if w.OwnerSide(i) != s {
 				continue
@@ -236,19 +237,22 @@ func (w *World) economy(dtH float64) {
 					pf = 0.5 + 0.5*f
 				}
 			}
-			income += float64(c.Pop) / 100000 * def.TaxPerCity * pf * MoraleProd(r, sd.Morale)
+			cityTax += float64(c.Pop) / 100000 * def.TaxPerCity * pf * MoraleProd(r, sd.Morale)
 		}
-		for _, b := range w.Buildings {
+		income += cityTax
+		for _, b := range w.buildingsByID() {
 			if b.Side == s {
 				if bt := w.cat.BuildingByID[b.Type]; bt.TaxH > 0 {
-					income += bt.TaxH * b.scale() * Efficiency(r, b.frac())
+					tradeTax += bt.TaxH * b.scale() * Efficiency(r, b.frac())
 				}
 			}
 		}
-		income *= 1 - w.Sanction(s, "tax")
+		income += tradeTax
+		taxLoss := income * w.Sanction(s, "tax")
+		income -= taxLoss
 		oil, grain := 0.0, 0.0
 		portSum, portN := 0.0, 0
-		for _, b := range w.Buildings {
+		for _, b := range w.buildingsByID() {
 			if b.Side != s {
 				continue
 			}
@@ -268,16 +272,20 @@ func (w *World) economy(dtH float64) {
 		if portN > 0 {
 			oil *= 0.3 + 0.7*portSum/float64(portN)
 		}
-		income += (oil + grain) * (1 - w.Sanction(s, "export"))
+		exportInc := (oil + grain) * (1 - w.Sanction(s, "export"))
+		income += exportInc
+		k := 1.0
 		if def.IncomeK > 0 {
-			income *= def.IncomeK
+			k = def.IncomeK
 		}
+		income *= k
 		sd.Income = income
+		sd.IncomeParts = IncomeParts{Base: def.BaseIncome, Cities: cityTax, Trade: tradeTax, Export: exportInc, SanctionLoss: taxLoss, K: k}
 		delta[data.ResMoney] += income * dtH
 
 		// Производство ресурсов.
 		elecK := 1 - w.Sanction(s, "electronics")
-		for _, b := range w.Buildings {
+		for _, b := range w.buildingsByID() {
 			if b.Side != s {
 				continue
 			}
@@ -355,7 +363,7 @@ func (w *World) economy(dtH float64) {
 func (w *World) capacity(s int) map[string]float64 {
 	sd := w.Sides[s]
 	c := map[string]float64{}
-	for _, b := range w.Buildings {
+	for _, b := range w.buildingsByID() {
 		if b.Side != s {
 			continue
 		}
@@ -374,7 +382,8 @@ func (w *World) capacity(s int) map[string]float64 {
 	return c
 }
 
-// production — госзаказ: мощность категории делится поровну между позициями.
+// production — госзаказ: мощность категории делится поровну между позициями, которые не стоят без ресурса;
+// доля застрявших позиций уходит остальным (застрявшая позиция ждёт ресурс с уже накопленной партией).
 func (w *World) production(s int, dtH float64) {
 	sd := w.Sides[s]
 	sd.Capacity = w.capacity(s)
@@ -383,8 +392,10 @@ func (w *World) production(s int, dtH float64) {
 	}
 	count := map[string]int{}
 	for _, o := range sd.Orders {
-		_, cat, _, _ := w.cat.ItemCost(o.Item)
-		count[cat]++
+		_, cat, pts, ok := w.cat.ItemCost(o.Item)
+		if ok && pts > 0 && !o.Stalled {
+			count[cat]++
+		}
 	}
 	done := false
 	for i := range sd.Orders {
@@ -403,7 +414,7 @@ func (w *World) production(s int, dtH float64) {
 		if w.Cheat {
 			cost = data.Res{}
 			o.Progress = pts * cheatBatch
-		} else {
+		} else if !o.Stalled && count[cat] > 0 {
 			o.Progress += sd.Capacity[cat] * dtH / float64(count[cat])
 		}
 		o.Stalled = false
@@ -605,7 +616,7 @@ func (w *World) nextSpawn(s int) int {
 // construction — стройка, ремонт, пополнение пусков, авиация.
 func (w *World) construction(s int, dtH float64) {
 	w.repairs(s, dtH)
-	for _, b := range w.Buildings {
+	for _, b := range w.buildingsByID() {
 		if b.Side != s {
 			continue
 		}
@@ -684,9 +695,6 @@ func (w *World) repairs(s int, dtH float64) {
 // repairCost — стоимость восстановления доли frac HP.
 func repairCost(bt *data.BuildingType, frac, k float64) data.Res {
 	c := data.ToRes(bt.Cost)
-	if c[data.ResMoney] == 0 && c[data.ResSteel] == 0 {
-		c = data.Res{100, 0, 60, 5, 0}
-	}
 	var out data.Res
 	out.Add(c, frac*k)
 	return out

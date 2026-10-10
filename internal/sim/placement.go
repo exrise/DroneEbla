@@ -59,6 +59,7 @@ func (w *World) StartPlacement() {
 		sd.Reserve[b.Type]++
 		sd.Hints = append(sd.Hints, PlaceHint{Type: b.Type, X: b.X, Y: b.Y})
 		delete(w.Buildings, id)
+		w.bldSorted = nil
 	}
 	for s := 0; s < 2; s++ {
 		for t, n := range w.cat.Sides[s].ReserveBuildings {
@@ -130,6 +131,7 @@ func (w *World) unplace(s int, id uint32) string {
 	if b, ok := w.Buildings[id]; ok && b.Side == s && b.Placed {
 		sd.Reserve[b.Type]++
 		delete(w.Buildings, id)
+		w.bldSorted = nil
 		return ""
 	}
 	return "Этот объект убрать нельзя"

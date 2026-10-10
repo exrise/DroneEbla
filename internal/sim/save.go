@@ -59,6 +59,7 @@ func Load(path string, cat *data.Catalog, m *world.MapData) (*World, error) {
 	for id, b := range w.Buildings {
 		if cat.BuildingByID[b.Type] == nil {
 			delete(w.Buildings, id) // например, макеты из старых версий
+			w.bldSorted = nil
 		}
 	}
 	for id, u := range w.Units {

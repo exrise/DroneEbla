@@ -207,7 +207,8 @@ type UnitType struct {
 	Name        string             `json:"name"`
 	Short       string             `json:"short"`
 	Side        string             `json:"side"`
-	Kind        string             `json:"kind"` // ad, radar, reb, launcher, rtr
+	Kind        string             `json:"kind"`  // ad, radar, reb, launcher, rtr
+	Heavy       bool               `json:"heavy"` // тяжёлая ПВО: считается в потерях для пакетов «замена ПВО»
 	HP          float64            `json:"hp"`
 	SpeedRoad   float64            `json:"speed_road"`
 	SpeedOff    float64            `json:"speed_off"`

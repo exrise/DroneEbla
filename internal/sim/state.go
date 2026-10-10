@@ -252,8 +252,9 @@ type Side struct {
 	PalPreview   PalPreview           // последний рассчитанный план
 	PalSuggest   []PalProposal        // предложения ударов «Палантира»
 	PalSuggestAt float64
-	PalPaused    bool // подписка приостановлена: не хватило денег на плату (возобновится сама)
-	PalWarned    bool // предупреждение о скором исчерпании денег уже показано
+	IncomeParts  IncomeParts // из чего сложился доход на последнем шаге (для интерфейса и диагностики)
+	PalPaused    bool        // подписка приостановлена: не хватило денег на плату (возобновится сама)
+	PalWarned    bool        // предупреждение о скором исчерпании денег уже показано
 	palCacheAt   float64
 	palCacheEp   uint64
 	palPlanAt    float64
@@ -274,9 +275,10 @@ type Side struct {
 
 // World — всё состояние партии.
 type World struct {
-	rec           *Recorder // журнал партии (не сохраняется)
-	strikeEpoch   uint64    // растёт при каждом пуске: сбрасывает кэш расчётов «Палантира» (не сохраняется)
-	Time          float64   // игровые минуты с начала партии
+	rec           *Recorder   // журнал партии (не сохраняется)
+	strikeEpoch   uint64      // растёт при каждом пуске: сбрасывает кэш расчётов «Палантира» (не сохраняется)
+	bldSorted     []*Building // кэш зданий по ID, сбрасывается при добавлении и удалении (не сохраняется)
+	Time          float64     // игровые минуты с начала партии
 	PrepEnd       float64
 	Owner         []uint8 // 0 никто, 1 РФ, 2 Украина
 	Fort          []uint8
@@ -369,4 +371,9 @@ func (w *World) logAt(side, level int, text string, x, y float64, has bool) {
 	if len(s.Events) > 300 {
 		s.Events = s.Events[len(s.Events)-300:]
 	}
+}
+
+// IncomeParts — составляющие дохода стороны в час до общего множителя K.
+type IncomeParts struct {
+	Base, Cities, Trade, Export, SanctionLoss, K float64
 }

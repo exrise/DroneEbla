@@ -224,6 +224,7 @@ func (w *World) addBuilding(typ string, side int, x, y float64, built float64) *
 	}
 	b.Budget = bt.LaunchRate
 	w.Buildings[b.ID] = b
+	w.bldSorted = nil
 	return b
 }
 

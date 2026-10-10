@@ -1823,7 +1823,7 @@ func TestStocksAndImports(t *testing.T) {
 	lost := 0
 	for id, u := range w.Units {
 		if u.Side == data.UA {
-			if ut := w.cat.UnitByID[u.Type]; ut.Kind == "ad" && ut.Interceptor != "" && ut.Cost["money"] >= 100 {
+			if ut := w.cat.UnitByID[u.Type]; ut.Kind == "ad" && ut.Interceptor != "" && ut.Heavy {
 				delete(w.Units, id)
 				lost++
 			}
@@ -2482,5 +2482,55 @@ func TestPalantirSuggestPerf(t *testing.T) {
 	}
 	if el > 2*time.Second {
 		t.Fatalf("расчёт предложений слишком долгий: %v", el)
+	}
+}
+
+// Тяжёлая ПВО определяется флагом, а не ценой: Бук и Панцирь-С2 входят, Оса и Панцирь-С1 — нет.
+func TestHeavyADFlag(t *testing.T) {
+	w := newTestWorld(t)
+	for _, id := range []string{"s400", "s300", "buk_ru", "buk_ua", "pantsir_s2", "iris_t", "patriot"} {
+		if !w.cat.UnitByID[id].Heavy {
+			t.Errorf("%s должен быть тяжёлой ПВО", id)
+		}
+	}
+	for _, id := range []string{"osa", "pantsir", "tor", "gepard"} {
+		if w.cat.UnitByID[id].Heavy {
+			t.Errorf("%s не должен быть тяжёлой ПВО", id)
+		}
+	}
+	if w.heavyAD(data.UA) == 0 {
+		t.Fatal("у Украины на старте должна быть тяжёлая ПВО")
+	}
+}
+
+// Позиция госзаказа без ресурса не отнимает мощность у остальных позиций категории.
+func TestProductionRedistributesIdleCapacity(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	sd := w.Sides[data.RU]
+	sd.Orders = []Order{{Item: "geran2", Remaining: -1}, {Item: "shahed136", Remaining: -1}}
+	sd.Unlocked["geran2"], sd.Unlocked["shahed136"] = true, true
+	sd.Res = data.Res{1e9, 1e9, 1e9, 0, 1e9} // электроники нет: Герань-2 (1 эл.) стоит
+	sd.Stocks["shahed136"] = 0
+	const dt = 0.05
+	for i := 0; i < 100; i++ { // 5 часов: накопить партию Герани и упереться в нехватку
+		w.production(data.RU, dt)
+	}
+	if !sd.Orders[0].Stalled {
+		t.Fatal("Герань-2 без электроники должна стоять")
+	}
+	before := sd.Stocks["shahed136"]
+	for i := 0; i < 200; i++ { // ещё 10 часов
+		w.production(data.RU, dt)
+	}
+	got := sd.Stocks["shahed136"] - before
+	c := sd.Capacity[data.CapDrone]
+	pts := w.cat.MunitionByID["shahed136"].CapPoints
+	if c <= 0 || pts <= 0 {
+		t.Fatalf("нет мощности дронов: %v", sd.Capacity)
+	}
+	want := c * 10 / pts
+	if got < 0.9*want {
+		t.Fatalf("Шахедов выпущено %.1f, ожидалось около %.1f (вся мощность должна уходить незастрявшей позиции)", got, want)
 	}
 }

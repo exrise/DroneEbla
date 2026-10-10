@@ -110,7 +110,7 @@ func (w *World) heavyAD(s int) int {
 		if u.Side != s {
 			continue
 		}
-		if ut := w.cat.UnitByID[u.Type]; ut != nil && ut.Kind == "ad" && ut.Interceptor != "" && ut.Cost["money"] >= 100 {
+		if ut := w.cat.UnitByID[u.Type]; ut != nil && ut.Kind == "ad" && ut.Interceptor != "" && ut.Heavy {
 			n++
 		}
 	}

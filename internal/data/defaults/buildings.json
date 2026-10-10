@@ -50,44 +50,44 @@
    "cost": {"money": 800, "steel": 60}, "build_hours": 120, "power": 600, "buildable": ["ru", "ua"],
    "desc": "Тепловая электростанция."},
 
-  {"id": "hpp", "key": true, "repair_hours": 120, "name": "ГЭС", "short": "ГЭС", "hp": 400, "power": 300,
+  {"id": "hpp", "key": true, "repair_hours": 120, "name": "ГЭС", "short": "ГЭС", "hp": 400, "cost": {"money": 1000, "steel": 200}, "power": 300,
    "desc": "Гидроэлектростанция и плотина."},
 
-  {"id": "npp", "repair_hours": 240, "name": "АЭС", "short": "АЭС", "hp": 1000, "power": 1500, "untargetable": true,
+  {"id": "npp", "repair_hours": 240, "name": "АЭС", "short": "АЭС", "hp": 1000, "cost": {"money": 5000, "steel": 400, "electronics": 100}, "power": 1500, "untargetable": true,
    "desc": "Атомная электростанция. Удары по АЭС запрещены."},
 
   {"id": "substation", "repair_hours": 24, "name": "Подстанция 750 кВ", "short": "ПС", "hp": 60,
    "cost": {"money": 30, "steel": 10, "electronics": 5}, "build_hours": 24, "transfer": 600, "buildable": ["ru", "ua"],
    "desc": "Перетоки энергии между областью и соседями."},
 
-  {"id": "rail_hub", "key": true, "repair_hours": 20, "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "supply": 1.0,
+  {"id": "rail_hub", "key": true, "repair_hours": 20, "name": "Железнодорожный узел", "short": "ЖД", "hp": 150, "cost": {"money": 30, "steel": 20}, "supply": 1.0,
    "desc": "Логистический узел направления."},
 
-  {"id": "rail_station", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
+  {"id": "rail_station", "repair_hours": 10, "name": "Железнодорожная станция", "short": "ЖС", "hp": 80, "cost": {"money": 8, "steel": 8}, "supply": 0.4, "desc": "Станция на магистрали: часть снабжения направления. Дёшево чинится, но их много."},
   {"id": "depot", "repair_hours": 12, "name": "Склад боеприпасов", "short": "СК", "hp": 80, "supply": 0.6,
    "cost": {"money": 15, "steel": 10}, "build_hours": 18, "buildable": ["ru", "ua"],
    "desc": "Полевой склад: добавляет снабжение ближайшему направлению."},
 
-  {"id": "bridge", "key": true, "repair_hours": 72, "name": "Мост", "short": "М", "hp": 300, "supply": 1.0, "bridge": true,
+  {"id": "bridge", "key": true, "repair_hours": 72, "name": "Мост", "short": "М", "hp": 300, "cost": {"money": 50, "steel": 40}, "supply": 1.0, "bridge": true,
    "desc": "Мост на пути снабжения направления."},
 
-  {"id": "airfield", "repair_hours": 24, "name": "Аэродром", "short": "АЭР", "hp": 200,
+  {"id": "airfield", "repair_hours": 24, "name": "Аэродром", "short": "АЭР", "hp": 200, "cost": {"money": 100, "steel": 30},
    "aircraft": {"tactical": 20, "fighter": 4}, "intercept": {"km": 120, "channels": 4, "pk_low": 0.35, "engage_sec": 120},
    "launch": ["tactical", "dronesite"], "launch_rate": 10,
    "desc": "Тактическая авиация: бонус фронту в радиусе 250 км. Истребители автоматически перехватывают дроны и крылатые ракеты в радиусе 120 км, пока аэродром не под огнём вражеской ПВО. Площадка для разведывательных БПЛА."},
 
-  {"id": "airbase_strat", "key": true, "repair_hours": 36, "name": "Авиабаза дальней авиации", "short": "ДА", "hp": 250,
+  {"id": "airbase_strat", "key": true, "repair_hours": 36, "name": "Авиабаза дальней авиации", "short": "ДА", "hp": 250, "cost": {"money": 300, "steel": 40, "electronics": 20},
    "aircraft": {"strategic": 12}, "launch": ["strategic"], "launch_rate": 30,
    "desc": "Носители крылатых ракет."},
 
-  {"id": "naval_base", "key": true, "repair_hours": 72, "name": "Военно-морская база", "short": "ВМБ", "hp": 300,
+  {"id": "naval_base", "key": true, "repair_hours": 72, "name": "Военно-морская база", "short": "ВМБ", "hp": 300, "cost": {"money": 400, "steel": 80, "electronics": 20},
    "launch": ["naval"], "launch_rate": 20,
    "desc": "Корабли и подлодки — носители Калибров."},
 
-  {"id": "oil_port", "key": true, "repair_hours": 48, "name": "Нефтеналивной порт", "short": "ПОРТ", "hp": 200, "oil_port": true,
+  {"id": "oil_port", "key": true, "repair_hours": 48, "name": "Нефтеналивной порт", "short": "ПОРТ", "hp": 200, "cost": {"money": 200, "steel": 40}, "oil_port": true,
    "desc": "Через него идёт нефтяной экспорт. Повреждение снижает всю нефтяную выручку."},
 
-  {"id": "grain_port", "repair_hours": 48, "name": "Морской торговый порт", "short": "ПОРТ", "hp": 200, "export": 15,
+  {"id": "grain_port", "repair_hours": 48, "name": "Морской торговый порт", "short": "ПОРТ", "hp": 200, "cost": {"money": 150, "steel": 30}, "export": 15,
    "desc": "Экспорт зерна и металла."},
 
   {"id": "data_center", "repair_hours": 60, "name": "ЦОД «Палантир»", "short": "ЦОД", "hp": 120, "power": -200, "need_water_km": 10,
