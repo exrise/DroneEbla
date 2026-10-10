@@ -252,6 +252,12 @@ type Side struct {
 	PalPreview   PalPreview           // последний рассчитанный план
 	PalSuggest   []PalProposal        // предложения ударов «Палантира»
 	PalSuggestAt float64
+	PalPaused    bool // подписка приостановлена: не хватило денег на плату (возобновится сама)
+	PalWarned    bool // предупреждение о скором исчерпании денег уже показано
+	palCacheAt   float64
+	palCacheEp   uint64
+	palPlanAt    float64
+	palPlanEp    uint64
 	Ready        bool // расстановка завершена
 	Known        map[uint32]*Contact
 	SeenAt       []float32 // время последнего наблюдения тайла
@@ -269,6 +275,7 @@ type Side struct {
 // World — всё состояние партии.
 type World struct {
 	rec           *Recorder // журнал партии (не сохраняется)
+	strikeEpoch   uint64    // растёт при каждом пуске: сбрасывает кэш расчётов «Палантира» (не сохраняется)
 	Time          float64   // игровые минуты с начала партии
 	PrepEnd       float64
 	Owner         []uint8 // 0 никто, 1 РФ, 2 Украина

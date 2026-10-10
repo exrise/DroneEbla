@@ -2294,6 +2294,10 @@ func TestPalantir(t *testing.T) {
 	if pr.Err != "" || len(pr.Legs) < 1 || pr.Total < 1 {
 		t.Fatalf("план: %+v", pr)
 	}
+	if e := w.Apply(req); e == "" || !strings.Contains(e, "подтвердите") {
+		t.Fatalf("неполный залп (2 пусковых из 6 снарядов) должен требовать подтверждения, а %q", e)
+	}
+	req.Force = true
 	if e := w.Apply(req); e != "" {
 		t.Fatalf("залп через «Палантир»: %s", e)
 	}
@@ -2302,6 +2306,21 @@ func TestPalantir(t *testing.T) {
 	}
 	if !ua.PalLast.Valid {
 		t.Fatal("последний удар не запомнен")
+	}
+	// Цель, по которой уже летит залп, повторно не предлагается.
+	ua.Known[999998] = &Contact{ID: 999998, Kind: 0, Type: "refinery", X: tx, Y: ty, Seen: w.Time, HP: 1}
+	for _, sg := range w.palSuggest(data.UA) {
+		if dist(sg.X, sg.Y, tx, ty) < palSpacing {
+			t.Fatalf("предложена цель, по которой уже летит залп: %+v", sg)
+		}
+	}
+	delete(ua.Known, 999998)
+	// Волна синхронна: конец окна прилёта каждого плеча совпадает с общим прилётом (с точностью до минуты).
+	for _, l := range pr.Legs {
+		end := l.Delay + l.ETA + float64(l.Count-1)*palGap
+		if math.Abs(end-pr.Arrive) > 1.01 {
+			t.Fatalf("плечо прилетает в %.1f мин, а волна — в %.1f", end, pr.Arrive)
+		}
 	}
 	// Подписка списывается: за 10 игровых часов уходит не меньше 10×плата (доход Украины меньше платы за то же время).
 	run(w, 120)
@@ -2386,5 +2405,82 @@ func TestInterceptorDronesInBatches(t *testing.T) {
 		if d != 10 {
 			t.Fatalf("партия %v вместо 10", seen)
 		}
+	}
+}
+
+// Подписка «Палантира» при нехватке денег приостанавливается и возобновляется сама.
+func TestPalantirSubscriptionPause(t *testing.T) {
+	w := newTestWorld(t)
+	ua := w.Sides[data.UA]
+	ua.PalSub = true
+	ua.Res[data.ResMoney] = 0
+	w.palantirCost(data.UA, 1)
+	if !ua.PalPaused || !ua.PalSub {
+		t.Fatalf("без денег подписка должна приостановиться, но не отмениться: paused=%v sub=%v", ua.PalPaused, ua.PalSub)
+	}
+	if ok, _ := w.palantirActive(data.UA); ok {
+		t.Fatal("приостановленная подписка не должна давать «Палантир»")
+	}
+	ua.Res[data.ResMoney] = 1000
+	w.palantirCost(data.UA, 1)
+	if ua.PalPaused {
+		t.Fatal("подписка должна возобновиться, когда деньги появились")
+	}
+}
+
+// Трасса считает только зоны ПВО, которые она пересекает и которые не накрывают саму цель.
+func TestRouteChannels(t *testing.T) {
+	zones := []Zone{{X: 50, Y: 0, R: 20, Ch: 4}, {X: 100, Y: 0, R: 15, Ch: 6}}
+	start, target := Pt{0, 0}, Pt{100, 0}
+	if ch, n := RouteChannels(zones, start, nil, target); ch != 4 || n != 1 {
+		t.Fatalf("прямая трасса: каналов %d, зон %d (ждали 4 и 1: зона у цели не считается)", ch, n)
+	}
+	if ch, n := RouteChannels(zones, start, []Pt{{50, 40}}, target); ch != 0 || n != 0 {
+		t.Fatalf("обход: каналов %d, зон %d (ждали 0)", ch, n)
+	}
+}
+
+// Дешёвые дроны выгоднее дорогих ракет по цене, а ПВО сбивает дроны сильнее баллистики.
+func TestPalantirMunitionEconomics(t *testing.T) {
+	w := newTestWorld(t)
+	bober, sh := w.cat.MunitionByID["bober"], w.cat.MunitionByID["storm_shadow"]
+	if munCost(bober) >= munCost(sh) {
+		t.Fatalf("Бобёр (%.2f) должен быть дешевле Storm Shadow (%.2f)", munCost(bober), munCost(sh))
+	}
+	if palAttrition(bober) <= palAttrition(w.cat.MunitionByID["atacms"]) {
+		t.Fatal("дроны должны сбиваться чаще баллистики")
+	}
+}
+
+// Расчёт предложений «Палантира» на полной карте с запасом всех боеприпасов укладывается в разумное время.
+func TestPalantirSuggestPerf(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	for _, m := range w.cat.Munitions {
+		if data.SideIndex(m.Side) == data.UA {
+			ua.Stocks[m.ID] = 200
+		}
+	}
+	for _, b := range w.Buildings {
+		if b.Side == data.UA {
+			b.Budget = 20
+		}
+	}
+	// Все известные противнику объекты: видим вражеские здания целиком.
+	for _, b := range w.Buildings {
+		if b.Side == data.RU {
+			ua.Known[b.ID] = &Contact{ID: b.ID, Kind: 0, Type: b.Type, X: b.X, Y: b.Y, Seen: w.Time, HP: 1}
+		}
+	}
+	start := time.Now()
+	sg := w.palSuggest(data.UA)
+	el := time.Since(start)
+	t.Logf("palSuggest: %v, предложений %d, известных контактов %d", el, len(sg), len(ua.Known))
+	for _, p := range sg {
+		t.Logf("  %s ×%d (в плане %d, пусковых %d) цель %s ПВО %d/%d %s", p.Item, p.Count, p.Total, p.Legs, p.Target, p.Cover, p.Route, p.Warn)
+	}
+	if el > 2*time.Second {
+		t.Fatalf("расчёт предложений слишком долгий: %v", el)
 	}
 }

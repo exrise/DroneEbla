@@ -7,7 +7,10 @@ import (
 )
 
 // Zone — круг поражения известного комплекса ПВО противника.
-type Zone struct{ X, Y, R float64 }
+type Zone struct {
+	X, Y, R float64
+	Ch      int // каналов наведения комплекса
+}
 
 // RouteAround строит путевые точки в обход зон: прямой маршрут, пересекающий зону, отодвигается за её край
 // (с запасом 12 км) на сторону с меньшим крюком. Зоны, накрывающие саму цель или старт, не обходятся — туда
@@ -75,7 +78,7 @@ func (w *World) KnownADZones(s int) []Zone {
 		if ut == nil || ut.Kind != "ad" || ut.RangeKm < 5 {
 			continue
 		}
-		out = append(out, Zone{c.X, c.Y, ut.RangeKm * 0.9})
+		out = append(out, Zone{X: c.X, Y: c.Y, R: ut.RangeKm * 0.9, Ch: ut.Channels})
 	}
 	return out
 }
@@ -102,4 +105,34 @@ func (w *World) CorridorRoute(s int, sp StrikePlan, sx, sy float64) []Pt {
 		}
 	}
 	return best
+}
+
+// RouteChannels — сколько каналов известной ПВО лежит на трассе старт → точки → цель, кроме комплексов, прикрывающих
+// саму цель (их считает «ПВО у цели»); число зон, которые трасса пересекает, возвращается вторым значением.
+func RouteChannels(zones []Zone, start Pt, wps []Pt, target Pt) (channels, n int) {
+	path := append(append([]Pt{start}, wps...), target)
+	for _, z := range zones {
+		if dist(z.X, z.Y, target.X, target.Y) <= z.R {
+			continue
+		}
+		for i := 0; i+1 < len(path); i++ {
+			if segDist(path[i], path[i+1], z.X, z.Y) < z.R {
+				channels += z.Ch
+				n++
+				break
+			}
+		}
+	}
+	return channels, n
+}
+
+// segDist — расстояние от точки до отрезка.
+func segDist(p, q Pt, x, y float64) float64 {
+	dx, dy := q.X-p.X, q.Y-p.Y
+	l2 := dx*dx + dy*dy
+	if l2 < 1e-9 {
+		return dist(p.X, p.Y, x, y)
+	}
+	t := math.Max(0, math.Min(1, ((x-p.X)*dx+(y-p.Y)*dy)/l2))
+	return dist(p.X+dx*t, p.Y+dy*t, x, y)
 }

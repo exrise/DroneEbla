@@ -16,6 +16,7 @@ type StrikePlan struct {
 	Waypoints []Pt
 	Target    Pt
 	Delay     float64 // минут
+	Gap       float64 // минут между снарядами залпа (0 — по умолчанию)
 }
 
 // sourcePos возвращает позицию и платформы источника пуска.
@@ -219,6 +220,10 @@ func (w *World) Strike(s int, p StrikePlan) string {
 	if m.SpeedKmh > 1000 {
 		gap = 0.2
 	}
+	if p.Gap > 0 {
+		gap = p.Gap
+	}
+	w.strikeEpoch++
 	for k := 0; k < p.Count; k++ {
 		pr := &Projectile{
 			ID: w.newID(), Munition: p.Munition, Side: s, X: x, Y: y,

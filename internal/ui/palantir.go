@@ -22,9 +22,15 @@ type palState struct {
 	manual   bool // ручное планирование (иначе показываются предложения «Палантира»)
 	sentKey  string
 	sentAt   time.Time
+	sel      int       // выбранное предложение (номер с 1, 0 — не выбрано): F подтверждает только выбранное
+	sugAt    time.Time // когда последний раз запрашивали предложения
 }
 
-const palRefreshEvery = 250 * time.Millisecond
+const (
+	palRefreshEvery = 250 * time.Millisecond
+	palPlanRenew    = 5 * time.Second  // план на карте перезапрашивается и без изменений: пусковые перезаряжаются
+	palSuggestRenew = 10 * time.Second // предложения обновляются сами при открытой панели
+)
 
 // palMunitions — боеприпасы стороны, которыми можно бить через «Палантир» (есть на складе).
 func (g *Game) palMunitions() []string {
@@ -78,7 +84,7 @@ func (g *Game) startPalantirSuggest() {
 	g.pal.manual = false
 	g.strike = strikePlan{}
 	g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
-	g.pal.sentAt = time.Now()
+	g.pal.sentAt, g.pal.sugAt, g.pal.sel = time.Now(), time.Now(), 0
 }
 
 // drawPalantirSuggest — панель предложений: игрок только подтверждает.
@@ -89,7 +95,14 @@ func (g *Game) drawPalantirSuggest() {
 	rows := len(pl.Suggest)
 	h := 150
 	if pl.Active && rows > 0 {
-		h = 120 + rows*66
+		h = 140 + rows*66
+	}
+	if pl.Active && time.Since(g.pal.sugAt) > palSuggestRenew {
+		g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+		g.pal.sugAt = time.Now()
+	}
+	if g.pal.sel > rows {
+		g.pal.sel = 0
 	}
 	x, y := u.W-infoW-8, u.H-h-8
 	u.Panel(x, y, infoW, h)
@@ -113,27 +126,47 @@ func (g *Game) drawPalantirSuggest() {
 			continue
 		}
 		ry := py + i*66
-		fillRect(u.screen, float64(px-4), float64(ry-3), float64(pw+8), 62, color.RGBA{255, 255, 255, 14})
+		bg := color.RGBA{255, 255, 255, 14}
+		if g.pal.sel == i+1 {
+			bg = color.RGBA{60, 140, 220, 60}
+		}
+		fillRect(u.screen, float64(px-4), float64(ry-3), float64(pw+8), 62, bg)
+		if u.clicked(px-4, ry-3, pw-90, 62) {
+			g.pal.sel = i + 1
+		}
 		drawBold(u.screen, fmt.Sprintf("%d. %s", i+1, fitText(p.Target, 14, float64(pw-100))), float64(px), float64(ry), 14, colText, 0)
 		drawText(u.screen, fmt.Sprintf("%s ×%d (в плане %d, пусковых %d)", m.Name, p.Count, p.Total, p.Legs), float64(px), float64(ry+19), 13, colText, 0)
 		cc := colGood
 		if p.Cover > 0 {
 			cc = colWarn
 		}
-		info := fmt.Sprintf("прилёт через %s · ПВО у цели: %d кан.", fmtMin(p.Arrive), p.Cover)
+		if p.Route > 0 {
+			cc = colWarn
+		}
+		info := fmt.Sprintf("прилёт через %s · ПВО: цель %d, трасса %d кан.", fmtMin(p.Arrive), p.Cover, p.Route)
 		if p.Age >= 0 {
 			info += " · данные " + fmtMin(p.Age) + " назад"
 		}
 		drawText(u.screen, fitText(info, 12, float64(pw-90)), float64(px), float64(ry+38), 12, cc, 0)
+		if p.Warn != "" {
+			drawText(u.screen, fitText(p.Warn, 11, float64(pw-90)), float64(px), float64(ry+50), 11, colWarn, 0)
+		}
 		if u.Button(px+pw-84, ry+4, 84, 28, "Пуск") {
-			g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: p.Item, Count: p.Count, X: p.X, Y: p.Y})
-			g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+			g.palFire(p)
 		}
 		u.Tooltip(px-4, ry-3, pw+8, 62, fmt.Sprintf("Подтвердите — «Палантир» подберёт пусковые, обойдёт известную ПВО и синхронизирует прилёт.\n%s: дальность %.0f км, на складе %.0f.", m.Name, m.RangeKm, v.Stocks[m.ID]))
+	}
+	if rows > 0 {
+		hint := "Щёлкните строку и нажмите F, либо «Пуск»."
+		if g.pal.sel > 0 {
+			hint = fmt.Sprintf("Выбрано предложение %d: F — пуск.", g.pal.sel)
+		}
+		drawText(u.screen, hint, float64(px), float64(by-18), 12, colDim, 0)
 	}
 	bw := (pw - 8) / 3
 	if u.Button(px, by, bw, 30, "Обновить") {
 		g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+		g.pal.sugAt = time.Now()
 	}
 	if u.Button(px+bw+4, by, bw, 30, "Вручную") {
 		g.startPalantir(nil)
@@ -145,11 +178,13 @@ func (g *Game) drawPalantirSuggest() {
 
 func (g *Game) palConfirm() {
 	if !g.pal.manual {
-		// F в режиме предложений подтверждает первое из них.
-		if sg := g.view.Palantir.Suggest; len(sg) > 0 && g.view.Palantir.Active {
-			g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: sg[0].Item, Count: sg[0].Count, X: sg[0].X, Y: sg[0].Y})
-			g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+		// F в режиме предложений подтверждает только выбранное (щелчком по строке): случайное нажатие не стреляет.
+		sg := g.view.Palantir.Suggest
+		if g.pal.sel < 1 || g.pal.sel > len(sg) || !g.view.Palantir.Active {
+			g.toast("Выберите предложение щелчком по строке, затем нажмите F")
+			return
 		}
+		g.palFire(sg[g.pal.sel-1])
 		return
 	}
 	p := &g.pal
@@ -158,9 +193,16 @@ func (g *Game) palConfirm() {
 		g.toast("План ещё не рассчитан или невозможен")
 		return
 	}
-	g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: p.Munition, Count: p.Count, X: p.Target.X, Y: p.Target.Y})
+	g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: p.Munition, Count: p.Count, X: p.Target.X, Y: p.Target.Y, Force: true})
 	p.sentKey = ""
 	g.mode = modeNone
+}
+
+// palFire отправляет выбранное предложение (игрок видел предупреждения в строке, поэтому неполный залп подтверждён).
+func (g *Game) palFire(p sim.PalProposal) {
+	g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: p.Item, Count: p.Count, X: p.X, Y: p.Y, Force: true})
+	g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+	g.pal.sel, g.pal.sugAt = 0, time.Now()
 }
 
 // drawPalantirPlan рисует рассчитанные маршруты на карте.
@@ -211,7 +253,7 @@ func (g *Game) drawPalantirPanel() {
 	pl := v.Palantir
 	p := &g.pal
 	m := g.cat.MunitionByID[p.Munition]
-	h := 330
+	h := 390
 	if !pl.Active || len(g.palMunitions()) == 0 {
 		h = 150
 	}
@@ -276,7 +318,7 @@ func (g *Game) drawPalantirPanel() {
 	// План: запрос уходит хосту при изменении параметров, ответ приходит в представлении.
 	if p.HasT {
 		key := g.palKey()
-		if key != p.sentKey && time.Since(p.sentAt) > palRefreshEvery {
+		if (key != p.sentKey && time.Since(p.sentAt) > palRefreshEvery) || time.Since(p.sentAt) > palPlanRenew {
 			g.sess.Send(sim.Command{Kind: sim.CmdPalantirPlan, Item: p.Munition, Count: p.Count, X: p.Target.X, Y: p.Target.Y})
 			p.sentKey, p.sentAt = key, time.Now()
 		}
@@ -303,6 +345,14 @@ func (g *Game) drawPalantirPanel() {
 			cc = colWarn
 		}
 		py = g.kv("Известная ПВО у цели", fmt.Sprintf("%d каналов", pv.Cover), px, py, pw, cc)
+		rc := colGood
+		if pv.Route > 0 {
+			rc = colWarn
+		}
+		py = g.kv("ПВО на трассе", fmt.Sprintf("%d каналов", pv.Route), px, py, pw, rc)
+		if pv.Warn != "" {
+			py = g.para(pv.Warn, px, py, pw, colWarn)
+		}
 	}
 	by := y + h - 40
 	if u.Button(px, by, pw/2-4, 30, "Отмена") {
