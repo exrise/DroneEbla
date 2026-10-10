@@ -5,7 +5,7 @@
     "morale": 70,
     "people": 1500,
     "tax_per_city": 0.5,
-    "base_income": 60,
+    "base_income": 60, "income_k": 0.6,
     "men_stream": 0.6,
     "entry_lon": 40.9, "entry_lat": 50.8,
     "entries": [
@@ -129,7 +129,7 @@
     "morale": 80,
     "people": 900,
     "tax_per_city": 1.0,
-    "base_income": 40,
+    "base_income": 40, "income_k": 0.6,
     "men_stream": 0.45,
     "entry_lon": 24.2, "entry_lat": 50.0,
     "entries": [

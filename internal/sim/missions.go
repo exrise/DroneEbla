@@ -106,7 +106,7 @@ func missionTitle(a data.AidPackage) string {
 	return a.Name
 }
 
-func (w *World) rewardText(a data.AidPackage) string {
+func (w *World) rewardText(s int, a data.AidPackage) string {
 	var parts []string
 	ids := make([]string, 0, len(a.Items))
 	for id := range a.Items {
@@ -114,6 +114,10 @@ func (w *World) rewardText(a data.AidPackage) string {
 	}
 	sort.Strings(ids)
 	for _, id := range ids {
+		if id == "res:money" {
+			parts = append(parts, "Деньги "+data.MoneyText(s, a.Items[id]))
+			continue
+		}
 		parts = append(parts, fmt.Sprintf("%s ×%.0f", w.cat.ItemName(id), a.Items[id]))
 	}
 	if a.Morale != 0 {
@@ -131,7 +135,7 @@ func (w *World) missionViews(s int) []MissionView {
 		if m == nil {
 			continue
 		}
-		mv := MissionView{ID: a.ID, Title: missionTitle(a), Hint: a.Hint, Done: sd.AidDone[a.ID], Failed: sd.MissionFail[a.ID], Reward: w.rewardText(a)}
+		mv := MissionView{ID: a.ID, Title: missionTitle(a), Hint: a.Hint, Done: sd.AidDone[a.ID], Failed: sd.MissionFail[a.ID], Reward: w.rewardText(s, a)}
 		if m.Kind == "hold" {
 			mv.Target = m.Hours
 			mv.Progress = w.HoursSinceWar()

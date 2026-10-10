@@ -424,6 +424,7 @@ type SideDef struct {
 	People           float64            `json:"people"`       // мобилизационный резерв
 	TaxPerCity       float64            `json:"tax_per_city"` // деньги в час за 100 тыс. жителей
 	BaseIncome       float64            `json:"base_income"`
+	IncomeK          float64            `json:"income_k"`   // общий множитель доходов (0 — без изменений)
 	MenStream        float64            `json:"men_stream"` // приток людей на фронт, тыс./ч (из резерва)
 	EntryLon         float64            `json:"entry_lon"`  // точка появления поставок
 	EntryLat         float64            `json:"entry_lat"`

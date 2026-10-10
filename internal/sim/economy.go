@@ -269,6 +269,9 @@ func (w *World) economy(dtH float64) {
 			oil *= 0.3 + 0.7*portSum/float64(portN)
 		}
 		income += (oil + grain) * (1 - w.Sanction(s, "export"))
+		if def.IncomeK > 0 {
+			income *= def.IncomeK
+		}
 		sd.Income = income
 		delta[data.ResMoney] += income * dtH
 
