@@ -566,7 +566,11 @@ type AISide struct {
 	ImportReserveCritical float64 `json:"import_reserve_critical"`
 	RichMoney             float64 `json:"rich_money"`
 	RichElecBelow         float64 `json:"rich_elec_below"`
-	ImportParallel        int     `json:"import_parallel"` // сколько одинаковых закупок держать в пути одновременно
+	// StockCap — колпаки запаса дешёвых позиций (ложные цели, дроны-перехватчики): при превышении заказ снимается.
+	StockCap map[string]float64 `json:"stock_cap"`
+	// HeavyMenFrac — тяжёлая мобилизация, когда люди на фронте упали ниже этой доли максимума (по умолчанию 0,6).
+	HeavyMenFrac   float64 `json:"heavy_men_frac"`
+	ImportParallel int     `json:"import_parallel"` // сколько одинаковых закупок держать в пути одновременно
 	// Fleet — целевой парк юнитов: "новый|старый:N" — держать N штук (живых и заказанных); недостающее заказывается.
 	Fleet         []string `json:"fleet"`
 	FleetBatch    int      `json:"fleet_batch"`    // не больше стольких штук одной позиции в одном заказе

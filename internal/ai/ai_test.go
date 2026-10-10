@@ -320,3 +320,58 @@ func TestSmartImportLimits(t *testing.T) {
 		t.Fatalf("при нуле ресурса резерв должен упасть до 150, а он %v", reserve)
 	}
 }
+
+// Колпак запаса: дешёвая позиция снимается из госзаказа при избытке и возвращается, когда запас упал.
+func TestStockCapDropsOrder(t *testing.T) {
+	w := newWorld(t)
+	w.Solo = false
+	w.StartPlacement()
+	ru := New(w.Catalog(), data.RU)
+	if len(ru.cfg.StockCap) == 0 || !ru.cfg.Smart {
+		t.Skip("колпаки запаса не настроены")
+	}
+	ru.Place(w)
+	New(w.Catalog(), data.UA).Place(w)
+	rs := w.Sides[data.RU]
+	for id := range ru.cfg.StockCap {
+		rs.Unlocked[id] = true
+	}
+	for k := 0; k < 12*60; k++ {
+		w.Step(1)
+		ru.Tick(w)
+	}
+	has := func(item string) bool {
+		for _, o := range rs.Orders {
+			if o.Item == item {
+				return true
+			}
+		}
+		return false
+	}
+	var item string
+	for id := range ru.cfg.StockCap {
+		if has(id) {
+			item = id
+			break
+		}
+	}
+	if item == "" {
+		t.Skip("за 12 часов ни одна позиция с колпаком не заказана")
+	}
+	rs.Stocks[item] = ru.cfg.StockCap[item] * 2
+	for k := 0; k < 3*60; k++ {
+		w.Step(1)
+		ru.Tick(w)
+	}
+	if has(item) {
+		t.Fatalf("запас %s выше колпака, а заказ не снят", item)
+	}
+	rs.Stocks[item] = 0
+	for k := 0; k < 3*60; k++ {
+		w.Step(1)
+		ru.Tick(w)
+	}
+	if !has(item) {
+		t.Fatalf("запас %s упал, а заказ не вернулся", item)
+	}
+}

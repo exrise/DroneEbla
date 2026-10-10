@@ -56,6 +56,24 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 			}
 		}
 		id := alts[best]
+		if limit := c.StockCap[id]; c.Smart && limit > 0 {
+			// Дешёвые позиции не копятся сверх колпака: заказ снимается, пока запас не упадёт ниже 60% колпака,
+			// и мощность идёт на ЗУР и ракеты (она делится между позициями поровну).
+			held := v.Stocks[id]
+			ordered := false
+			for i := len(orders) - 1; i >= 0; i-- {
+				if orders[i].Item != id {
+					continue
+				}
+				ordered = true
+				if held >= limit && a.cmd(w, sim.Command{Kind: sim.CmdOrderDel, Int: i}) == "" {
+					orders = append(orders[:i], orders[i+1:]...)
+				}
+			}
+			if held >= limit || (!ordered && held >= limit*0.6) {
+				continue
+			}
+		}
 		have := false
 		for _, o := range orders {
 			have = have || o.Item == id
@@ -200,7 +218,11 @@ func (a *AI) mobilizeSmart(w *sim.World, v *sim.View, men, money float64) {
 			// Крайние меры (удар по морали и выпуску): люди упали ниже 60% от максимума или ниже порога,
 			// либо фронт отступает, а людей меньше максимума.
 			losing := a.trend[0]+a.trend[1]+a.trend[2] < -3
-			if !(men < a.peakMen*0.6 || (c.MobilizeBelow > 0 && men < c.MobilizeBelow*0.6) || (losing && men < a.peakMen*0.95)) {
+			heavy := c.HeavyMenFrac
+			if heavy <= 0 {
+				heavy = 0.6
+			}
+			if !(men < a.peakMen*heavy || (c.MobilizeBelow > 0 && men < c.MobilizeBelow*0.6) || (losing && men < a.peakMen*0.95)) {
 				continue
 			}
 		}
