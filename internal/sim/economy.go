@@ -238,6 +238,13 @@ func (w *World) economy(dtH float64) {
 			}
 			income += float64(c.Pop) / 100000 * def.TaxPerCity * pf * MoraleProd(r, sd.Morale)
 		}
+		for _, b := range w.Buildings {
+			if b.Side == s {
+				if bt := w.cat.BuildingByID[b.Type]; bt.TaxH > 0 {
+					income += bt.TaxH * b.scale() * Efficiency(r, b.frac())
+				}
+			}
+		}
 		income *= 1 - w.Sanction(s, "tax")
 		oil, grain := 0.0, 0.0
 		portSum, portN := 0.0, 0
@@ -383,6 +390,13 @@ func (w *World) production(s int, dtH float64) {
 		if !ok || pts <= 0 {
 			continue
 		}
+		batch := w.cat.ItemBatch(o.Item)
+		if batch > 1 {
+			pts *= batch
+			for i := range cost {
+				cost[i] *= batch
+			}
+		}
 		if w.Cheat {
 			cost = data.Res{}
 			o.Progress = pts * cheatBatch
@@ -403,10 +417,11 @@ func (w *World) production(s int, dtH float64) {
 			}
 			sd.Res.Add(cost, -1)
 			o.Progress -= pts
-			w.deliver(s, o.Item, 1, "")
+			w.deliver(s, o.Item, batch, "")
 			if o.Remaining > 0 {
-				o.Remaining--
-				if o.Remaining == 0 {
+				o.Remaining -= int(batch)
+				if o.Remaining <= 0 {
+					o.Remaining = 0
 					done = true
 				}
 			}

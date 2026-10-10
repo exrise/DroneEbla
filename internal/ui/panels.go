@@ -626,6 +626,9 @@ func (g *Game) tabBuild(x, y, w int) int {
 		y += 20
 		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(cost), bt.BuildHours), x, y, w, colDim)
 		y = g.para(bt.Desc, x, y, w, colDim)
+		if bt.NeedCityKm > 0 {
+			y = g.para(fmt.Sprintf("Только возле своего города (от %d тыс. жителей, не дальше %.0f км).", g.cat.Rules.CityMinPop/1000, bt.NeedCityKm), x, y, w, colWarn)
+		}
 		if u.ButtonState(x, y, 140, 24, "Строить", g.mode == modeBuild && g.buildType == bt.ID, afford) {
 			g.mode, g.buildType = modeBuild, bt.ID
 		}

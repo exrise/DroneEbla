@@ -103,6 +103,9 @@ func Load(override string) (*Catalog, error) {
 	if r.RetreatTiles <= 0 {
 		r.RetreatTiles, r.RetreatDamage = 4, 0.25
 	}
+	if r.CityMinPop <= 0 {
+		r.CityMinPop = 100000
+	}
 	if r.BridgePassFrac <= 0 {
 		r.BridgePassFrac = 0.5
 	}
@@ -237,6 +240,14 @@ func (c *Catalog) ItemCost(id string) (Res, string, float64, bool) {
 		return ToRes(f.Cost), f.Cap, f.CapPoints, true
 	}
 	return Res{}, "", 0, false
+}
+
+// ItemBatch — сколько штук предмета выпускается за один цикл производства (партия снаряжения; по умолчанию 1).
+func (c *Catalog) ItemBatch(id string) float64 {
+	if m, ok := c.MunitionByID[id]; ok && m.Batch > 1 {
+		return m.Batch
+	}
+	return 1
 }
 
 // satTech — есть ли у стороны s спутник name, включаемый исследованием tech.

@@ -19,6 +19,7 @@ type palState struct {
 	Count    int
 	Target   sim.Pt
 	HasT     bool
+	manual   bool // ручное планирование (иначе показываются предложения «Палантира»)
 	sentKey  string
 	sentAt   time.Time
 }
@@ -53,6 +54,7 @@ func (g *Game) palKey() string {
 // startPalantir входит в режим планирования; target — готовая цель (контакт) или nil.
 func (g *Game) startPalantir(target *sim.Pt) {
 	g.mode = modePalantir
+	g.pal.manual = true
 	g.strike = strikePlan{}
 	ms := g.palMunitions()
 	if g.pal.Munition == "" || g.view.Stocks[g.pal.Munition] < 1 {
@@ -70,7 +72,86 @@ func (g *Game) startPalantir(target *sim.Pt) {
 	g.pal.sentKey = ""
 }
 
+// startPalantirSuggest открывает предложения «Палантира»: он сам выбирает цели, боеприпас и количество.
+func (g *Game) startPalantirSuggest() {
+	g.mode = modePalantir
+	g.pal.manual = false
+	g.strike = strikePlan{}
+	g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+	g.pal.sentAt = time.Now()
+}
+
+// drawPalantirSuggest — панель предложений: игрок только подтверждает.
+func (g *Game) drawPalantirSuggest() {
+	u := &g.ui
+	v := g.view
+	pl := v.Palantir
+	rows := len(pl.Suggest)
+	h := 150
+	if pl.Active && rows > 0 {
+		h = 120 + rows*66
+	}
+	x, y := u.W-infoW-8, u.H-h-8
+	u.Panel(x, y, infoW, h)
+	px, py, pw := x+12, y+10, infoW-24
+	drawBold(u.screen, "ИИ «Палантир» предлагает", float64(px), float64(py), 16, colAccent, 0)
+	py += 26
+	by := y + h - 40
+	if !pl.Active {
+		g.para("«Палантир» не работает: "+pl.Reason+".", px, py, pw, colBad)
+		if u.Button(px, by, pw, 30, "Закрыть") {
+			g.mode = modeNone
+		}
+		return
+	}
+	if rows == 0 {
+		g.para("Подходящих целей нет: нужны известные объекты противника в досягаемости готовых пусковых. Запустите разведку или дождитесь перезарядки.", px, py, pw, colDim)
+	}
+	for i, p := range pl.Suggest {
+		m := g.cat.MunitionByID[p.Item]
+		if m == nil {
+			continue
+		}
+		ry := py + i*66
+		fillRect(u.screen, float64(px-4), float64(ry-3), float64(pw+8), 62, color.RGBA{255, 255, 255, 14})
+		drawBold(u.screen, fmt.Sprintf("%d. %s", i+1, fitText(p.Target, 14, float64(pw-100))), float64(px), float64(ry), 14, colText, 0)
+		drawText(u.screen, fmt.Sprintf("%s ×%d (в плане %d, пусковых %d)", m.Name, p.Count, p.Total, p.Legs), float64(px), float64(ry+19), 13, colText, 0)
+		cc := colGood
+		if p.Cover > 0 {
+			cc = colWarn
+		}
+		info := fmt.Sprintf("прилёт через %s · ПВО у цели: %d кан.", fmtMin(p.Arrive), p.Cover)
+		if p.Age >= 0 {
+			info += " · данные " + fmtMin(p.Age) + " назад"
+		}
+		drawText(u.screen, fitText(info, 12, float64(pw-90)), float64(px), float64(ry+38), 12, cc, 0)
+		if u.Button(px+pw-84, ry+4, 84, 28, "Пуск") {
+			g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: p.Item, Count: p.Count, X: p.X, Y: p.Y})
+			g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+		}
+		u.Tooltip(px-4, ry-3, pw+8, 62, fmt.Sprintf("Подтвердите — «Палантир» подберёт пусковые, обойдёт известную ПВО и синхронизирует прилёт.\n%s: дальность %.0f км, на складе %.0f.", m.Name, m.RangeKm, v.Stocks[m.ID]))
+	}
+	bw := (pw - 8) / 3
+	if u.Button(px, by, bw, 30, "Обновить") {
+		g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+	}
+	if u.Button(px+bw+4, by, bw, 30, "Вручную") {
+		g.startPalantir(nil)
+	}
+	if u.Button(px+2*(bw+4), by, bw, 30, "Закрыть") {
+		g.mode = modeNone
+	}
+}
+
 func (g *Game) palConfirm() {
+	if !g.pal.manual {
+		// F в режиме предложений подтверждает первое из них.
+		if sg := g.view.Palantir.Suggest; len(sg) > 0 && g.view.Palantir.Active {
+			g.sess.Send(sim.Command{Kind: sim.CmdPalantirStrike, Item: sg[0].Item, Count: sg[0].Count, X: sg[0].X, Y: sg[0].Y})
+			g.sess.Send(sim.Command{Kind: sim.CmdPalantirSuggest})
+		}
+		return
+	}
 	p := &g.pal
 	pv := g.view.Palantir.Preview
 	if !p.HasT || pv.Key != g.palKey() || pv.Err != "" {
@@ -85,6 +166,15 @@ func (g *Game) palConfirm() {
 // drawPalantirPlan рисует рассчитанные маршруты на карте.
 func (g *Game) drawPalantirPlan(dst *ebiten.Image) {
 	p := &g.pal
+	if !p.manual {
+		for i, sg := range g.view.Palantir.Suggest {
+			sx, sy := g.cam.ToScreen(sg.X, sg.Y)
+			col := color.RGBA{60, 140, 220, 255}
+			circle(dst, sx, sy, 10, col, 2)
+			drawTextHalo(dst, fmt.Sprintf("%d", i+1), sx+12, sy-12, 14, col, color.White, 0)
+		}
+		return
+	}
 	if !p.HasT {
 		return
 	}
@@ -112,6 +202,10 @@ func (g *Game) drawPalantirPlan(dst *ebiten.Image) {
 
 // drawPalantirPanel — панель планирования удара через «Палантир».
 func (g *Game) drawPalantirPanel() {
+	if !g.pal.manual {
+		g.drawPalantirSuggest()
+		return
+	}
 	u := &g.ui
 	v := g.view
 	pl := v.Palantir
@@ -255,9 +349,10 @@ func (g *Game) palantirBlock(x, y, w int) int {
 		g.sess.Send(sim.Command{Kind: sim.CmdPalantir, Int: n})
 	}
 	y += 32
-	if u.ButtonState(x, y, w/2-4, 26, "Спланировать удар", g.mode == modePalantir, pl.Active && v.War) {
-		g.startPalantir(nil)
+	if u.ButtonState(x, y, w/2-4, 26, "Предложить удары", g.mode == modePalantir && !g.pal.manual, pl.Active && v.War) {
+		g.startPalantirSuggest()
 	}
+	u.Tooltip(x, y, w/2-4, 26, "«Палантир» сам выберет цели, тип дронов или ракет и количество; вы только подтверждаете. Ручное планирование — кнопка «Вручную» в панели.")
 	last := pl.Last
 	ok := pl.Active && v.War && last.Valid
 	if u.ButtonState(x+w/2+4, y, w/2-4, 26, "Повторить удар", false, ok) {

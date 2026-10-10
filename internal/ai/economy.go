@@ -7,6 +7,7 @@ import (
 
 	"github.com/exrise/droneebla/internal/data"
 	"github.com/exrise/droneebla/internal/sim"
+	"github.com/exrise/droneebla/internal/world"
 )
 
 // economy — исследования, госзаказ, закупки, мобилизация, пропаганда, стройка.
@@ -343,10 +344,20 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 		if have >= bd.Max || money < bd.MinMoney || !a.buildWhen(v, bd.When) {
 			continue
 		}
+		pool := anchors
+		maxR := 18.0
+		if bt := a.cat.BuildingByID[bd.Type]; bt != nil && bt.NeedCityKm > 0 {
+			// Заводы строят только возле своих городов: опорные точки — крупные города стороны.
+			pool = a.cityAnchors(w, v)
+			maxR = math.Max(1, bt.NeedCityKm-8)
+			if len(pool) == 0 {
+				continue
+			}
+		}
 		for try := 0; try < 24; try++ {
-			an := anchors[(a.buildAt+try)%len(anchors)]
+			an := pool[(a.buildAt+try)%len(pool)]
 			ang := a.rng.Float64() * 2 * math.Pi
-			r := 6 + a.rng.Float64()*18
+			r := 6 + a.rng.Float64()*maxR
 			x, y := an.X+math.Cos(ang)*r, an.Y+math.Sin(ang)*r
 			if w.CanBuild(a.side, bd.Type, x, y) != "" {
 				continue
@@ -390,4 +401,21 @@ func (a *AI) smartImportLimits(v *sim.View, im data.ImportOffer, money, reserve,
 		below = math.Max(below, c.RichElecBelow)
 	}
 	return reserve, below
+}
+
+// cityAnchors — крупные города стороны (опорные точки для заводов), в порядке убывания населения.
+func (a *AI) cityAnchors(w *sim.World, v *sim.View) []sim.Building {
+	m := w.Map()
+	var out []sim.Building
+	cities := append([]world.City(nil), m.Cities...)
+	sort.SliceStable(cities, func(i, j int) bool { return cities[i].Pop > cities[j].Pop })
+	for _, c := range cities {
+		if c.Pop < a.cat.Rules.CityMinPop {
+			continue
+		}
+		if tx, ty := m.TileAt(c.X, c.Y); m.In(tx, ty) && int(v.Owner[m.Idx(tx, ty)])-1 == a.side {
+			out = append(out, sim.Building{X: c.X, Y: c.Y})
+		}
+	}
+	return out
 }

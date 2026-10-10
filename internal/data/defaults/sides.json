@@ -82,7 +82,7 @@
     ],
     "imports": [
       {"id": "ru_imp_shahed", "name": "Шахеды из Ирана (×20)", "item": "shahed136", "amount": 20, "money": 70, "delay_h": 12},
-      {"id": "ru_imp_elec", "name": "Электроника (параллельный импорт, ×30)", "item": "res:electronics", "amount": 30, "money": 80, "delay_h": 12, "auto_below": 60, "requires": "ru_parallel_import"},
+      {"id": "ru_imp_elec", "name": "Электроника (параллельный импорт, ×100)", "item": "res:electronics", "amount": 100, "money": 267, "delay_h": 12, "auto_below": 60, "requires": "ru_parallel_import"},
       {"id": "ru_imp_shells", "name": "Снаряды из КНДР (×400)", "item": "res:ammo", "amount": 400, "money": 90, "delay_h": 24, "auto_below": 400, "requires": "ru_dprk"},
       {"id": "ru_imp_kn23", "name": "Ракеты KN-23 (×6)", "item": "kn23", "amount": 6, "money": 90, "delay_h": 36, "requires": "ru_dprk"}
     ],
@@ -181,7 +181,7 @@
       "mfg_ua", "radar_ua", "reb_ua", "rtr_ua", "smerch_ua", "osa", "m_9m33", "m_aam_ua"
     ],
     "imports": [
-      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×30)", "item": "res:electronics", "amount": 30, "money": 50, "delay_h": 8, "auto_below": 60},
+      {"id": "ua_imp_elec", "name": "Китайские комплектующие (×100)", "item": "res:electronics", "amount": 100, "money": 167, "delay_h": 8, "auto_below": 60},
       {"id": "ua_imp_ammo", "name": "Закупка снарядов (×200)", "item": "res:ammo", "amount": 200, "money": 70, "delay_h": 24, "auto_below": 300},
       {"id": "ua_imp_steel", "name": "Сталь из ЕС (×200)", "item": "res:steel", "amount": 200, "money": 40, "delay_h": 12, "auto_below": 300},
       {"id": "ua_imp_fuel", "name": "Топливо из ЕС (×200)", "item": "res:fuel", "amount": 200, "money": 40, "delay_h": 6, "auto_below": 300},

@@ -41,16 +41,31 @@ type PalPreview struct {
 	Request int     // сколько просили
 }
 
+// PalProposal — предложение «Палантира»: цель, тип боеприпаса и количество; игрок только подтверждает.
+type PalProposal struct {
+	Item   string
+	Count  int
+	X, Y   float64
+	Target string
+	Total  int     // боеприпасов реально в плане (может быть меньше Count)
+	Legs   int     // пусковых
+	Arrive float64 // минут до прилёта волны
+	Cover  int     // каналов известной ПВО у цели
+	Age    float64 // минут с последней разведки цели (−1 — довоенные данные)
+}
+
 // PalantirView — состояние «Палантира» для интерфейса.
 type PalantirView struct {
-	Has      bool
-	Sub      bool
-	Active   bool
-	Reason   string // почему не работает
-	MoneyH   float64
-	Building string
-	Preview  PalPreview
-	Last     PalRequest
+	Has       bool
+	Sub       bool
+	Active    bool
+	Reason    string // почему не работает
+	MoneyH    float64
+	Building  string
+	Preview   PalPreview
+	Last      PalRequest
+	Suggest   []PalProposal // предложения ударов
+	SuggestAt float64       // игровое время расчёта предложений
 }
 
 // PalKey — ключ запроса для сопоставления плана с запросом на клиенте.
@@ -241,6 +256,10 @@ func (w *World) palCommand(s int, c Command) string {
 	if ok, why := w.palantirActive(s); !ok {
 		return "«Палантир» не работает: " + why
 	}
+	if c.Kind == CmdPalantirSuggest {
+		sd.PalSuggest, sd.PalSuggestAt = w.palSuggest(s), w.Time
+		return ""
+	}
 	req := PalRequest{Item: c.Item, Count: c.Count, X: c.X, Y: c.Y, Valid: true}
 	if c.Kind == CmdPalantirRepeat {
 		if !sd.PalLast.Valid {
@@ -285,7 +304,7 @@ func (w *World) palantirView(s int) PalantirView {
 	}
 	sd := w.Sides[s]
 	ok, why := w.palantirActive(s)
-	return PalantirView{Has: true, Sub: sd.PalSub, Active: ok, Reason: why, MoneyH: def.MoneyH, Building: def.Building, Preview: sd.PalPreview, Last: sd.PalLast}
+	return PalantirView{Has: true, Sub: sd.PalSub, Active: ok, Reason: why, MoneyH: def.MoneyH, Building: def.Building, Preview: sd.PalPreview, Last: sd.PalLast, Suggest: sd.PalSuggest, SuggestAt: sd.PalSuggestAt}
 }
 
 // palantirCost списывает плату за подписку; при нехватке денег подписка отменяется.
@@ -302,4 +321,113 @@ func (w *World) palantirCost(s int, dtH float64) {
 	}
 	sd.PalSub = false
 	w.Log(s, 2, "«Палантир»: подписка отменена — не хватает денег")
+}
+
+// palSuggest предлагает до четырёх ударов: по самым ценным известным целям с наименьшим прикрытием, боеприпасом с лучшим
+// отношением поражающего действия к цене из тех, что реально долетают с готовых пусковых, и числом, достаточным для
+// прикрытия цели (для дронов и крылатых ракет — с запасом на потери).
+func (w *World) palSuggest(s int) []PalProposal {
+	sd := w.Sides[s]
+	cfg := w.cat.AI.Sides[data.SideKeys[s]]
+	type cand struct {
+		c     *Contact
+		name  string
+		cover int
+		score float64
+	}
+	var cands []cand
+	for _, c := range sd.Known {
+		if c.Type == "" {
+			continue
+		}
+		var weight float64
+		name := ""
+		if c.Kind == 0 {
+			weight = cfg.StrikeWeights[c.Type]
+			if bt := w.cat.BuildingByID[c.Type]; bt != nil {
+				name = bt.Name
+			}
+			if c.HP >= 0 && c.HP < 0.25 {
+				continue
+			}
+		} else {
+			ut := w.cat.UnitByID[c.Type]
+			if ut == nil || c.Seen < 0 || w.Time-c.Seen > 360 {
+				continue
+			}
+			weight = cfg.UnitStrikeWeights[ut.Kind]
+			name = ut.Name
+		}
+		if weight <= 0 {
+			continue
+		}
+		cover := 0
+		for _, o := range sd.Known {
+			if o.Kind != 1 || o.Type == "" || o.Seen < 0 || w.Time-o.Seen > 720 {
+				continue
+			}
+			if ut := w.cat.UnitByID[o.Type]; ut != nil && ut.Kind == "ad" && dist(o.X, o.Y, c.X, c.Y) <= ut.RangeKm+5 {
+				cover += ut.Channels
+			}
+		}
+		cands = append(cands, cand{c, name, cover, weight / (1 + 0.3*float64(cover))})
+	}
+	sort.Slice(cands, func(a, b int) bool {
+		if cands[a].score != cands[b].score {
+			return cands[a].score > cands[b].score
+		}
+		return cands[a].c.ID < cands[b].c.ID
+	})
+	if len(cands) > 40 {
+		cands = cands[:40]
+	}
+	var avail []*data.MunitionType
+	for i := range w.cat.Munitions {
+		m := &w.cat.Munitions[i]
+		if data.SideIndex(m.Side) != s || m.Kind == "interceptor" || m.Kind == "decoy" || m.Kind == "recon" || sd.Stocks[m.ID] < 1 {
+			continue
+		}
+		if len(w.palSources(s, m.ID)) > 0 {
+			avail = append(avail, m)
+		}
+	}
+	base, per := cfg.SalvoBase, cfg.SalvoPerChannel
+	if base <= 0 {
+		base = 3
+	}
+	if per <= 0 {
+		per = 2.5
+	}
+	var out []PalProposal
+	for _, cd := range cands {
+		need := math.Ceil(base + per*float64(cd.cover))
+		bestVal := -1.0
+		var best PalProposal
+		for _, m := range avail {
+			n := need
+			if m.Kind == "drone" || (m.Kind == "cruise" && m.Class != "high") {
+				n = math.Ceil(need * 1.6) // часть собьёт ПВО
+			}
+			n = math.Min(n, sd.Stocks[m.ID])
+			pv := w.palPlan(s, PalRequest{Item: m.ID, Count: int(n), X: cd.c.X, Y: cd.c.Y, Valid: true})
+			if pv.Err != "" || float64(pv.Total) < n*0.5 {
+				continue
+			}
+			if val := m.Damage * m.Accuracy / (m.Cost["money"] + 1); val > bestVal {
+				bestVal = val
+				age := -1.0
+				if cd.c.Seen >= 0 {
+					age = w.Time - cd.c.Seen
+				}
+				best = PalProposal{Item: m.ID, Count: int(n), X: cd.c.X, Y: cd.c.Y, Target: cd.name, Total: pv.Total, Legs: len(pv.Legs), Arrive: pv.Arrive, Cover: pv.Cover, Age: age}
+			}
+		}
+		if bestVal >= 0 {
+			out = append(out, best)
+		}
+		if len(out) == 4 {
+			break
+		}
+	}
+	return out
 }

@@ -1741,14 +1741,14 @@ func TestStocksAndImports(t *testing.T) {
 	w := newTestWorld(t)
 	run(w, w.PrepEnd+1)
 	ru := w.Sides[data.RU]
-	ru.Res[data.ResMoney] = 1000
+	ru.Res[data.ResMoney] = 3000
 	ru.Researched["ru_parallel_import"] = true
 	before := len(ru.Deliveries)
 	if e := w.Apply(Command{Kind: CmdImport, Side: data.RU, Item: "ru_imp_elec", Count: 5}); e != "" {
 		t.Fatal(e)
 	}
-	price := w.ImportPrice(data.RU, data.ImportOffer{Money: 80})
-	if len(ru.Deliveries) != before+5 || math.Abs(ru.Res[data.ResMoney]-(1000-5*price)) > 0.01 {
+	price := w.ImportPrice(data.RU, data.ImportOffer{Money: 267})
+	if len(ru.Deliveries) != before+5 || math.Abs(ru.Res[data.ResMoney]-(3000-5*price)) > 0.01 {
 		t.Fatalf("пачка: %d поставок, денег %.0f", len(ru.Deliveries)-before, ru.Res[data.ResMoney])
 	}
 	// Денег хватает на меньше, чем просили: покупается сколько можно.
@@ -2267,6 +2267,25 @@ func TestPalantir(t *testing.T) {
 	if !pv.Active {
 		t.Fatalf("ЦОД построен, подписка есть, а «Палантир» не активен: %s", pv.Reason)
 	}
+	// Предложения «Палантира»: известная цель у фронта → цель, боеприпас и количество подобраны сами.
+	for id, c := range ua.Known { // известная ПВО у цели не должна съедать всю партию
+		if c.Kind == 1 {
+			delete(ua.Known, id)
+		}
+	}
+	ua.Known[999999] = &Contact{ID: 999999, Kind: 0, Type: "refinery", X: tx, Y: ty, Seen: w.Time, HP: 1}
+	if e := w.Apply(Command{Kind: CmdPalantirSuggest, Side: data.UA}); e != "" {
+		t.Fatal(e)
+	}
+	if len(ua.PalSuggest) == 0 {
+		pv := w.palPlan(data.UA, PalRequest{Item: "tochka_u", Count: 3, X: tx, Y: ty, Valid: true})
+		t.Fatalf("«Палантир» не предложил ни одной цели при известном НПЗ у фронта (план по Точке: %+v, источников %d)", pv, len(w.palSources(data.UA, "tochka_u")))
+	}
+	sg := ua.PalSuggest[0]
+	if sg.Item == "" || sg.Count < 1 || sg.Total < 1 || sg.Legs < 1 || sg.Target == "" {
+		t.Fatalf("предложение заполнено неполно: %+v", sg)
+	}
+	delete(ua.Known, 999999)
 	before := ua.Stocks["tochka_u"]
 	if e := w.Apply(Command{Kind: CmdPalantirPlan, Side: data.UA, Item: "tochka_u", Count: 6, X: tx, Y: ty}); e != "" {
 		t.Fatal(e)
@@ -2299,5 +2318,73 @@ func TestPalantir(t *testing.T) {
 	gainOn := ua.Res[data.ResMoney] - moneyOn
 	if gainOff-gainOn < 0.5*w.cat.Sides[data.UA].Palantir.MoneyH*10 {
 		t.Fatalf("подписка почти не списывается: без неё +%.0f, с ней +%.0f за 10 ч", gainOff, gainOn)
+	}
+}
+
+// Заводы строят только возле своих крупных городов; торговые склады дают налоги и не строятся.
+func TestFactoriesNearCitiesAndWarehouses(t *testing.T) {
+	w := newTestWorld(t)
+	ru := w.Sides[data.RU]
+	ru.Res = data.Res{9000, 9000, 9000, 9000, 9000}
+	kx, ky := w.m.Project(37.6, 55.75) // Москва
+	if e := w.CanBuild(data.RU, "electronics_plant", kx+8, ky+5); strings.Contains(e, "городов") {
+		t.Fatalf("у Москвы завод должен строиться: %s", e)
+	}
+	fx, fy := w.m.Project(40.5, 52.0) // глушь между городами
+	if e := w.CanBuild(data.RU, "armor_plant", fx, fy); !strings.Contains(e, "городов") && e == "" {
+		t.Fatal("вдали от городов завод строиться не должен")
+	}
+	if e := w.CanBuild(data.RU, "trade_warehouse", kx+8, ky+5); e == "" {
+		t.Fatal("торговые склады строить нельзя")
+	}
+	n := 0
+	for _, b := range w.Buildings {
+		if b.Type == "trade_warehouse" {
+			n++
+		}
+	}
+	if n < 20 {
+		t.Fatalf("торговых складов с начала игры %d, ожидалось много", n)
+	}
+	// Склады приносят налоги: без них доход ниже.
+	w.economy(1.0 / 60)
+	with := ru.Income
+	for id, b := range w.Buildings {
+		if b.Type == "trade_warehouse" {
+			delete(w.Buildings, id)
+		}
+	}
+	w.economy(1.0 / 60)
+	if with <= ru.Income+5 {
+		t.Fatalf("доход со складами %.1f, без них %.1f — налоги от складов не видны", with, ru.Income)
+	}
+}
+
+// Дроны-перехватчики выпускаются партиями по 10.
+func TestInterceptorDronesInBatches(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	ua.Orders = nil
+	ua.Unlocked["m_idrone_ua"] = true
+	ua.Res = data.Res{50000, 50000, 50000, 50000, 50000}
+	ua.Stocks["m_idrone_ua"] = 0
+	w.Apply(Command{Kind: CmdOrderAdd, Side: data.UA, Item: "m_idrone_ua"})
+	var seen []float64
+	last := 0.0
+	for i := 0; i < 60*20 && len(seen) < 3; i++ {
+		w.Step(1)
+		if s := ua.Stocks["m_idrone_ua"]; s != last {
+			seen = append(seen, s-last)
+			last = s
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("дроны-перехватчики не выпускаются")
+	}
+	for _, d := range seen {
+		if d != 10 {
+			t.Fatalf("партия %v вместо 10", seen)
+		}
 	}
 }

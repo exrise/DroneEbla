@@ -75,6 +75,8 @@ type BuildingType struct {
 	NeedDeposit  map[string]float64 `json:"need_deposit"` // тип → радиус, км (0 — где угодно на своей территории)
 	NeedNear     string             `json:"need_near"`    // своё целое здание этого типа в радиусе
 	NearKm       float64            `json:"near_km"`
+	NeedCityKm   float64            `json:"need_city_km"`  // строить не дальше этого расстояния от своего города (0 — где угодно)
+	TaxH         float64            `json:"tax_h"`         // налоги: денег в час при целом здании (с множителем scale)
 	NeedWaterKm  float64            `json:"need_water_km"` // строить не дальше этого расстояния от реки, озера или моря (0 — где угодно)
 	Research     float64            `json:"research"`      // очки исследований в час
 	Supply       float64            `json:"supply"`        // вклад в снабжение направления
@@ -170,6 +172,7 @@ type MunitionType struct {
 	Cost       map[string]float64 `json:"cost"`
 	Cap        string             `json:"cap"`
 	CapPoints  float64            `json:"cap_points"`
+	Batch      float64            `json:"batch"` // штук за один цикл производства (0 — по одной): цена и очки мощности умножаются
 	Desc       string             `json:"desc"`
 }
 
@@ -449,6 +452,7 @@ type Rules struct {
 	RuVictoryCities     []string           `json:"ru_victory_cities"`      // города, которые Россия должна удерживать одновременно для победы
 	RetreatTiles        int                `json:"retreat_tiles"`          // радиус отхода юнита с захваченного тайла
 	RetreatDamage       float64            `json:"retreat_damage"`         // доля прочности, теряемая при отступлении
+	CityMinPop          int                `json:"city_min_pop"`           // город, возле которого строят заводы (население не меньше)
 	BridgePassFrac      float64            `json:"bridge_pass_frac"`       // мост пропускает технику, пока его HP не ниже этой доли
 	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
 	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение

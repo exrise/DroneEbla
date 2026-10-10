@@ -250,7 +250,9 @@ type Side struct {
 	PalSub       bool                 // подписка на «ИИ Палантир»
 	PalLast      PalRequest           // последний удар через «Палантир» (для «Повторить»)
 	PalPreview   PalPreview           // последний рассчитанный план
-	Ready        bool                 // расстановка завершена
+	PalSuggest   []PalProposal        // предложения ударов «Палантира»
+	PalSuggestAt float64
+	Ready        bool // расстановка завершена
 	Known        map[uint32]*Contact
 	SeenAt       []float32 // время последнего наблюдения тайла
 	Events       []Event

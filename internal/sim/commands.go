@@ -28,38 +28,39 @@ type Command struct {
 
 // Виды приказов.
 const (
-	CmdSpeed          = "speed"
-	CmdPause          = "pause"
-	CmdBuild          = "build"
-	CmdRepair         = "repair"
-	CmdMask           = "mask"
-	CmdFort           = "fort"
-	CmdOrderAdd       = "order_add"
-	CmdOrderDel       = "order_del"
-	CmdOrderMove      = "order_move"
-	CmdMove           = "move"
-	CmdStrike         = "strike"
-	CmdResearch       = "research"
-	CmdResFund        = "research_fund"
-	CmdAgentFund      = "agent_fund"
-	CmdImport         = "import"
-	CmdAutoImport     = "auto_import"
-	CmdKeepStock      = "keep_stock"
-	CmdSell           = "sell"
-	CmdMobilize       = "mobilize"
-	CmdAlloc          = "alloc"
-	CmdPosture        = "posture"
-	CmdMainEffort     = "main_effort"
-	CmdSurrender      = "surrender"
-	CmdPropaganda     = "propaganda"
-	CmdPlace          = "place"           // Item — тип из резерва, X, Y — точка
-	CmdUnplace        = "unplace"         // ID — поставленный объект возвращается в резерв
-	CmdPalantir       = "palantir"        // Int 1/0 — подписка
-	CmdPalantirPlan   = "palantir_plan"   // Item, Count, X, Y — рассчитать план (показывается на карте)
-	CmdPalantirStrike = "palantir_strike" // Item, Count, X, Y — залп по плану
-	CmdPalantirRepeat = "palantir_repeat" // повторить последний залп
-	CmdFireMode       = "fire_mode"       // ID — комплекс ПВО, Int — режим огня 0–2
-	CmdReady          = "ready"           // Int 1/0 — готовность к старту
+	CmdSpeed           = "speed"
+	CmdPause           = "pause"
+	CmdBuild           = "build"
+	CmdRepair          = "repair"
+	CmdMask            = "mask"
+	CmdFort            = "fort"
+	CmdOrderAdd        = "order_add"
+	CmdOrderDel        = "order_del"
+	CmdOrderMove       = "order_move"
+	CmdMove            = "move"
+	CmdStrike          = "strike"
+	CmdResearch        = "research"
+	CmdResFund         = "research_fund"
+	CmdAgentFund       = "agent_fund"
+	CmdImport          = "import"
+	CmdAutoImport      = "auto_import"
+	CmdKeepStock       = "keep_stock"
+	CmdSell            = "sell"
+	CmdMobilize        = "mobilize"
+	CmdAlloc           = "alloc"
+	CmdPosture         = "posture"
+	CmdMainEffort      = "main_effort"
+	CmdSurrender       = "surrender"
+	CmdPropaganda      = "propaganda"
+	CmdPlace           = "place"            // Item — тип из резерва, X, Y — точка
+	CmdUnplace         = "unplace"          // ID — поставленный объект возвращается в резерв
+	CmdPalantir        = "palantir"         // Int 1/0 — подписка
+	CmdPalantirPlan    = "palantir_plan"    // Item, Count, X, Y — рассчитать план (показывается на карте)
+	CmdPalantirStrike  = "palantir_strike"  // Item, Count, X, Y — залп по плану
+	CmdPalantirRepeat  = "palantir_repeat"  // повторить последний залп
+	CmdPalantirSuggest = "palantir_suggest" // рассчитать предложения целей, боеприпасов и количества
+	CmdFireMode        = "fire_mode"        // ID — комплекс ПВО, Int — режим огня 0–2
+	CmdReady           = "ready"            // Int 1/0 — готовность к старту
 )
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
@@ -231,7 +232,7 @@ func (w *World) apply(c Command) string {
 				sd.DirPosture[d] = p
 			}
 		}
-	case CmdPalantir, CmdPalantirPlan, CmdPalantirStrike, CmdPalantirRepeat:
+	case CmdPalantir, CmdPalantirPlan, CmdPalantirStrike, CmdPalantirRepeat, CmdPalantirSuggest:
 		return w.palCommand(s, c)
 	case CmdFireMode:
 		u, ok := w.Units[c.ID]
@@ -280,6 +281,9 @@ func (w *World) CanBuild(s int, typ string, x, y float64) string {
 		if dist(fx, fy, x, y) < 15 {
 			return "Слишком близко к фронту (менее 15 км)"
 		}
+	}
+	if bt.NeedCityKm > 0 && !w.cityNear(s, x, y, bt.NeedCityKm) {
+		return fmt.Sprintf("Заводы строят только возле своих городов (от %d тыс. жителей, не дальше %.0f км)", w.cat.Rules.CityMinPop/1000, bt.NeedCityKm)
 	}
 	if bt.NeedWaterKm > 0 && !w.waterNear(x, y, bt.NeedWaterKm) {
 		return fmt.Sprintf("Нужна вода для охлаждения: река, озеро или море в %.0f км", bt.NeedWaterKm)
@@ -546,6 +550,30 @@ func (w *World) waterNear(x, y, km float64) bool {
 			if w.m.Terrain[j] != world.TerrainLand || w.m.Flags[j]&world.FlagRiver != 0 {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// cityNear — есть ли в радиусе km свой город с населением не меньше city_min_pop.
+func (w *World) cityNear(s int, x, y, km float64) bool {
+	for i, ci := range w.cityAt {
+		c := w.m.Cities[ci]
+		if c.Pop >= w.cat.Rules.CityMinPop && w.OwnerSide(i) == s && dist(c.X, c.Y, x, y) <= km {
+			return true
+		}
+	}
+	return false
+}
+
+// CityNear — то же для интерфейса и ИИ по карте и владельцам тайлов (owner — слой Owner представления).
+func CityNear(m *world.MapData, owner []uint8, side int, minPop int, x, y, km float64) bool {
+	for _, c := range m.Cities {
+		if c.Pop < minPop || dist(c.X, c.Y, x, y) > km {
+			continue
+		}
+		if tx, ty := m.TileAt(c.X, c.Y); m.In(tx, ty) && int(owner[m.Idx(tx, ty)])-1 == side {
+			return true
 		}
 	}
 	return false
