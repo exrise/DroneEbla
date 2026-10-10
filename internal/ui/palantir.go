@@ -327,7 +327,7 @@ func (g *Game) palantirBlock(x, y, w int) int {
 	if bt := g.cat.BuildingByID[pl.Building]; bt != nil {
 		bname = bt.Name
 	}
-	y = g.para(fmt.Sprintf("Подбирает пусковые, обходит известную ПВО и синхронизирует прилёт: достаточно указать цель, боеприпас и число. Подписка %.0f денег в час; нужен достроенный %s у воды с достаточной энергией (вкладка «Стройка»).", pl.MoneyH, bname), x, y, w, colDim)
+	y = g.para(fmt.Sprintf("Подбирает пусковые, обходит известную ПВО и синхронизирует прилёт: достаточно указать цель, боеприпас и число. Подписка %.0f %s в час; нужен достроенный %s у воды с достаточной энергией (вкладка «Стройка»).", pl.MoneyH, g.unit(), bname), x, y, w, colDim)
 	switch {
 	case pl.Active:
 		y = g.kv("Состояние", "работает", x, y, w, colGood)
@@ -337,7 +337,7 @@ func (g *Game) palantirBlock(x, y, w int) int {
 	default:
 		y = g.kv("Состояние", "нет подписки", x, y, w, colDim)
 	}
-	lbl := fmt.Sprintf("Оформить подписку (%.0f/ч)", pl.MoneyH)
+	lbl := fmt.Sprintf("Оформить подписку (%.0f %s/ч)", pl.MoneyH, g.unit())
 	if pl.Sub {
 		lbl = "Отменить подписку"
 	}

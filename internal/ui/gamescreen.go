@@ -924,11 +924,11 @@ func (g *Game) drawTopBar() {
 		if v.Rates[i] < -0.05 {
 			rc = colBad
 		}
-		tip := fmt.Sprintf("%s: %.0f, чистое изменение %.1f в час (с учётом госзаказа, ремонта и науки)", data.ResNames[i], v.Res[i], v.Rates[i])
+		tip := fmt.Sprintf("%s: %.0f, чистое изменение %.1f в час (с учётом госзаказа, ремонта и науки)", data.ResName(i, v.Side), v.Res[i], v.Rates[i])
 		if i == data.ResMoney {
 			tip += fmt.Sprintf("\nДоход (налоги, экспорт): %.0f в час", v.Income)
 		}
-		cell(data.ResNames[i], fmtNum(v.Res[i]), colText, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
+		cell(data.ResName(i, v.Side), fmtNum(v.Res[i]), colText, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
 	}
 	cell("Мораль", fmt.Sprintf("%.0f", v.Morale), colorForFrac(v.Morale/100), "", colDim, 74,
 		g.moraleEffects()+"\nПадает от потерь, блэкаутов, потери городов, мобилизации; растёт от помощи, взятия городов, поражения ключевых объектов врага и пропаганды.")

@@ -187,7 +187,7 @@ func (g *Game) tabFront(x, y, w int) int {
 		if u.ButtonState(x, y, w, 26, lbl, false, ok) {
 			g.sess.Send(sim.Command{Kind: sim.CmdPropaganda})
 		}
-		u.Tooltip(x, y, w, 26, fmt.Sprintf("Деньги в обмен на мораль. Цена растёт с моралью, прирост убывает; перезарядка %.0f ч.", r.PropagandaCooldownH))
+		u.Tooltip(x, y, w, 26, fmt.Sprintf("Деньги ("+g.unit()+") в обмен на мораль. Цена растёт с моралью, прирост убывает; перезарядка %.0f ч.", r.PropagandaCooldownH))
 		y += 34
 	}
 	y = g.header("Пополнение людьми", x, y)
@@ -220,7 +220,7 @@ func (g *Game) tabFront(x, y, w int) int {
 	}
 	y += 8
 	y = g.header("Укрепления", x, y)
-	y = g.para(fmt.Sprintf("Каждый уровень даёт +%.0f%% к обороне тайла (до 3 уровней). Стоимость тайла: %s, %.0f ч.", g.cat.Rules.FortPerLevel*100, resText(data.ToRes(g.cat.Rules.FortCost)), g.cat.Rules.FortHours), x, y, w, colDim)
+	y = g.para(fmt.Sprintf("Каждый уровень даёт +%.0f%% к обороне тайла (до 3 уровней). Стоимость тайла: %s, %.0f ч.", g.cat.Rules.FortPerLevel*100, resText(g.view.Side, data.ToRes(g.cat.Rules.FortCost)), g.cat.Rules.FortHours), x, y, w, colDim)
 	if u.ButtonState(x, y, w, 26, "Рисовать укрепления на карте", g.mode == modeFort, true) {
 		g.mode = modeFort
 	}
@@ -249,19 +249,19 @@ func (g *Game) mobReady(mb data.Mobilization) string {
 		return "Исчерпан резерв"
 	}
 	if v.Res[data.ResMoney] < mb.Money {
-		return "Не хватает денег"
+		return "Не хватает денег (" + g.unit() + ")"
 	}
 	return ""
 }
 
-func resText(r data.Res) string {
+func resText(side int, r data.Res) string {
 	s := ""
 	for i, x := range r {
 		if x > 0 {
 			if s != "" {
 				s += ", "
 			}
-			s += fmt.Sprintf("%s %g", data.ResNames[i], math.Round(x*10)/10)
+			s += fmt.Sprintf("%s %g", data.ResName(i, side), math.Round(x*10)/10)
 		}
 	}
 	if s == "" {
@@ -314,7 +314,7 @@ func (g *Game) tabOrders(x, y, w int) int {
 		if o.Stalled {
 			drawText(u.screen, "нет ресурсов", float64(x+w-86), float64(y-4), 12, colBad, 0)
 		}
-		u.Tooltip(x, y-20, w-90, 30, fmt.Sprintf("%s\nСтоимость: %s, мощность %.1f очков", name, resText(cost), pts))
+		u.Tooltip(x, y-20, w-90, 30, fmt.Sprintf("%s\nСтоимость: %s, мощность %.1f очков", name, resText(g.view.Side, cost), pts))
 		y += 16
 	}
 	y += 8
@@ -346,7 +346,7 @@ func (g *Game) tabOrders(x, y, w int) int {
 			}
 			cost, _, pts, _ := g.cat.ItemCost(it.id)
 			drawText(u.screen, fitText(g.cat.ItemName(it.id), 13, float64(w-130)), float64(x+6), float64(y), 13, colText, 0)
-			u.Tooltip(x, y, w-130, 18, fmt.Sprintf("%s\nСтоимость: %s\nМощность: %.1f очков\n%s", g.cat.ItemName(it.id), resText(cost), pts, g.itemDesc(it.id)))
+			u.Tooltip(x, y, w-130, 18, fmt.Sprintf("%s\nСтоимость: %s\nМощность: %.1f очков\n%s", g.cat.ItemName(it.id), resText(g.view.Side, cost), pts, g.itemDesc(it.id)))
 			if u.Button(x+w-124, y-2, 38, 20, "+1") {
 				g.sess.Send(sim.Command{Kind: sim.CmdOrderAdd, Item: it.id, Count: 1})
 			}
@@ -624,7 +624,7 @@ func (g *Game) tabBuild(x, y, w int) int {
 		fillRect(u.screen, float64(x-4), float64(y-4), float64(w+8), 1, color.RGBA{255, 255, 255, 40})
 		drawBold(u.screen, bt.Name, float64(x), float64(y), 14, colText, 0)
 		y += 20
-		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(cost), bt.BuildHours), x, y, w, colDim)
+		y = g.para(fmt.Sprintf("%s · %.0f ч", resText(g.view.Side, cost), bt.BuildHours), x, y, w, colDim)
 		y = g.para(bt.Desc, x, y, w, colDim)
 		if bt.NeedCityKm > 0 {
 			y = g.para(fmt.Sprintf("Только возле своего города (от %d тыс. жителей, не дальше %.0f км).", g.cat.Rules.CityMinPop/1000, bt.NeedCityKm), x, y, w, colWarn)
@@ -665,7 +665,7 @@ func (g *Game) tabScience(x, y, w int) int {
 			g.sess.Send(sim.Command{Kind: sim.CmdResFund, Int: k})
 		}
 	}
-	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %.0f денег/ч", g.cat.Rules.ResearchFundCost))
+	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %.0f %s/ч", g.cat.Rules.ResearchFundCost, g.unit()))
 	y += 30
 	y = g.para("Трофеи (сбитые над своей территорией боеприпасы) и боевой опыт дают бонусные очки своей ветке:", x, y, w, colDim)
 	for _, b := range techBranches {
@@ -716,7 +716,7 @@ func (g *Game) tabImport(x, y, w int) int {
 		price := im.Money * (1 - v.Effects["import_discount"]) * (1 + v.SanctionTotal["import_cost"])
 		drawText(u.screen, fitText(im.Name, 13, float64(w-100)), float64(x), float64(y), 13, colText, 0)
 		y += 18
-		info := fmt.Sprintf("%.0f денег, доставка %.0f ч", price, im.DelayH)
+		info := fmt.Sprintf("%.0f %s, доставка %.0f ч", price, g.unit(), im.DelayH)
 		if im.Limit > 0 {
 			info += fmt.Sprintf(", осталось %d", im.Limit-v.ImportCount[im.ID])
 		}
@@ -747,7 +747,7 @@ func (g *Game) tabImport(x, y, w int) int {
 				}
 				g.sess.Send(sim.Command{Kind: sim.CmdAutoImport, Item: im.ID, Int: on})
 			}
-			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %.0f). Включено — повторное нажатие выключает.", im.AutoBelow, g.cat.Rules.AutoImportReserve+price))
+			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %.0f %s). Включено — повторное нажатие выключает.", im.AutoBelow, g.cat.Rules.AutoImportReserve+price, g.unit()))
 		}
 		y += 34
 	}
@@ -811,7 +811,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 	v := g.view
 	y = g.palantirBlock(x, y, w)
 	y = g.header("Агентура и OSINT", x, y)
-	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с точными координатами (данные стареют). Финансирование ускоряет их в 2.5 раза за %.0f денег/ч.", g.cat.Rules.AgentFundCost), x, y, w, colDim)
+	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с точными координатами (данные стареют). Финансирование ускоряет их в 2.5 раза за %.0f %s/ч.", g.cat.Rules.AgentFundCost, g.unit()), x, y, w, colDim)
 	lbl := "Финансировать"
 	if v.AgentFund {
 		lbl = "Финансирование включено"
@@ -1154,3 +1154,6 @@ func (g *Game) frontTable(x, y, w int) int {
 	})
 	return y + 12
 }
+
+// unit — единица денег стороны игрока: «млн руб.» у России, «млн грн» у Украины.
+func (g *Game) unit() string { return data.MoneyUnit[g.view.Side] }

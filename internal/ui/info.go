@@ -171,7 +171,7 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 		s := ""
 		for i, k := range data.ResKeys {
 			if q := bt.Produces[k]; q > 0 {
-				s += fmt.Sprintf("%s %.0f/ч ", data.ResNames[i], q)
+				s += fmt.Sprintf("%s %.0f/ч ", data.ResName(i, g.view.Side), q)
 			}
 		}
 		y = g.kv("Выпуск (номинал)", s, x, y, w, colText)
@@ -249,7 +249,7 @@ func (g *Game) buildingInfo(b *sim.Building, x, y, w int) {
 	if u.ButtonState(x+bw+8, y, bw, 24, "Маскировать", b.Masked, !b.Masked) {
 		g.sess.Send(sim.Command{Kind: sim.CmdMask, ID: b.ID})
 	}
-	u.Tooltip(x+bw+8, y, bw, 24, "Скрывает объект от оптической разведки (спутники, дроны). Радарные спутники видят. Стоимость: "+resText(data.ToRes(g.cat.Rules.MaskCost)))
+	u.Tooltip(x+bw+8, y, bw, 24, "Скрывает объект от оптической разведки (спутники, дроны). Радарные спутники видят. Стоимость: "+resText(g.view.Side, data.ToRes(g.cat.Rules.MaskCost)))
 	y += 30
 	if len(bt.Launch) > 0 {
 		g.launchButtons(b.ID, x, y, w, fmt.Sprintf("Пусков доступно: %.0f", math.Floor(b.Budget)))

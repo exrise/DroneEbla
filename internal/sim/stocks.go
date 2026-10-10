@@ -99,7 +99,7 @@ func (w *World) sell(s int, item string, count int) string {
 	n = math.Floor(n)
 	sd.Res[idx] -= n
 	sd.Res[data.ResMoney] += n * rate
-	w.Log(s, 0, fmt.Sprintf("Продано: %s %.0f → %.0f денег", data.ResNames[idx], n, n*rate))
+	w.Log(s, 0, fmt.Sprintf("Продано: %s %.0f → %s", data.ResNames[idx], n, data.MoneyText(s, n*rate)))
 	return ""
 }
 

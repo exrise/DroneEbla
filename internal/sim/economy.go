@@ -828,14 +828,14 @@ func (w *World) agentsCost(s int, dtH float64) {
 // ItemAvailable — доступен ли предмет для госзаказа.
 func (w *World) ItemAvailable(s int, id string) bool { return w.Sides[s].Unlocked[id] }
 
-func fmtRes(r data.Res) string {
+func fmtRes(side int, r data.Res) string {
 	out := ""
 	for i, v := range r {
 		if v > 0 {
 			if out != "" {
 				out += ", "
 			}
-			out += fmt.Sprintf("%s %.0f", data.ResNames[i], v)
+			out += fmt.Sprintf("%s %.0f", data.ResName(i, side), v)
 		}
 	}
 	return out

@@ -5,6 +5,8 @@
 // без пересборки.
 package data
 
+import "fmt"
+
 // Ресурсы.
 const (
 	ResMoney = iota
@@ -20,6 +22,28 @@ var ResKeys = [NumRes]string{"money", "fuel", "steel", "electronics", "ammo"}
 
 // ResNames — названия ресурсов в интерфейсе.
 var ResNames = [NumRes]string{"Деньги", "Топливо", "Сталь", "Электроника", "Боеприпасы"}
+
+// Деньги в игре — миллионы национальной валюты: рубли у России (сторона 0), гривны у Украины (сторона 1).
+var (
+	MoneyUnit  = [2]string{"млн руб.", "млн грн"}   // единица в тексте: «120 млн руб.»
+	MoneyLabel = [2]string{"Рубли, млн", "Гривны, млн"} // подпись ячейки и ресурса
+)
+
+// ResName — название ресурса i в интерфейсе стороны side (деньги — в её валюте).
+func ResName(i, side int) string {
+	if i == ResMoney && side >= 0 && side < 2 {
+		return MoneyLabel[side]
+	}
+	return ResNames[i]
+}
+
+// MoneyText — сумма в валюте стороны: «120 млн руб.».
+func MoneyText(side int, v float64) string {
+	if side < 0 || side > 1 {
+		side = 0
+	}
+	return fmt.Sprintf("%.0f %s", v, MoneyUnit[side])
+}
 
 // Res — набор ресурсов.
 type Res [NumRes]float64

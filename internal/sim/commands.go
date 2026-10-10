@@ -119,7 +119,7 @@ func (w *World) apply(c Command) string {
 		}
 		cost := data.ToRes(r.MaskCost)
 		if !sd.Res.Covers(cost, 1) {
-			return "Не хватает ресурсов: " + fmtRes(cost)
+			return "Не хватает ресурсов: " + fmtRes(s, cost)
 		}
 		sd.Res.Add(cost, -1)
 		b.Masked = true
@@ -307,7 +307,7 @@ func (w *World) CanBuild(s int, typ string, x, y float64) string {
 	}
 	cost := data.ToRes(bt.Cost)
 	if !w.Cheat && !w.Sides[s].Res.Covers(cost, 1) {
-		return "Не хватает ресурсов: " + fmtRes(cost)
+		return "Не хватает ресурсов: " + fmtRes(s, cost)
 	}
 	return ""
 }
@@ -378,7 +378,7 @@ func (w *World) buyImport(s int, id string, n int) string {
 			bought++
 		}
 		if bought == 0 {
-			return fmt.Sprintf("Нужно %.0f денег", price)
+			return "Нужно " + data.MoneyText(s, price)
 		}
 		if bought == 1 {
 			w.Log(s, 0, fmt.Sprintf("Заказано: %s, прибудет через %s", im.Name, fmtHours(im.DelayH)))
@@ -450,7 +450,7 @@ func (w *World) MobilizationReady(s int, mb data.Mobilization) string {
 		return "Исчерпан мобилизационный резерв"
 	}
 	if sd.Res[data.ResMoney] < mb.Money {
-		return fmt.Sprintf("Нужно %.0f денег", mb.Money)
+		return "Нужно " + data.MoneyText(s, mb.Money)
 	}
 	return ""
 }
@@ -504,7 +504,7 @@ func (w *World) propaganda(s int) string {
 	}
 	cost := PropagandaCost(r, sd.Morale)
 	if sd.Res[data.ResMoney] < cost {
-		return fmt.Sprintf("Нужно %.0f денег", cost)
+		return "Нужно " + data.MoneyText(s, cost)
 	}
 	gain := PropagandaGain(r, sd.Morale)
 	sd.Res[data.ResMoney] -= cost
