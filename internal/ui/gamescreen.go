@@ -926,7 +926,14 @@ func (g *Game) drawTopBar() {
 		}
 		tip := fmt.Sprintf("%s: %.0f, чистое изменение %.1f в час (с учётом госзаказа, ремонта и науки)", data.ResName(i, v.Side), v.Res[i], v.Rates[i])
 		if i == data.ResMoney {
-			tip += fmt.Sprintf("\nДоход (налоги, экспорт): %.0f в час", v.Income)
+			tip = fmt.Sprintf("%s: %s, чистое изменение %s в час (с учётом госзаказа, ремонта и науки)\nДоход (налоги, экспорт): %s в час", data.ResName(i, v.Side), data.MoneyText(v.Side, v.Res[i]), data.MoneyText(v.Side, v.Rates[i]), data.MoneyText(v.Side, v.Income))
+			rate := data.MoneyShort(v.Side, v.Rates[i])
+			if v.Rates[i] >= 0 {
+				rate = "+" + rate
+			}
+			val := data.MoneyShort(v.Side, v.Res[i])
+			cell(data.ResName(i, v.Side), val, colText, rate+"/ч", rc, math.Max(114, textWidth(val, 16)+textWidth(rate+"/ч", 12)+22), tip)
+			continue
 		}
 		cell(data.ResName(i, v.Side), fmtNum(v.Res[i]), colText, fmtRate(v.Rates[i])+"/ч", rc, 114, tip)
 	}

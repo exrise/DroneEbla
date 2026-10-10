@@ -835,6 +835,10 @@ func fmtRes(side int, r data.Res) string {
 			if out != "" {
 				out += ", "
 			}
+			if i == data.ResMoney {
+				out += data.MoneyText(side, v)
+				continue
+			}
 			out += fmt.Sprintf("%s %.0f", data.ResName(i, side), v)
 		}
 	}

@@ -187,7 +187,7 @@ func (g *Game) tabFront(x, y, w int) int {
 		if u.ButtonState(x, y, w, 26, lbl, false, ok) {
 			g.sess.Send(sim.Command{Kind: sim.CmdPropaganda})
 		}
-		u.Tooltip(x, y, w, 26, fmt.Sprintf("Деньги ("+g.unit()+") в обмен на мораль. Цена растёт с моралью, прирост убывает; перезарядка %.0f ч.", r.PropagandaCooldownH))
+		u.Tooltip(x, y, w, 26, fmt.Sprintf("Деньги (%s) в обмен на мораль. Цена растёт с моралью, прирост убывает; перезарядка %.0f ч.", g.money(r.PropagandaCost), r.PropagandaCooldownH))
 		y += 34
 	}
 	y = g.header("Пополнение людьми", x, y)
@@ -249,7 +249,7 @@ func (g *Game) mobReady(mb data.Mobilization) string {
 		return "Исчерпан резерв"
 	}
 	if v.Res[data.ResMoney] < mb.Money {
-		return "Не хватает денег (" + g.unit() + ")"
+		return "Не хватает денег"
 	}
 	return ""
 }
@@ -260,6 +260,10 @@ func resText(side int, r data.Res) string {
 		if x > 0 {
 			if s != "" {
 				s += ", "
+			}
+			if i == data.ResMoney {
+				s += data.MoneyText(side, x)
+				continue
 			}
 			s += fmt.Sprintf("%s %g", data.ResName(i, side), math.Round(x*10)/10)
 		}
@@ -665,7 +669,7 @@ func (g *Game) tabScience(x, y, w int) int {
 			g.sess.Send(sim.Command{Kind: sim.CmdResFund, Int: k})
 		}
 	}
-	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %.0f %s/ч", g.cat.Rules.ResearchFundCost, g.unit()))
+	u.Tooltip(x, y, w, 22, fmt.Sprintf("Каждый уровень: +1.5 очка/ч за %s/ч", g.money(g.cat.Rules.ResearchFundCost)))
 	y += 30
 	y = g.para("Трофеи (сбитые над своей территорией боеприпасы) и боевой опыт дают бонусные очки своей ветке:", x, y, w, colDim)
 	for _, b := range techBranches {
@@ -716,7 +720,7 @@ func (g *Game) tabImport(x, y, w int) int {
 		price := im.Money * (1 - v.Effects["import_discount"]) * (1 + v.SanctionTotal["import_cost"])
 		drawText(u.screen, fitText(im.Name, 13, float64(w-100)), float64(x), float64(y), 13, colText, 0)
 		y += 18
-		info := fmt.Sprintf("%.0f %s, доставка %.0f ч", price, g.unit(), im.DelayH)
+		info := fmt.Sprintf("%s, доставка %.0f ч", g.money(price), im.DelayH)
 		if im.Limit > 0 {
 			info += fmt.Sprintf(", осталось %d", im.Limit-v.ImportCount[im.ID])
 		}
@@ -747,7 +751,7 @@ func (g *Game) tabImport(x, y, w int) int {
 				}
 				g.sess.Send(sim.Command{Kind: sim.CmdAutoImport, Item: im.ID, Int: on})
 			}
-			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %.0f %s). Включено — повторное нажатие выключает.", im.AutoBelow, g.cat.Rules.AutoImportReserve+price, g.unit()))
+			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %s). Включено — повторное нажатие выключает.", im.AutoBelow, g.money(g.cat.Rules.AutoImportReserve+price)))
 		}
 		y += 34
 	}
@@ -811,7 +815,7 @@ func (g *Game) tabIntel(x, y, w int) int {
 	v := g.view
 	y = g.palantirBlock(x, y, w)
 	y = g.header("Агентура и OSINT", x, y)
-	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с точными координатами (данные стареют). Финансирование ускоряет их в 2.5 раза за %.0f %s/ч.", g.cat.Rules.AgentFundCost, g.unit()), x, y, w, colDim)
+	y = g.para(fmt.Sprintf("Случайные донесения о вражеских объектах с точными координатами (данные стареют). Финансирование ускоряет их в 2.5 раза за %s/ч.", g.money(g.cat.Rules.AgentFundCost)), x, y, w, colDim)
 	lbl := "Финансировать"
 	if v.AgentFund {
 		lbl = "Финансирование включено"
@@ -1156,4 +1160,4 @@ func (g *Game) frontTable(x, y, w int) int {
 }
 
 // unit — единица денег стороны игрока: «млн руб.» у России, «млн грн» у Украины.
-func (g *Game) unit() string { return data.MoneyUnit[g.view.Side] }
+func (g *Game) money(v float64) string { return data.MoneyText(g.view.Side, v) }

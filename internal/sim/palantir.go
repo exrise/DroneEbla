@@ -247,7 +247,7 @@ func (w *World) palCommand(s int, c Command) string {
 	case CmdPalantir:
 		sd.PalSub = c.Int != 0
 		if sd.PalSub {
-			w.Log(s, 1, fmt.Sprintf("«Палантир»: подписка оформлена (%.0f %s в час). Нужен ЦОД у воды с достаточной энергией", def.MoneyH, data.MoneyUnit[s]))
+			w.Log(s, 1, fmt.Sprintf("«Палантир»: подписка оформлена (%s в час). Нужен ЦОД у воды с достаточной энергией", data.MoneyText(s, def.MoneyH)))
 		} else {
 			w.Log(s, 1, "«Палантир»: подписка отменена")
 		}

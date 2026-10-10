@@ -5,7 +5,10 @@
 // без пересборки.
 package data
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // Ресурсы.
 const (
@@ -23,10 +26,12 @@ var ResKeys = [NumRes]string{"money", "fuel", "steel", "electronics", "ammo"}
 // ResNames — названия ресурсов в интерфейсе.
 var ResNames = [NumRes]string{"Деньги", "Топливо", "Сталь", "Электроника", "Боеприпасы"}
 
-// Деньги в игре — миллионы национальной валюты: рубли у России (сторона 0), гривны у Украины (сторона 1).
+// Деньги в игре хранятся в миллионах долларов США и показываются в валюте стороны: рубли у России
+// (сторона 0), гривны у Украины (сторона 1) по курсу MoneyRate.
 var (
-	MoneyUnit  = [2]string{"млн руб.", "млн грн"}   // единица в тексте: «120 млн руб.»
-	MoneyLabel = [2]string{"Рубли, млн", "Гривны, млн"} // подпись ячейки и ресурса
+	MoneySym   = [2]string{"₽", "₴"}
+	MoneyRate  = [2]float64{90e6, 41e6} // национальных единиц за 1 внутреннюю единицу (1 млн $)
+	MoneyLabel = [2]string{"Рубли", "Гривны"}
 )
 
 // ResName — название ресурса i в интерфейсе стороны side (деньги — в её валюте).
@@ -37,12 +42,72 @@ func ResName(i, side int) string {
 	return ResNames[i]
 }
 
-// MoneyText — сумма в валюте стороны: «120 млн руб.».
-func MoneyText(side int, v float64) string {
+func moneySide(side int) int {
 	if side < 0 || side > 1 {
-		side = 0
+		return 0
 	}
-	return fmt.Sprintf("%.0f %s", v, MoneyUnit[side])
+	return side
+}
+
+// MoneyShort — сумма в валюте стороны: «36,9 млрд ₽», «820 млн ₴», «450 тыс. ₽».
+func MoneyShort(side int, v float64) string {
+	side = moneySide(side)
+	n := v * MoneyRate[side]
+	a := n
+	if a < 0 {
+		a = -a
+	}
+	var num float64
+	var unit string
+	switch {
+	case a >= 1e12:
+		num, unit = n/1e12, " трлн"
+	case a >= 1e9:
+		num, unit = n/1e9, " млрд"
+	case a >= 1e6:
+		num, unit = n/1e6, " млн"
+	case a >= 1e3:
+		num, unit = n/1e3, " тыс."
+	default:
+		num, unit = n, ""
+	}
+	prec := 0
+	if unit != "" {
+		switch an := math.Abs(num); {
+		case an < 10:
+			prec = 2
+		case an < 100:
+			prec = 1
+		}
+	}
+	txt := fmt.Sprintf("%.*f", prec, num)
+	if prec > 0 {
+		txt = trimZeros(txt)
+	}
+	return commaDec(txt) + unit + " " + MoneySym[side]
+}
+
+// MoneyText — то же, что MoneyShort.
+func MoneyText(side int, v float64) string { return MoneyShort(side, v) }
+
+func trimZeros(s string) string {
+	for len(s) > 0 && s[len(s)-1] == '0' {
+		s = s[:len(s)-1]
+	}
+	if len(s) > 0 && s[len(s)-1] == '.' {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
+func commaDec(s string) string {
+	b := []byte(s)
+	for i := range b {
+		if b[i] == '.' {
+			b[i] = ','
+		}
+	}
+	return string(b)
 }
 
 // Res — набор ресурсов.
