@@ -592,6 +592,9 @@ func (g *Game) drawEntities(dst *ebiten.Image) *hoverItem {
 	if g.mode == modeStrike {
 		g.drawStrikePlan(dst)
 	}
+	if g.mode == modePalantir {
+		g.drawPalantirPlan(dst)
+	}
 	// Призрак строительства.
 	if g.mode == modeBuild && !u.in.overUI {
 		wx, wy := g.cam.ToWorld(mx, my)
@@ -734,6 +737,13 @@ func (g *Game) mapInput(hov *hoverItem) {
 		case modePlace:
 			g.sess.Send(sim.Command{Kind: sim.CmdPlace, Item: g.placeType, X: wx, Y: wy})
 			return
+		case modePalantir:
+			p := sim.Pt{X: wx, Y: wy}
+			if hov != nil && (hov.kind == "contact" || hov.kind == "city") {
+				p = sim.Pt{X: hov.x, Y: hov.y}
+			}
+			g.pal.Target, g.pal.HasT = p, true
+			return
 		case modeStrike:
 			p := sim.Pt{X: wx, Y: wy}
 			if hov != nil && (hov.kind == "contact" || hov.kind == "city") {
@@ -759,7 +769,7 @@ func (g *Game) mapInput(hov *hoverItem) {
 				g.strike.Pts = g.strike.Pts[:n-1]
 			}
 			return
-		case modeBuild, modeMain, modePlace:
+		case modeBuild, modeMain, modePlace, modePalantir:
 			g.mode = modeNone
 			return
 		}

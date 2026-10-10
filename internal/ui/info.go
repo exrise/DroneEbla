@@ -27,6 +27,10 @@ func (g *Game) drawInfoPanel() {
 		g.drawStrikePanel()
 		return
 	}
+	if g.mode == modePalantir {
+		g.drawPalantirPanel()
+		return
+	}
 	if g.sel.Kind == "" && g.multi == nil {
 		g.drawHelp()
 		return
@@ -99,6 +103,13 @@ func (g *Game) drawInfoPanel() {
 		}
 		py += 6
 		py = g.para("Мобильная техника могла уехать. Чтобы ударить, выберите свою пусковую или площадку и укажите эту цель на карте.", px, py, pw, colDim)
+		if v.Palantir.Has {
+			py += 4
+			if u.ButtonState(px, py, pw, 26, "Удар через «Палантир»", false, v.Palantir.Active && v.War) {
+				t := sim.Pt{X: c.X, Y: c.Y}
+				g.startPalantir(&t)
+			}
+		}
 	case "city":
 		c := g.m.Cities[g.sel.Idx]
 		drawBold(u.screen, c.Name, float64(px), float64(py), 16, colText, 0)

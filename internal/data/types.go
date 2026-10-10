@@ -75,10 +75,11 @@ type BuildingType struct {
 	NeedDeposit  map[string]float64 `json:"need_deposit"` // тип → радиус, км (0 — где угодно на своей территории)
 	NeedNear     string             `json:"need_near"`    // своё целое здание этого типа в радиусе
 	NearKm       float64            `json:"near_km"`
-	Research     float64            `json:"research"` // очки исследований в час
-	Supply       float64            `json:"supply"`   // вклад в снабжение направления
-	Transfer     float64            `json:"transfer"` // пропускная способность перетока энергии, МВт
-	Launch       []string           `json:"launch"`   // платформы пуска: dronesite, strategic, naval, tactical
+	NeedWaterKm  float64            `json:"need_water_km"` // строить не дальше этого расстояния от реки, озера или моря (0 — где угодно)
+	Research     float64            `json:"research"`      // очки исследований в час
+	Supply       float64            `json:"supply"`        // вклад в снабжение направления
+	Transfer     float64            `json:"transfer"`      // пропускная способность перетока энергии, МВт
+	Launch       []string           `json:"launch"`        // платформы пуска: dronesite, strategic, naval, tactical
 	LaunchRate   float64            `json:"launch_rate"`
 	Aircraft     map[string]int     `json:"aircraft"` // tactical / strategic / fighter
 	Intercept    *InterceptDef      `json:"intercept"`
@@ -349,6 +350,14 @@ type SideDef struct {
 	Satellites       []Satellite        `json:"satellites"`
 	BomberWarning    bool               `json:"bomber_warning"` // предупреждение о взлёте стратегов противника
 	BelarusAir       bool               `json:"belarus_air"`
+	Palantir         *PalantirDef       `json:"palantir"` // ИИ-планировщик ударов по подписке (nil — у стороны его нет)
+}
+
+// PalantirDef — «ИИ Палантир»: подписка и требования к ЦОД.
+type PalantirDef struct {
+	MoneyH   float64 `json:"money_h"`   // плата за подписку, денег в час
+	Building string  `json:"building"`  // здание-ЦОД
+	MinPower float64 `json:"min_power"` // минимальная обеспеченность энергией области ЦОДа (0..1)
 }
 
 // EntryPoint — пункт въезда поставок (граница, порт).

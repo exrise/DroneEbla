@@ -203,6 +203,14 @@ func (g *Game) autoShotStep(screen *ebiten.Image) {
 		g.cycleSelect("unit:buk_ua", g.unitsOfType("buk_ua"), true)
 	case 230:
 		g.save(screen, "71_arsenal_click2")
+		g.sel = Selection{}
+		g.tab = 6
+	case 240:
+		g.save(screen, "72_palantir_tab")
+		g.sess.Send(sim.Command{Kind: sim.CmdPalantir, Int: 1})
+		g.startPalantir(&sim.Pt{X: 1000, Y: 1300})
+	case 250:
+		g.save(screen, "73_palantir_panel")
 		os.Exit(0)
 	}
 	a.step++

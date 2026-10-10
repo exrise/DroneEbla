@@ -246,6 +246,7 @@
       {"name": "ICEYE-2", "sensor": "radar", "period_h": 6, "phase_h": 4, "swath_km": 25, "tracks": [39, 36, 33, 38, 45, 50], "angle": 10}
     ],
     "bomber_warning": true,
-    "belarus_air": false
+    "belarus_air": false,
+    "palantir": {"money_h": 25, "building": "data_center", "min_power": 0.7}
   }
 }

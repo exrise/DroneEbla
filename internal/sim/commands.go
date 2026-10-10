@@ -28,34 +28,38 @@ type Command struct {
 
 // Виды приказов.
 const (
-	CmdSpeed      = "speed"
-	CmdPause      = "pause"
-	CmdBuild      = "build"
-	CmdRepair     = "repair"
-	CmdMask       = "mask"
-	CmdFort       = "fort"
-	CmdOrderAdd   = "order_add"
-	CmdOrderDel   = "order_del"
-	CmdOrderMove  = "order_move"
-	CmdMove       = "move"
-	CmdStrike     = "strike"
-	CmdResearch   = "research"
-	CmdResFund    = "research_fund"
-	CmdAgentFund  = "agent_fund"
-	CmdImport     = "import"
-	CmdAutoImport = "auto_import"
-	CmdKeepStock  = "keep_stock"
-	CmdSell       = "sell"
-	CmdMobilize   = "mobilize"
-	CmdAlloc      = "alloc"
-	CmdPosture    = "posture"
-	CmdMainEffort = "main_effort"
-	CmdSurrender  = "surrender"
-	CmdPropaganda = "propaganda"
-	CmdPlace      = "place"     // Item — тип из резерва, X, Y — точка
-	CmdUnplace    = "unplace"   // ID — поставленный объект возвращается в резерв
-	CmdFireMode   = "fire_mode" // ID — комплекс ПВО, Int — режим огня 0–2
-	CmdReady      = "ready"     // Int 1/0 — готовность к старту
+	CmdSpeed          = "speed"
+	CmdPause          = "pause"
+	CmdBuild          = "build"
+	CmdRepair         = "repair"
+	CmdMask           = "mask"
+	CmdFort           = "fort"
+	CmdOrderAdd       = "order_add"
+	CmdOrderDel       = "order_del"
+	CmdOrderMove      = "order_move"
+	CmdMove           = "move"
+	CmdStrike         = "strike"
+	CmdResearch       = "research"
+	CmdResFund        = "research_fund"
+	CmdAgentFund      = "agent_fund"
+	CmdImport         = "import"
+	CmdAutoImport     = "auto_import"
+	CmdKeepStock      = "keep_stock"
+	CmdSell           = "sell"
+	CmdMobilize       = "mobilize"
+	CmdAlloc          = "alloc"
+	CmdPosture        = "posture"
+	CmdMainEffort     = "main_effort"
+	CmdSurrender      = "surrender"
+	CmdPropaganda     = "propaganda"
+	CmdPlace          = "place"           // Item — тип из резерва, X, Y — точка
+	CmdUnplace        = "unplace"         // ID — поставленный объект возвращается в резерв
+	CmdPalantir       = "palantir"        // Int 1/0 — подписка
+	CmdPalantirPlan   = "palantir_plan"   // Item, Count, X, Y — рассчитать план (показывается на карте)
+	CmdPalantirStrike = "palantir_strike" // Item, Count, X, Y — залп по плану
+	CmdPalantirRepeat = "palantir_repeat" // повторить последний залп
+	CmdFireMode       = "fire_mode"       // ID — комплекс ПВО, Int — режим огня 0–2
+	CmdReady          = "ready"           // Int 1/0 — готовность к старту
 )
 
 // Apply выполняет приказ. Возвращает текст ошибки ("" — успех).
@@ -227,6 +231,8 @@ func (w *World) apply(c Command) string {
 				sd.DirPosture[d] = p
 			}
 		}
+	case CmdPalantir, CmdPalantirPlan, CmdPalantirStrike, CmdPalantirRepeat:
+		return w.palCommand(s, c)
 	case CmdFireMode:
 		u, ok := w.Units[c.ID]
 		if !ok || u.Side != s || w.cat.UnitByID[u.Type].Kind != "ad" {
@@ -274,6 +280,9 @@ func (w *World) CanBuild(s int, typ string, x, y float64) string {
 		if dist(fx, fy, x, y) < 15 {
 			return "Слишком близко к фронту (менее 15 км)"
 		}
+	}
+	if bt.NeedWaterKm > 0 && !w.waterNear(x, y, bt.NeedWaterKm) {
+		return fmt.Sprintf("Нужна вода для охлаждения: река, озеро или море в %.0f км", bt.NeedWaterKm)
 	}
 	for dep, km := range bt.NeedDeposit {
 		kind := depositKind(dep)
@@ -518,4 +527,26 @@ func uniformAlloc() [NumDir]float64 {
 		a[d] = 1.0 / NumDir
 	}
 	return a
+}
+
+// waterNear — есть ли в радиусе km река, озеро или море.
+func (w *World) waterNear(x, y, km float64) bool {
+	tx, ty := w.m.TileAt(x, y)
+	r := int(math.Ceil(km/w.m.TileKm)) + 1
+	for dy := -r; dy <= r; dy++ {
+		for dx := -r; dx <= r; dx++ {
+			if !w.m.In(tx+dx, ty+dy) {
+				continue
+			}
+			j := w.m.Idx(tx+dx, ty+dy)
+			cx, cy := w.m.TileCenter(tx+dx, ty+dy)
+			if dist(cx, cy, x, y) > km {
+				continue
+			}
+			if w.m.Terrain[j] != world.TerrainLand || w.m.Flags[j]&world.FlagRiver != 0 {
+				return true
+			}
+		}
+	}
+	return false
 }

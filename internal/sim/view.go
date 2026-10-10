@@ -82,6 +82,7 @@ type View struct {
 	EnemyPower         []EnemyRegionPower
 	EnemyGen, EnemyUse float64
 	Missions           []MissionView
+	Palantir           PalantirView       // «ИИ Палантир» (Has — у стороны он есть)
 	VictoryCities      []VictoryCityView  // города, которые Россия должна взять для победы
 	KeepStock          map[string]bool    // автозаказ ЗУР включён
 	LowInterceptor     map[string]float64 // порог «мало ЗУР» по видам ракет, которыми стреляют комплексы стороны
@@ -141,6 +142,7 @@ func (w *World) BuildView(s int, eventsSince uint64) *View {
 	}
 	v.EnemyPower, v.EnemyGen, v.EnemyUse = w.estimateEnemyPower(s)
 	v.Missions = w.missionViews(s)
+	v.Palantir = w.palantirView(s)
 	for _, vc := range w.victoryCities() {
 		v.VictoryCities = append(v.VictoryCities, VictoryCityView{vc.name, w.OwnerSide(vc.tile)})
 	}

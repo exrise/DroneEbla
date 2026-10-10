@@ -501,83 +501,18 @@ func (a *AI) adZones(v *sim.View) []zone {
 	return out
 }
 
-// route строит путевые точки в обход известной ПВО: прямой маршрут, пересекающий зону, отодвигается за её край
-// (с запасом 12 км) на сторону с меньшим крюком. Зоны, накрывающие саму цель, не обходятся — туда приходится лететь.
+// route строит путевые точки в обход известной ПВО (общий код с «Палантиром»: sim.RouteAround).
 func (a *AI) route(sx, sy, tx, ty float64) []sim.Pt {
-	if len(a.zones) == 0 {
-		return nil
+	zs := make([]sim.Zone, len(a.zones))
+	for i, z := range a.zones {
+		zs[i] = sim.Zone{X: z.x, Y: z.y, R: z.r}
 	}
-	var zs []zone
-	for _, z := range a.zones {
-		if dist(z.x, z.y, tx, ty) > z.r && dist(z.x, z.y, sx, sy) > z.r {
-			zs = append(zs, z)
-		}
-	}
-	path := []sim.Pt{{X: sx, Y: sy}, {X: tx, Y: ty}}
-	for iter := 0; iter < 6; iter++ {
-		inserted := false
-		for seg := 0; seg+1 < len(path) && !inserted; seg++ {
-			p, q := path[seg], path[seg+1]
-			dx, dy := q.X-p.X, q.Y-p.Y
-			l := math.Hypot(dx, dy)
-			if l < 1 {
-				continue
-			}
-			ux, uy := dx/l, dy/l
-			for _, z := range zs {
-				// ближайшая к центру зоны точка отрезка
-				t := math.Max(0, math.Min(l, (z.x-p.X)*ux+(z.y-p.Y)*uy))
-				cx, cy := p.X+ux*t, p.Y+uy*t
-				if dist(cx, cy, z.x, z.y) >= z.r {
-					continue
-				}
-				off := z.r + 12
-				w1 := sim.Pt{X: z.x - uy*off, Y: z.y + ux*off}
-				w2 := sim.Pt{X: z.x + uy*off, Y: z.y - ux*off}
-				d1 := dist(p.X, p.Y, w1.X, w1.Y) + dist(w1.X, w1.Y, q.X, q.Y)
-				d2 := dist(p.X, p.Y, w2.X, w2.Y) + dist(w2.X, w2.Y, q.X, q.Y)
-				wp := w1
-				if d2 < d1 {
-					wp = w2
-				}
-				path = append(path[:seg+1], append([]sim.Pt{wp}, path[seg+1:]...)...)
-				inserted = true
-				break
-			}
-		}
-		if !inserted {
-			break
-		}
-	}
-	if len(path) <= 2 {
-		return nil
-	}
-	return path[1 : len(path)-1]
+	return sim.RouteAround(zs, sx, sy, tx, ty)
 }
 
-// corridor ищет самый короткий допустимый маршрут по цепочкам corridors (с любой точки цепочки до конца);
-// nil, если небо закрыто или цель вне дальности.
+// corridor ищет допустимый маршрут по коридорам над открытым небом соседних стран.
 func (a *AI) corridor(w *sim.World, sp sim.StrikePlan, sx, sy float64) []sim.Pt {
-	var best []sim.Pt
-	bestLen := math.MaxFloat64
-	for _, chain := range a.cfg.Corridors {
-		for i := range chain {
-			var r []sim.Pt
-			for _, c := range chain[i:] {
-				x, y := w.Map().Project(c[0], c[1])
-				r = append(r, sim.Pt{X: x, Y: y})
-			}
-			sp.Waypoints = r
-			if w.ValidateStrike(a.side, sp) != "" {
-				continue
-			}
-			l := sim.PathLength(sim.Pt{X: sx, Y: sy}, append(append([]sim.Pt{}, r...), sp.Target))
-			if l < bestLen {
-				best, bestLen = r, l
-			}
-		}
-	}
-	return best
+	return w.CorridorRoute(a.side, sp, sx, sy)
 }
 
 // dropHopeless снимает пуски боеприпасом, который почти не долетал, если вся волна (по всем пусковым) меньше требуемой

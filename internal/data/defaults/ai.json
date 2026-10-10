@@ -287,7 +287,8 @@
         "rail_station": 3,
         "research": 5,
         "bridge": 4,
-        "oilfield": 3
+        "oilfield": 3,
+        "data_center": 7
       },
       "research": [
         "ru_parallel_import",

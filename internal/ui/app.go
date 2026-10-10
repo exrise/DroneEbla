@@ -42,7 +42,8 @@ const (
 	modeFort
 	modeStrike
 	modeMain
-	modePlace // расстановка резерва перед стартом
+	modePlace    // расстановка резерва перед стартом
+	modePalantir // планирование удара через «Палантир»
 )
 
 // Selection — выбранный объект.
@@ -95,6 +96,7 @@ type Game struct {
 	buildType      string
 	placeType      string
 	strike         strikePlan
+	pal            palState // планирование удара через «Палантир»
 	layers         map[string]bool
 	toasts         []toast
 	evSeen         uint64

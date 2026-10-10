@@ -90,6 +90,10 @@
   {"id": "grain_port", "repair_hours": 48, "name": "Морской торговый порт", "short": "ПОРТ", "hp": 200, "export": 15,
    "desc": "Экспорт зерна и металла."},
 
+  {"id": "data_center", "repair_hours": 60, "name": "ЦОД «Палантир»", "short": "ЦОД", "hp": 120, "power": -200, "need_water_km": 10,
+   "cost": {"money": 400, "steel": 60, "electronics": 80}, "build_hours": 48, "buildable": ["ua"],
+   "desc": "Центр обработки данных для «ИИ Палантир». Нужна вода для охлаждения (река, озеро или море в 10 км) и много энергии: при нехватке энергии в области сервис отключается. Без ЦОД подписка не работает. Цель для ударов."},
+
   {"id": "research", "repair_hours": 60, "name": "НИИ / КБ", "short": "НИИ", "hp": 80, "research": 2,
    "cost": {"money": 80, "electronics": 10}, "build_hours": 48, "power": -10, "buildable": ["ru", "ua"],
    "desc": "Ускоряет исследования."},

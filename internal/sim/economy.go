@@ -327,6 +327,7 @@ func (w *World) economy(dtH float64) {
 		w.deliveries(s)
 		w.morale(s, dtH)
 		w.agentsCost(s, dtH)
+		w.palantirCost(s, dtH)
 
 		// Скорость изменения для интерфейса: фактический чистый поток за шаг (с госзаказом, ремонтом, наукой),
 		// сглаженный по окну ~2 игровых часа.

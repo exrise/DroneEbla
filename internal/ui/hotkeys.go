@@ -153,6 +153,10 @@ func (g *Game) strikeHotkey() {
 		g.confirmStrike()
 		return
 	}
+	if g.mode == modePalantir {
+		g.palConfirm()
+		return
+	}
 	if g.sel.Kind != "unit" && g.sel.Kind != "building" {
 		return
 	}

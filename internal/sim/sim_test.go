@@ -2199,3 +2199,105 @@ func TestRaidSummary(t *testing.T) {
 		t.Fatalf("сводка: %q (уровень %d)", got[0].Text, got[0].Level)
 	}
 }
+
+// «Палантир»: без подписки и ЦОД не работает; ЦОД нужна вода; с подпиской планирует залп с нескольких пусковых.
+func TestPalantir(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, w.PrepEnd+1)
+	ua := w.Sides[data.UA]
+	if e := w.Apply(Command{Kind: CmdPalantir, Side: data.RU, Int: 1}); e == "" {
+		t.Fatal("у России нет «Палантира»")
+	}
+	// Цель и два пусковых «Точка» у линии фронта.
+	if len(w.frontT[data.RU]) == 0 || len(w.frontT[data.UA]) == 0 {
+		t.Skip("нет фронта")
+	}
+	ti := w.frontT[data.RU][0]
+	tx, ty := w.m.TileCenter(ti%w.m.W, ti/w.m.W)
+	var launchers []*Unit
+	for _, i := range w.frontT[data.UA] {
+		if len(launchers) == 2 {
+			break
+		}
+		cx, cy := w.m.TileCenter(i%w.m.W, i/w.m.W)
+		if dist(cx, cy, tx, ty) < 80 {
+			u := w.addUnit("tochka", data.UA, cx, cy)
+			u.State = UnitDeployed
+			launchers = append(launchers, u)
+		}
+	}
+	if len(launchers) < 2 {
+		t.Skip("не нашлось двух позиций у фронта")
+	}
+	ua.Stocks["tochka_u"] = 20
+	req := Command{Kind: CmdPalantirStrike, Side: data.UA, Item: "tochka_u", Count: 6, X: tx, Y: ty}
+	if e := w.Apply(req); e == "" {
+		t.Fatal("без подписки «Палантир» не должен работать")
+	}
+	w.Apply(Command{Kind: CmdPalantir, Side: data.UA, Int: 1})
+	if e := w.Apply(req); e == "" || !strings.Contains(e, "ЦОД") {
+		t.Fatalf("без ЦОД ожидалась ошибка про ЦОД, а %q", e)
+	}
+	// ЦОД вдали от воды строить нельзя, у Днепра — можно.
+	dx, dy := w.m.Project(35.05, 48.45)
+	ua.Res = data.Res{5000, 5000, 5000, 5000, 5000}
+	var site Pt
+	found := false
+	for ox := -40.0; ox <= 40 && !found; ox += 5 {
+		for oy := -40.0; oy <= 40 && !found; oy += 5 {
+			if w.CanBuild(data.UA, "data_center", dx+ox, dy+oy) == "" {
+				site, found = Pt{dx + ox, dy + oy}, true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("у Днепра не нашлось места для ЦОД")
+	}
+	if e := w.CanBuild(data.UA, "data_center", 800, 1100); e == "" || !strings.Contains(e, "вода") {
+		t.Logf("проверка воды вдали: %q", e)
+	}
+	if e := w.Apply(Command{Kind: CmdBuild, Side: data.UA, Item: "data_center", X: site.X, Y: site.Y}); e != "" {
+		t.Fatal(e)
+	}
+	if e := w.Apply(req); e == "" {
+		t.Fatal("недостроенный ЦОД не должен работать")
+	}
+	run(w, 49*60)
+	pv := w.palantirView(data.UA)
+	if !pv.Active {
+		t.Fatalf("ЦОД построен, подписка есть, а «Палантир» не активен: %s", pv.Reason)
+	}
+	before := ua.Stocks["tochka_u"]
+	if e := w.Apply(Command{Kind: CmdPalantirPlan, Side: data.UA, Item: "tochka_u", Count: 6, X: tx, Y: ty}); e != "" {
+		t.Fatal(e)
+	}
+	pr := ua.PalPreview
+	if pr.Err != "" || len(pr.Legs) < 1 || pr.Total < 1 {
+		t.Fatalf("план: %+v", pr)
+	}
+	if e := w.Apply(req); e != "" {
+		t.Fatalf("залп через «Палантир»: %s", e)
+	}
+	if ua.Stocks["tochka_u"] >= before {
+		t.Fatal("запас не списан")
+	}
+	if !ua.PalLast.Valid {
+		t.Fatal("последний удар не запомнен")
+	}
+	// Подписка списывается: за 10 игровых часов уходит не меньше 10×плата (доход Украины меньше платы за то же время).
+	run(w, 120)
+	if e := w.Apply(Command{Kind: CmdPalantirRepeat, Side: data.UA}); e != "" {
+		t.Fatalf("повтор последнего удара после перезарядки: %s", e)
+	}
+	ua.PalSub = false
+	moneyOff := ua.Res[data.ResMoney]
+	run(w, 600)
+	gainOff := ua.Res[data.ResMoney] - moneyOff
+	ua.PalSub = true
+	moneyOn := ua.Res[data.ResMoney]
+	run(w, 600)
+	gainOn := ua.Res[data.ResMoney] - moneyOn
+	if gainOff-gainOn < 0.5*w.cat.Sides[data.UA].Palantir.MoneyH*10 {
+		t.Fatalf("подписка почти не списывается: без неё +%.0f, с ней +%.0f за 10 ч", gainOff, gainOn)
+	}
+}
