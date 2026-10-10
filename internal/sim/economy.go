@@ -274,13 +274,27 @@ func (w *World) economy(dtH float64) {
 		}
 		exportInc := (oil + grain) * (1 - w.Sanction(s, "export"))
 		income += exportInc
+		// Часть дохода зависит от здоровья промышленности: потеря НПЗ, комбинатов, заводов бьёт по бюджету.
+		industry := 1.0
+		if share := r.IndustryShare; share > 0 {
+			cur := w.industryWeight(s)
+			if sd.IndustryBase <= 0 {
+				sd.IndustryBase = cur
+			}
+			health := 1.0
+			if sd.IndustryBase > 0 {
+				health = clamp(cur/sd.IndustryBase, 0, 1)
+			}
+			industry = 1 - share + share*health
+			income *= industry
+		}
 		k := 1.0
 		if def.IncomeK > 0 {
 			k = def.IncomeK
 		}
 		income *= k
 		sd.Income = income
-		sd.IncomeParts = IncomeParts{Base: def.BaseIncome, Cities: cityTax, Trade: tradeTax, Export: exportInc, SanctionLoss: taxLoss, K: k}
+		sd.IncomeParts = IncomeParts{Base: def.BaseIncome, Cities: cityTax, Trade: tradeTax, Export: exportInc, SanctionLoss: taxLoss, Industry: industry, K: k}
 		delta[data.ResMoney] += income * dtH
 
 		// Производство ресурсов.
@@ -357,6 +371,20 @@ func (w *World) economy(dtH float64) {
 		}
 	}
 	w.forts(dtH)
+}
+
+// industryWeight — суммарный вес работающих предприятий стороны (вес из buildings.json × эффективность по состоянию).
+func (w *World) industryWeight(s int) float64 {
+	total := 0.0
+	for _, b := range w.buildingsByID() {
+		if b.Side != s || b.Built < 1 {
+			continue
+		}
+		if bt := w.cat.BuildingByID[b.Type]; bt.Industry > 0 {
+			total += bt.Industry * Efficiency(w.cat.Rules, b.frac())
+		}
+	}
+	return total
 }
 
 // capacity — мощности стороны по категориям в час.

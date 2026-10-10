@@ -252,6 +252,7 @@ type Side struct {
 	PalPreview   PalPreview           // последний рассчитанный план
 	PalSuggest   []PalProposal        // предложения ударов «Палантира»
 	PalSuggestAt float64
+	IndustryBase float64     // вес промышленности стороны на начало партии (знаменатель «здоровья»)
 	IncomeParts  IncomeParts // из чего сложился доход на последнем шаге (для интерфейса и диагностики)
 	PalPaused    bool        // подписка приостановлена: не хватило денег на плату (возобновится сама)
 	PalWarned    bool        // предупреждение о скором исчерпании денег уже показано
@@ -375,5 +376,5 @@ func (w *World) logAt(side, level int, text string, x, y float64, has bool) {
 
 // IncomeParts — составляющие дохода стороны в час до общего множителя K.
 type IncomeParts struct {
-	Base, Cities, Trade, Export, SanctionLoss, K float64
+	Base, Cities, Trade, Export, SanctionLoss, Industry, K float64
 }

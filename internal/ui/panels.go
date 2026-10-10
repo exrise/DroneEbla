@@ -751,7 +751,7 @@ func (g *Game) tabImport(x, y, w int) int {
 				}
 				g.sess.Send(sim.Command{Kind: sim.CmdAutoImport, Item: im.ID, Int: on})
 			}
-			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %s). Включено — повторное нажатие выключает.", im.AutoBelow, g.money(g.cat.Rules.AutoImportReserve+price)))
+			u.Tooltip(bx, y, w-(bx-x), 26, fmt.Sprintf("Автозакупка: когда запас ниже %.0f, партия заказывается сама (если нет такой же в пути и денег больше %s). Включено — повторное нажатие выключает.", im.AutoBelow, g.money(sim.AutoImportReserve(g.cat.Rules, g.view.Income)+price)))
 		}
 		y += 34
 	}

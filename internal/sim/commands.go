@@ -430,7 +430,7 @@ func (w *World) autoImportTick(s int) {
 			}
 		}
 		price := w.ImportPrice(s, im)
-		if pending || have >= im.AutoBelow || sd.Res[data.ResMoney] < price+r.AutoImportReserve {
+		if pending || have >= im.AutoBelow || sd.Res[data.ResMoney] < price+AutoImportReserve(r, sd.Income) {
 			continue
 		}
 		sd.AutoImportAt[im.ID] = w.Time
@@ -578,4 +578,12 @@ func CityNear(m *world.MapData, owner []uint8, side int, minPop int, x, y, km fl
 		}
 	}
 	return false
+}
+
+// AutoImportReserve — запас денег, ниже которого автозакупка не срабатывает, при доходе income в час.
+func AutoImportReserve(r data.Rules, income float64) float64 {
+	if r.AutoImportReserveH > 0 && income > 0 {
+		return r.AutoImportReserveH * income
+	}
+	return r.AutoImportReserve
 }

@@ -166,6 +166,7 @@ type BuildingType struct {
 	NearKm       float64            `json:"near_km"`
 	NeedCityKm   float64            `json:"need_city_km"`  // строить не дальше этого расстояния от своего города (0 — где угодно)
 	TaxH         float64            `json:"tax_h"`         // налоги: денег в час при целом здании (с множителем scale)
+	Industry     float64            `json:"industry"`      // вес предприятия в «здоровье промышленности», от которого зависит часть дохода
 	NeedWaterKm  float64            `json:"need_water_km"` // строить не дальше этого расстояния от реки, озера или моря (0 — где угодно)
 	Research     float64            `json:"research"`      // очки исследований в час
 	Supply       float64            `json:"supply"`        // вклад в снабжение направления
@@ -543,9 +544,11 @@ type Rules struct {
 	RuVictoryCities     []string           `json:"ru_victory_cities"`      // города, которые Россия должна удерживать одновременно для победы
 	RetreatTiles        int                `json:"retreat_tiles"`          // радиус отхода юнита с захваченного тайла
 	RetreatDamage       float64            `json:"retreat_damage"`         // доля прочности, теряемая при отступлении
+	IndustryShare       float64            `json:"industry_share"`         // доля дохода, зависящая от здоровья промышленности (0..1)
 	CityMinPop          int                `json:"city_min_pop"`           // город, возле которого строят заводы (население не меньше)
 	BridgePassFrac      float64            `json:"bridge_pass_frac"`       // мост пропускает технику, пока его HP не ниже этой доли
 	AutoImportReserve   float64            `json:"auto_import_reserve"`    // автозакупка не трогает деньги ниже этого запаса
+	AutoImportReserveH  float64            `json:"auto_import_reserve_h"`  // то же в часах дохода (если задано, перекрывает auto_import_reserve)
 	AutoImportEveryMin  float64            `json:"auto_import_every_min"`  // не чаще раза за столько игровых минут на предложение
 	RailKmh             float64            `json:"rail_kmh"`               // скорость юнита в эшелоне по ж/д, км/ч
 	RailBoardMin        float64            `json:"rail_board_min"`         // погрузка на станции, мин
@@ -645,6 +648,9 @@ type AISide struct {
 	// Smart включает «умное» поведение (экономика с парком ПВО и стройкой, позиции по силам, массированные залпы с приманками);
 	// false — прежний простой бот (для сравнения и лёгкого уровня).
 	Smart bool `json:"smart"`
+	// IncomeRef — доход стороны (млн $/ч), под который подобраны денежные пороги этого конфига; фактические пороги умножаются
+	// на отношение текущего дохода к IncomeRef (0 — пороги абсолютные).
+	IncomeRef float64 `json:"income_ref"`
 	// Экономика.
 	Research        []string  `json:"research"`         // приоритет исследований; остальные — по стоимости
 	FundLevels      []float64 `json:"fund_levels"`      // порог денег для финансирования науки 1, 2, 3

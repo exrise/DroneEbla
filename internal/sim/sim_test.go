@@ -2262,7 +2262,7 @@ func TestPalantir(t *testing.T) {
 	if e := w.Apply(req); e == "" {
 		t.Fatal("недостроенный ЦОД не должен работать")
 	}
-	run(w, 49*60)
+	run(w, 97*60)
 	pv := w.palantirView(data.UA)
 	if !pv.Active {
 		t.Fatalf("ЦОД построен, подписка есть, а «Палантир» не активен: %s", pv.Reason)
@@ -2532,5 +2532,29 @@ func TestProductionRedistributesIdleCapacity(t *testing.T) {
 	want := c * 10 / pts
 	if got < 0.9*want {
 		t.Fatalf("Шахедов выпущено %.1f, ожидалось около %.1f (вся мощность должна уходить незастрявшей позиции)", got, want)
+	}
+}
+
+// Часть дохода зависит от здоровья промышленности: потеря НПЗ, комбинатов и заводов снижает доход.
+func TestIndustryShareIncome(t *testing.T) {
+	w := newTestWorld(t)
+	run(w, 5)
+	ru := w.Sides[data.RU]
+	base := ru.Income
+	if base <= 0 || ru.IndustryBase <= 0 {
+		t.Fatalf("нет базы дохода или промышленности: доход %.1f, база %.1f", base, ru.IndustryBase)
+	}
+	for _, b := range w.Buildings {
+		if b.Side == data.RU && w.cat.BuildingByID[b.Type].Industry > 0 {
+			b.HP = 0
+		}
+	}
+	run(w, 5)
+	share := w.cat.Rules.IndustryShare
+	if ru.IncomeParts.Industry > 1-share+0.01 {
+		t.Fatalf("множитель промышленности %.2f, ждали около %.2f", ru.IncomeParts.Industry, 1-share)
+	}
+	if ru.Income > base*0.8 {
+		t.Fatalf("доход после потери промышленности %.1f, до того %.1f", ru.Income, base)
 	}
 }

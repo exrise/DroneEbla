@@ -1,33 +1,33 @@
 [
-  {"id": "oilfield", "repair_hours": 36, "name": "Нефтепромысел", "short": "НП", "hp": 80,
+  {"id": "oilfield", "industry": 1, "repair_hours": 36, "name": "Нефтепромысел", "short": "НП", "hp": 80,
    "cost": {"money": 100, "steel": 15}, "build_hours": 24, "power": -10,
    "need_deposit": {"oil": 10}, "export": 6, "buildable": ["ru", "ua"],
    "desc": "Добывает нефть. Нужен НПЗ в радиусе 300 км. Даёт экспортную выручку."},
 
-  {"id": "refinery", "need_city_km": 25, "key": true, "repair_hours": 72, "name": "НПЗ", "short": "НПЗ", "hp": 300,
-   "cost": {"money": 1500, "steel": 60, "electronics": 10}, "build_hours": 72, "power": -40,
+  {"id": "refinery", "industry": 3, "need_city_km": 25, "key": true, "repair_hours": 72, "name": "НПЗ", "short": "НПЗ", "hp": 300,
+   "cost": {"money": 3000, "steel": 120, "electronics": 20}, "build_hours": 144, "power": -40,
    "need_near": "oilfield", "near_km": 300,
    "produces": {"fuel": 25}, "export": 4, "buildable": ["ru", "ua"],
    "desc": "Перерабатывает нефть в топливо. Работает, только если рядом есть целый нефтепромысел."},
 
-  {"id": "steel_mill", "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Металлургический комбинат", "short": "МК", "hp": 300,
-   "cost": {"money": 800, "steel": 40}, "build_hours": 96, "power": -60,
+  {"id": "steel_mill", "industry": 3, "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Металлургический комбинат", "short": "МК", "hp": 300,
+   "cost": {"money": 1600, "steel": 80}, "build_hours": 192, "power": -60,
    "need_deposit": {"ore": 800, "coal": 0},
    "produces": {"steel": 12}, "consumes": {"fuel": 1}, "buildable": ["ru", "ua"],
    "desc": "Выпускает сталь. Нужна руда в радиусе 800 км (рудные районы связаны железной дорогой) и уголь на своей территории."},
 
-  {"id": "chem_plant", "need_city_km": 25, "repair_hours": 60, "name": "Химзавод (ВВ и пороха)", "short": "ХЗ", "hp": 150,
-   "cost": {"money": 300, "steel": 30, "electronics": 5}, "build_hours": 72, "power": -30,
+  {"id": "chem_plant", "industry": 2, "need_city_km": 25, "repair_hours": 60, "name": "Химзавод (ВВ и пороха)", "short": "ХЗ", "hp": 150,
+   "cost": {"money": 600, "steel": 60, "electronics": 10}, "build_hours": 144, "power": -30,
    "produces": {"ammo": 14}, "consumes": {"steel": 2, "fuel": 1}, "buildable": ["ru", "ua"],
    "desc": "Выпускает боеприпасы и взрывчатку."},
 
-  {"id": "electronics_plant", "need_city_km": 25, "repair_hours": 72, "name": "Завод электроники", "short": "ЭЛ", "hp": 100,
-   "cost": {"money": 150, "steel": 15}, "build_hours": 72, "power": -20,
+  {"id": "electronics_plant", "industry": 1, "need_city_km": 25, "repair_hours": 72, "name": "Завод электроники", "short": "ЭЛ", "hp": 100,
+   "cost": {"money": 300, "steel": 30}, "build_hours": 144, "power": -20,
    "produces": {"electronics": 3}, "consumes": {"money": 2}, "buildable": ["ru", "ua"],
    "desc": "Небольшой собственный выпуск электроники. Основная часть — импорт."},
 
-  {"id": "missile_plant", "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Авиаракетный завод", "short": "АРЗ", "hp": 250,
-   "cost": {"money": 800, "steel": 60, "electronics": 30}, "build_hours": 120, "power": -40,
+  {"id": "missile_plant", "industry": 4, "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Авиаракетный завод", "short": "АРЗ", "hp": 250,
+   "cost": {"money": 1600, "steel": 120, "electronics": 60}, "build_hours": 240, "power": -40,
    "capacity": {"air": 10, "drone": 2}, "buildable": ["ru", "ua"],
    "desc": "Мощность для ракет, крылатых ракет и зенитных ракет."},
 
@@ -41,13 +41,13 @@
    "buildable": ["ru", "ua"],
    "desc": "Здесь формируются расчёты: мобильные огневые группы и дроны-перехватчики появляются у центров подготовки."},
 
-  {"id": "armor_plant", "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Бронетанковый завод", "short": "БТЗ", "hp": 250,
-   "cost": {"money": 500, "steel": 80, "electronics": 10}, "build_hours": 120, "power": -40,
+  {"id": "armor_plant", "industry": 4, "need_city_km": 25, "key": true, "repair_hours": 96, "name": "Бронетанковый завод", "short": "БТЗ", "hp": 250,
+   "cost": {"money": 1000, "steel": 160, "electronics": 20}, "build_hours": 240, "power": -40,
    "capacity": {"ground": 12}, "buildable": ["ru", "ua"],
    "desc": "Мощность для бронетехники, артиллерии и мобильных комплексов."},
 
   {"id": "tpp", "key": true, "repair_hours": 72, "name": "ТЭС", "short": "ТЭС", "hp": 200,
-   "cost": {"money": 800, "steel": 60}, "build_hours": 120, "power": 600, "buildable": ["ru", "ua"],
+   "cost": {"money": 1600, "steel": 120}, "build_hours": 240, "power": 600, "buildable": ["ru", "ua"],
    "desc": "Тепловая электростанция."},
 
   {"id": "hpp", "key": true, "repair_hours": 120, "name": "ГЭС", "short": "ГЭС", "hp": 400, "cost": {"money": 1000, "steel": 200}, "power": 300,
@@ -91,7 +91,7 @@
    "desc": "Экспорт зерна и металла."},
 
   {"id": "data_center", "repair_hours": 60, "name": "ЦОД «Палантир»", "short": "ЦОД", "hp": 120, "power": -200, "need_water_km": 10,
-   "cost": {"money": 300, "steel": 60, "electronics": 80}, "build_hours": 48, "buildable": ["ua"],
+   "cost": {"money": 600, "steel": 120, "electronics": 160}, "build_hours": 96, "buildable": ["ua"],
    "desc": "Центр обработки данных для «ИИ Палантир». Нужна вода для охлаждения (река, озеро или море в 10 км) и много энергии: при нехватке энергии в области сервис отключается. Без ЦОД подписка не работает. Цель для ударов."},
 
   {"id": "trade_warehouse", "repair_hours": 24, "name": "Торговый склад", "short": "ТС", "hp": 60, "tax_h": 1, "cost": {"money": 30, "steel": 20}, "build_hours": 24, "buildable": [],

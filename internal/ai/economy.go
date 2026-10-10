@@ -14,6 +14,7 @@ import (
 func (a *AI) economy(w *sim.World, v *sim.View) {
 	c := a.cfg
 	money := v.Res[data.ResMoney]
+	ms := a.moneyScale(v)
 
 	// Исследование: из списка приоритетов, затем самое дешёвое доступное.
 	if v.Research == "" {
@@ -24,7 +25,7 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 	// Финансирование науки по уровню казны.
 	lvl := 0
 	for i, th := range c.FundLevels {
-		if money >= th {
+		if money >= th*ms {
 			lvl = i + 1
 		}
 	}
@@ -106,12 +107,12 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 			if im.ID != id {
 				continue
 			}
-			reserve, limit := c.ImportReserve, below
+			reserve, limit := c.ImportReserve*ms, below
 			if c.Smart {
 				reserve, limit = a.smartImportLimits(v, im, money, reserve, below)
 			}
 			maxPar := par
-			if c.Smart && im.Item == "res:electronics" && c.RichMoney > 0 && money > c.RichMoney {
+			if c.Smart && im.Item == "res:electronics" && c.RichMoney > 0 && money > c.RichMoney*ms {
 				maxPar *= 3 // денег много, а электроники нет — берём втрое больше партий в пути
 			}
 			for pending[im.Item] < maxPar && w.ImportAvailable(a.side, im) {
@@ -162,7 +163,7 @@ func (a *AI) economy(w *sim.World, v *sim.View) {
 
 	// Информационная кампания при низкой морали.
 	if v.Morale < c.PropagandaBelow && v.PropReady <= v.Time &&
-		money > sim.PropagandaCost(a.cat.Rules, v.Morale)+200 {
+		money > sim.PropagandaCost(a.cat.Rules, v.Morale)+200*ms {
 		a.cmd(w, sim.Command{Kind: sim.CmdPropaganda})
 	}
 
@@ -197,6 +198,7 @@ func (a *AI) needItem(v *sim.View, im data.ImportOffer, below float64, pending i
 // фронт слабее своего максимума; тяжёлые — только при сильной нехватке людей.
 func (a *AI) mobilizeSmart(w *sim.World, v *sim.View, men, money float64) {
 	c := a.cfg
+	ms := a.moneyScale(v)
 	frac := c.PeakMenFrac
 	if frac <= 0 {
 		frac = 0.9
@@ -212,7 +214,7 @@ func (a *AI) mobilizeSmart(w *sim.World, v *sim.View, men, money float64) {
 		cheap := mb.Morale >= 0 && mb.Labor <= 0.001
 		switch {
 		case cheap:
-			if money-mb.Money < c.ImportReserve || (mb.Money > 0 && money < c.ContractMoney) {
+			if money-mb.Money < c.ImportReserve*ms || (mb.Money > 0 && money < c.ContractMoney*ms) {
 				continue
 			}
 		default:
@@ -341,7 +343,7 @@ func (a *AI) build(w *sim.World, v *sim.View, money float64) {
 		if bd.Healthy {
 			have = healthy[bd.Type]
 		}
-		if have >= bd.Max || money < bd.MinMoney || !a.buildWhen(v, bd.When) {
+		if have >= bd.Max || money < bd.MinMoney*a.moneyScale(v) || !a.buildWhen(v, bd.When) {
 			continue
 		}
 		pool := anchors
@@ -389,14 +391,15 @@ func (a *AI) smartImportLimits(v *sim.View, im data.ImportOffer, money, reserve,
 			have = v.Res[i]
 		}
 	}
-	crit := c.ImportReserveCritical
+	ms := a.moneyScale(v)
+	crit := c.ImportReserveCritical * ms
 	if crit <= 0 {
-		crit = 150
+		crit = 150 * ms
 	}
 	if have < 10 && crit < reserve {
 		reserve = crit
 	}
-	if c.RichMoney > 0 && money > c.RichMoney && im.Item == "res:electronics" {
+	if c.RichMoney > 0 && money > c.RichMoney*ms && im.Item == "res:electronics" {
 		reserve = 0
 		below = math.Max(below, c.RichElecBelow)
 	}
@@ -418,4 +421,13 @@ func (a *AI) cityAnchors(w *sim.World, v *sim.View) []sim.Building {
 		}
 	}
 	return out
+}
+
+// moneyScale — во сколько раз текущий доход отличается от дохода, под который подобраны денежные пороги конфига.
+func (a *AI) moneyScale(v *sim.View) float64 {
+	ref := a.cfg.IncomeRef
+	if ref <= 0 || v.Income <= 0 {
+		return 1
+	}
+	return math.Max(0.3, math.Min(2.5, v.Income/ref))
 }
